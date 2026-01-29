@@ -98,4 +98,12 @@ export const purchasesAPI = {
   delete: (id) => api.delete(`/purchases/${id}`),
 };
 
+// Reports API
+export const reportsAPI = {
+  getSalesReport: (params) => api.get('/reports/sales', { params }),
+  exportSalesCSV: (params) => api.get('/reports/sales/export', { params, responseType: 'blob' }),
+  getPurchasesReport: (params) => api.get('/reports/purchases', { params }),
+  exportPurchasesCSV: (params) => api.get('/reports/purchases/export', { params, responseType: 'blob' }),
+};
+
 export default api;

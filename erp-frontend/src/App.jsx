@@ -16,6 +16,8 @@ import Sales from './pages/Sales'
 import SaleDetails from './pages/SaleDetails'
 import Purchases from './pages/Purchases'
 import PurchaseDetails from './pages/PurchaseDetails'
+import SalesReport from './pages/SalesReport'
+import PurchasesReport from './pages/PurchasesReport'
 
 function App() {
   const { isAuthenticated } = useAuth()
@@ -40,6 +42,8 @@ function App() {
           <Route path="/sales/:id" element={<SaleDetails />} />
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/purchases/:id" element={<PurchaseDetails />} />
+          <Route path="/reports/sales" element={<SalesReport />} />
+          <Route path="/reports/purchases" element={<PurchasesReport />} />
         </Route>
       </Route>
 
