@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
+import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { customersAPI } from '../services/api';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
+import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../utils/constants';
 
 const Customers = () => {
   const [customers, setCustomers] = useState([]);
@@ -23,6 +24,7 @@ const Customers = () => {
     address: '',
     city: '',
     country: '',
+    type: 'customer',
   });
 
   const fetchCustomers = async () => {
@@ -52,10 +54,11 @@ const Customers = () => {
         address: customer.address || '',
         city: customer.city || '',
         country: customer.country || '',
+        type: customer.type || 'customer',
       });
     } else {
       setSelectedCustomer(null);
-      setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '' });
+      setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', type: 'customer' });
     }
     setError('');
     setShowModal(true);
@@ -112,10 +115,10 @@ const Customers = () => {
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Type</th>
                   <th>Email</th>
                   <th>Phone</th>
                   <th>City</th>
-                  <th>Country</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -123,10 +126,14 @@ const Customers = () => {
                 {customers.map((customer) => (
                   <tr key={customer.id}>
                     <td>{customer.name}</td>
+                    <td>
+                      <Badge bg={customer.type === 'supplier' ? 'info' : customer.type === 'both' ? 'primary' : 'success'}>
+                        {CUSTOMER_TYPE_LABELS[customer.type] || 'Customer'}
+                      </Badge>
+                    </td>
                     <td>{customer.email || '-'}</td>
                     <td>{customer.phone || '-'}</td>
                     <td>{customer.city || '-'}</td>
-                    <td>{customer.country || '-'}</td>
                     <td>
                       <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(customer)}>
                         <FaEdit />
@@ -183,6 +190,16 @@ const Customers = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Country</Form.Label>
                   <Form.Control type="text" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} />
+                </Form.Group>
+              </div>
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>Type *</Form.Label>
+                  <Form.Select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+                    <option value={CUSTOMER_TYPES.CUSTOMER}>Customer</option>
+                    <option value={CUSTOMER_TYPES.SUPPLIER}>Supplier</option>
+                    <option value={CUSTOMER_TYPES.BOTH}>Both (Customer & Supplier)</option>
+                  </Form.Select>
                 </Form.Group>
               </div>
               <div className="col-12">

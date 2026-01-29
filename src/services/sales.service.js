@@ -58,12 +58,18 @@ class SalesService {
 
     const total = subtotal + parseFloat(tax);
 
+    // Generate order number
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const orderNumber = `SO-${timestamp}-${random}`;
+
     // Create sale and items in transaction
     const result = await sequelize.transaction(async (transaction) => {
       const sale = await Sale.create(
         {
           customerId,
           userId,
+          orderNumber,
           subtotal,
           tax,
           total,

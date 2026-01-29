@@ -94,12 +94,18 @@ class PurchasesController {
 
       const total = subtotal + parseFloat(tax);
 
+      // Generate order number
+      const timestamp = Date.now().toString(36).toUpperCase();
+      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const orderNumber = `PO-${timestamp}-${random}`;
+
       // Create purchase and items in transaction
       const result = await sequelize.transaction(async (transaction) => {
         const purchase = await Purchase.create(
           {
             supplierId,
             userId: req.user.id,
+            orderNumber,
             subtotal,
             tax,
             total,

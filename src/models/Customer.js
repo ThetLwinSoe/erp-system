@@ -36,6 +36,11 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(100),
         allowNull: true,
       },
+      type: {
+        type: DataTypes.ENUM('customer', 'supplier', 'both'),
+        defaultValue: 'customer',
+        allowNull: false,
+      },
     },
     {
       tableName: 'customers',
