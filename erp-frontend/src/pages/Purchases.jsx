@@ -52,7 +52,7 @@ const Purchases = () => {
   const fetchFormData = async () => {
     try {
       const [suppliersRes, productsRes] = await Promise.all([
-        customersAPI.getAll({ limit: 100 }),
+        customersAPI.getAll({ limit: 100, type: 'supplier' }),
         productsAPI.getAll({ limit: 100 }),
       ]);
       setSuppliers(suppliersRes.data.data || []);

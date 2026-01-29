@@ -52,7 +52,7 @@ const Sales = () => {
   const fetchFormData = async () => {
     try {
       const [customersRes, productsRes] = await Promise.all([
-        customersAPI.getAll({ limit: 100 }),
+        customersAPI.getAll({ limit: 100, type: 'customer' }),
         productsAPI.getAll({ limit: 100 }),
       ]);
       setCustomers(customersRes.data.data || []);

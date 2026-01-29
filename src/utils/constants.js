@@ -32,6 +32,13 @@ module.exports = {
     SET: 'set',
   },
 
+  // Customer types
+  CUSTOMER_TYPE: {
+    CUSTOMER: 'customer',
+    SUPPLIER: 'supplier',
+    BOTH: 'both',
+  },
+
   // Pagination defaults
   PAGINATION: {
     DEFAULT_PAGE: 1,

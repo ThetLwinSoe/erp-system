@@ -38,3 +38,15 @@ export const ADJUSTMENT_TYPES = {
   REMOVE: 'remove',
   SET: 'set',
 };
+
+export const CUSTOMER_TYPES = {
+  CUSTOMER: 'customer',
+  SUPPLIER: 'supplier',
+  BOTH: 'both',
+};
+
+export const CUSTOMER_TYPE_LABELS = {
+  customer: 'Customer',
+  supplier: 'Supplier',
+  both: 'Both',
+};

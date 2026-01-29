@@ -1,12 +1,13 @@
 const { Customer } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
-const { PAGINATION } = require('../utils/constants');
+const { PAGINATION, CUSTOMER_TYPE } = require('../utils/constants');
 const { Op } = require('sequelize');
 
 class CustomersController {
   /**
    * Get all customers
    * GET /api/customers
+   * Query params: type (customer, supplier, both)
    */
   static async getAll(req, res, next) {
     try {
@@ -17,17 +18,26 @@ class CustomersController {
       );
       const offset = (page - 1) * limit;
       const search = req.query.search || '';
+      const type = req.query.type || '';
 
-      const whereClause = search
-        ? {
-            [Op.or]: [
-              { name: { [Op.iLike]: `%${search}%` } },
-              { email: { [Op.iLike]: `%${search}%` } },
-              { phone: { [Op.iLike]: `%${search}%` } },
-              { city: { [Op.iLike]: `%${search}%` } },
-            ],
-          }
-        : {};
+      const whereClause = {};
+
+      // Filter by type
+      if (type === 'customer') {
+        whereClause.type = { [Op.in]: ['customer', 'both'] };
+      } else if (type === 'supplier') {
+        whereClause.type = { [Op.in]: ['supplier', 'both'] };
+      }
+
+      // Search filter
+      if (search) {
+        whereClause[Op.or] = [
+          { name: { [Op.iLike]: `%${search}%` } },
+          { email: { [Op.iLike]: `%${search}%` } },
+          { phone: { [Op.iLike]: `%${search}%` } },
+          { city: { [Op.iLike]: `%${search}%` } },
+        ];
+      }
 
       const { count, rows } = await Customer.findAndCountAll({
         where: whereClause,
@@ -55,7 +65,7 @@ class CustomersController {
    */
   static async create(req, res, next) {
     try {
-      const { name, email, phone, address, city, country } = req.body;
+      const { name, email, phone, address, city, country, type } = req.body;
 
       const customer = await Customer.create({
         name,
@@ -64,6 +74,7 @@ class CustomersController {
         address,
         city,
         country,
+        type: type || CUSTOMER_TYPE.CUSTOMER,
       });
 
       return ApiResponse.created(res, customer, 'Customer created successfully');
@@ -102,7 +113,7 @@ class CustomersController {
         return ApiResponse.notFound(res, 'Customer not found');
       }
 
-      const { name, email, phone, address, city, country } = req.body;
+      const { name, email, phone, address, city, country, type } = req.body;
       const updates = {};
 
       if (name !== undefined) updates.name = name;
@@ -111,6 +122,7 @@ class CustomersController {
       if (address !== undefined) updates.address = address;
       if (city !== undefined) updates.city = city;
       if (country !== undefined) updates.country = country;
+      if (type !== undefined) updates.type = type;
 
       await customer.update(updates);
 

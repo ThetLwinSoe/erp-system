@@ -185,7 +185,7 @@ const purchaseValidation = {
       .isFloat({ min: 0 })
       .withMessage('Unit price must be a positive number'),
     body('tax').optional().isFloat({ min: 0 }).withMessage('Tax must be a positive number'),
-    body('expectedDelivery').optional().isISO8601().withMessage('Invalid date format'),
+    body('expectedDelivery').optional().isDate().withMessage('Invalid date format'),
     body('notes').optional().trim(),
     handleValidation,
   ],
