@@ -1,5 +1,6 @@
-import { Nav } from 'react-bootstrap';
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { Nav, Collapse } from 'react-bootstrap';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   FaTachometerAlt,
   FaUsers,
@@ -8,11 +9,16 @@ import {
   FaWarehouse,
   FaShoppingCart,
   FaTruck,
+  FaChartBar,
+  FaChevronDown,
+  FaChevronRight,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = () => {
   const { isAdmin } = useAuth();
+  const location = useLocation();
+  const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith('/reports'));
 
   const menuItems = [
     { path: '/', icon: FaTachometerAlt, label: 'Dashboard' },
@@ -22,6 +28,11 @@ const Sidebar = () => {
     { path: '/inventory', icon: FaWarehouse, label: 'Inventory' },
     { path: '/sales', icon: FaShoppingCart, label: 'Sales' },
     { path: '/purchases', icon: FaTruck, label: 'Purchases' },
+  ];
+
+  const reportItems = [
+    { path: '/reports/sales', label: 'Sales Report' },
+    { path: '/reports/purchases', label: 'Purchases Report' },
   ];
 
   return (
@@ -46,6 +57,41 @@ const Sidebar = () => {
             </Nav.Link>
           );
         })}
+
+        {/* Reports Submenu */}
+        <Nav.Link
+          className="d-flex align-items-center justify-content-between py-2 text-dark"
+          onClick={() => setReportsOpen(!reportsOpen)}
+          style={{
+            backgroundColor: location.pathname.startsWith('/reports') ? '#e9ecef' : 'transparent',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          <span className="d-flex align-items-center">
+            <FaChartBar className="me-3" />
+            Reports
+          </span>
+          {reportsOpen ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+        </Nav.Link>
+        <Collapse in={reportsOpen}>
+          <div>
+            {reportItems.map((item) => (
+              <Nav.Link
+                key={item.path}
+                as={NavLink}
+                to={item.path}
+                className="d-flex align-items-center py-2 text-dark ps-4"
+                style={({ isActive }) => ({
+                  backgroundColor: isActive ? '#e9ecef' : 'transparent',
+                  borderRadius: '5px',
+                })}
+              >
+                {item.label}
+              </Nav.Link>
+            ))}
+          </div>
+        </Collapse>
       </Nav>
     </div>
   );
