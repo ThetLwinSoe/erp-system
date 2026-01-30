@@ -1,6 +1,7 @@
 const { Customer } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, CUSTOMER_TYPE } = require('../utils/constants');
+const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
 class CustomersController {
@@ -20,7 +21,8 @@ class CustomersController {
       const search = req.query.search || '';
       const type = req.query.type || '';
 
-      const whereClause = {};
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
 
       // Filter by type
       if (type === 'customer') {
@@ -65,6 +67,12 @@ class CustomersController {
    */
   static async create(req, res, next) {
     try {
+      const companyId = getCompanyIdForCreate(req);
+
+      if (!companyId) {
+        return ApiResponse.badRequest(res, 'Company ID is required');
+      }
+
       const { name, email, phone, address, city, country, type } = req.body;
 
       const customer = await Customer.create({
@@ -75,6 +83,7 @@ class CustomersController {
         city,
         country,
         type: type || CUSTOMER_TYPE.CUSTOMER,
+        companyId,
       });
 
       return ApiResponse.created(res, customer, 'Customer created successfully');
@@ -89,7 +98,8 @@ class CustomersController {
    */
   static async getById(req, res, next) {
     try {
-      const customer = await Customer.findByPk(req.params.id);
+      const whereClause = { id: req.params.id, ...req.companyFilter };
+      const customer = await Customer.findOne({ where: whereClause });
 
       if (!customer) {
         return ApiResponse.notFound(res, 'Customer not found');
@@ -107,7 +117,8 @@ class CustomersController {
    */
   static async update(req, res, next) {
     try {
-      const customer = await Customer.findByPk(req.params.id);
+      const whereClause = { id: req.params.id, ...req.companyFilter };
+      const customer = await Customer.findOne({ where: whereClause });
 
       if (!customer) {
         return ApiResponse.notFound(res, 'Customer not found');
@@ -138,7 +149,8 @@ class CustomersController {
    */
   static async delete(req, res, next) {
     try {
-      const customer = await Customer.findByPk(req.params.id);
+      const whereClause = { id: req.params.id, ...req.companyFilter };
+      const customer = await Customer.findOne({ where: whereClause });
 
       if (!customer) {
         return ApiResponse.notFound(res, 'Customer not found');

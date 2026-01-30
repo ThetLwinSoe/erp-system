@@ -1,10 +1,10 @@
-import { Navbar as BsNavbar, Container, Dropdown } from 'react-bootstrap';
-import { FaUser, FaSignOutAlt } from 'react-icons/fa';
+import { Navbar as BsNavbar, Container, Dropdown, Badge } from 'react-bootstrap';
+import { FaUser, FaSignOutAlt, FaBuilding } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin, getCompanyName } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -16,6 +16,17 @@ const Navbar = () => {
     <BsNavbar bg="dark" variant="dark" className="px-3">
       <Container fluid>
         <BsNavbar.Brand>ERP System</BsNavbar.Brand>
+        {!isSuperAdmin() && getCompanyName() && (
+          <div className="d-flex align-items-center text-light me-auto ms-3">
+            <FaBuilding className="me-2" />
+            <span>{getCompanyName()}</span>
+          </div>
+        )}
+        {isSuperAdmin() && (
+          <Badge bg="warning" text="dark" className="me-auto ms-3">
+            Super Admin
+          </Badge>
+        )}
         <Dropdown align="end">
           <Dropdown.Toggle variant="dark" id="user-dropdown">
             <FaUser className="me-2" />
@@ -28,6 +39,11 @@ const Navbar = () => {
             <Dropdown.Item disabled>
               <small className="text-muted text-capitalize">Role: {user?.role}</small>
             </Dropdown.Item>
+            {!isSuperAdmin() && user?.company?.name && (
+              <Dropdown.Item disabled>
+                <small className="text-muted">Company: {user.company.name}</small>
+              </Dropdown.Item>
+            )}
             <Dropdown.Divider />
             <Dropdown.Item onClick={handleLogout}>
               <FaSignOutAlt className="me-2" />

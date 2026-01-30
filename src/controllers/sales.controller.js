@@ -2,6 +2,7 @@ const { Sale, SaleItem, Customer, User, Product } = require('../models');
 const SalesService = require('../services/sales.service');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, ORDER_STATUS } = require('../utils/constants');
+const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
 class SalesController {
@@ -20,7 +21,8 @@ class SalesController {
       const status = req.query.status || '';
       const search = req.query.search || '';
 
-      const whereClause = {};
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
 
       if (status && Object.values(ORDER_STATUS).includes(status)) {
         whereClause.status = status;
@@ -60,7 +62,13 @@ class SalesController {
    */
   static async create(req, res, next) {
     try {
-      const sale = await SalesService.createSale(req.user.id, req.body);
+      const companyId = getCompanyIdForCreate(req);
+
+      if (!companyId) {
+        return ApiResponse.badRequest(res, 'Company ID is required');
+      }
+
+      const sale = await SalesService.createSale(req.user.id, req.body, companyId);
       return ApiResponse.created(res, sale, 'Sale created successfully');
     } catch (error) {
       if (error.details) {
@@ -76,7 +84,7 @@ class SalesController {
    */
   static async getById(req, res, next) {
     try {
-      const sale = await SalesService.getSaleById(req.params.id);
+      const sale = await SalesService.getSaleById(req.params.id, req.companyFilter);
       return ApiResponse.success(res, sale, 'Sale retrieved successfully');
     } catch (error) {
       next(error);
@@ -89,7 +97,7 @@ class SalesController {
    */
   static async update(req, res, next) {
     try {
-      const sale = await SalesService.updateSale(req.params.id, req.body);
+      const sale = await SalesService.updateSale(req.params.id, req.body, req.companyFilter);
       return ApiResponse.success(res, sale, 'Sale updated successfully');
     } catch (error) {
       next(error);
@@ -103,7 +111,7 @@ class SalesController {
   static async updateStatus(req, res, next) {
     try {
       const { status } = req.body;
-      const sale = await SalesService.updateSaleStatus(req.params.id, status);
+      const sale = await SalesService.updateSaleStatus(req.params.id, status, req.companyFilter);
       return ApiResponse.success(res, sale, 'Sale status updated successfully');
     } catch (error) {
       next(error);
@@ -116,7 +124,7 @@ class SalesController {
    */
   static async delete(req, res, next) {
     try {
-      await SalesService.deleteSale(req.params.id);
+      await SalesService.deleteSale(req.params.id, req.companyFilter);
       return ApiResponse.success(res, null, 'Sale deleted successfully');
     } catch (error) {
       next(error);

@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Alert } from 'react-bootstrap';
+import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
-import { usersAPI } from '../services/api';
+import { usersAPI, companiesAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { ROLES } from '../utils/constants';
 
 const Users = () => {
+  const { isSuperAdmin } = useAuth();
   const [users, setUsers] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -22,6 +25,7 @@ const Users = () => {
     email: '',
     password: '',
     role: 'staff',
+    companyId: '',
   });
 
   const fetchUsers = async () => {
@@ -37,17 +41,43 @@ const Users = () => {
     }
   };
 
+  const fetchCompanies = async () => {
+    if (!isSuperAdmin()) return;
+    try {
+      const response = await companiesAPI.getAll({ limit: 100 });
+      setCompanies(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, [page, search]);
 
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
+
   const handleOpenModal = (user = null) => {
     if (user) {
       setSelectedUser(user);
-      setFormData({ name: user.name, email: user.email, password: '', role: user.role });
+      setFormData({
+        name: user.name,
+        email: user.email,
+        password: '',
+        role: user.role,
+        companyId: user.companyId || '',
+      });
     } else {
       setSelectedUser(null);
-      setFormData({ name: '', email: '', password: '', role: 'staff' });
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        role: 'staff',
+        companyId: companies.length > 0 ? companies[0].id : '',
+      });
     }
     setError('');
     setShowModal(true);
@@ -107,6 +137,7 @@ const Users = () => {
                 <tr>
                   <th>Name</th>
                   <th>Email</th>
+                  {isSuperAdmin() && <th>Company</th>}
                   <th>Role</th>
                   <th>Created At</th>
                   <th>Actions</th>
@@ -117,6 +148,15 @@ const Users = () => {
                   <tr key={user.id}>
                     <td>{user.name}</td>
                     <td>{user.email}</td>
+                    {isSuperAdmin() && (
+                      <td>
+                        {user.company ? (
+                          <Badge bg="info">{user.company.name}</Badge>
+                        ) : (
+                          <Badge bg="secondary">No Company</Badge>
+                        )}
+                      </td>
+                    )}
                     <td className="text-capitalize">{user.role}</td>
                     <td>{new Date(user.createdAt).toLocaleDateString()}</td>
                     <td>
@@ -166,6 +206,23 @@ const Users = () => {
                 <option value={ROLES.ADMIN}>Admin</option>
               </Form.Select>
             </Form.Group>
+            {isSuperAdmin() && (
+              <Form.Group className="mb-3">
+                <Form.Label>Company</Form.Label>
+                <Form.Select
+                  value={formData.companyId}
+                  onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
+                  required
+                >
+                  <option value="">Select Company</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>

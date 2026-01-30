@@ -27,8 +27,16 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       role: {
-        type: DataTypes.ENUM('admin', 'manager', 'staff'),
+        type: DataTypes.ENUM('superadmin', 'admin', 'manager', 'staff'),
         defaultValue: 'staff',
+      },
+      companyId: {
+        type: DataTypes.INTEGER,
+        allowNull: true, // null for superadmin
+        references: {
+          model: 'companies',
+          key: 'id',
+        },
       },
     },
     {

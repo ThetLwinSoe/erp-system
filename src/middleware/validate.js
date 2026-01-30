@@ -1,6 +1,6 @@
 const { validationResult, body, param, query } = require('express-validator');
 const ApiResponse = require('../utils/apiResponse');
-const { ROLES, ORDER_STATUS, PURCHASE_STATUS, ADJUSTMENT_TYPE } = require('../utils/constants');
+const { ROLES, ORDER_STATUS, PURCHASE_STATUS, ADJUSTMENT_TYPE, COMPANY_STATUS } = require('../utils/constants');
 
 /**
  * Validation result handler
@@ -209,6 +209,29 @@ const purchaseValidation = {
 };
 
 /**
+ * Company validation rules
+ */
+const companyValidation = {
+  create: [
+    body('name').trim().notEmpty().withMessage('Company name is required'),
+    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('phone').optional().trim(),
+    body('address').optional().trim(),
+    handleValidation,
+  ],
+  update: [
+    param('id').isInt().withMessage('Valid company ID is required'),
+    body('name').optional().trim().notEmpty().withMessage('Company name cannot be empty'),
+    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('status')
+      .optional()
+      .isIn(Object.values(COMPANY_STATUS))
+      .withMessage('Invalid status'),
+    handleValidation,
+  ],
+};
+
+/**
  * Pagination validation
  */
 const paginationValidation = [
@@ -233,5 +256,6 @@ module.exports = {
   inventoryValidation,
   salesValidation,
   purchaseValidation,
+  companyValidation,
   paginationValidation,
 };

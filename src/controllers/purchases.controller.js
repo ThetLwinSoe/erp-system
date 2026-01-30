@@ -1,7 +1,8 @@
 const { Purchase, PurchaseItem, Customer, User, Product, sequelize } = require('../models');
 const InventoryService = require('../services/inventory.service');
 const ApiResponse = require('../utils/apiResponse');
-const { PAGINATION, PURCHASE_STATUS } = require('../utils/constants');
+const { PAGINATION, PURCHASE_STATUS, CUSTOMER_TYPE } = require('../utils/constants');
+const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
 class PurchasesController {
@@ -20,7 +21,8 @@ class PurchasesController {
       const status = req.query.status || '';
       const search = req.query.search || '';
 
-      const whereClause = {};
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
 
       if (status && Object.values(PURCHASE_STATUS).includes(status)) {
         whereClause.status = status;
@@ -62,20 +64,32 @@ class PurchasesController {
     try {
       const { supplierId, items, tax = 0, notes, expectedDelivery } = req.body;
 
-      // Validate supplier exists
-      const supplier = await Customer.findByPk(supplierId);
-      if (!supplier) {
-        return ApiResponse.notFound(res, 'Supplier not found');
+      // Get company ID for the new purchase
+      const companyId = getCompanyIdForCreate(req);
+      if (!companyId) {
+        return ApiResponse.badRequest(res, 'Company ID is required');
       }
 
-      // Validate products
+      // Validate supplier exists and belongs to the same company
+      const supplier = await Customer.findOne({
+        where: {
+          id: supplierId,
+          companyId,
+          type: { [Op.in]: [CUSTOMER_TYPE.SUPPLIER, CUSTOMER_TYPE.BOTH] },
+        },
+      });
+      if (!supplier) {
+        return ApiResponse.notFound(res, 'Supplier not found or not authorized');
+      }
+
+      // Validate products exist and belong to the same company
       const productIds = items.map((item) => item.productId);
       const products = await Product.findAll({
-        where: { id: productIds },
+        where: { id: productIds, companyId },
       });
 
       if (products.length !== productIds.length) {
-        return ApiResponse.notFound(res, 'One or more products not found');
+        return ApiResponse.notFound(res, 'One or more products not found or not authorized');
       }
 
       // Calculate totals
@@ -112,6 +126,7 @@ class PurchasesController {
             notes,
             expectedDelivery,
             status: PURCHASE_STATUS.PENDING,
+            companyId,
           },
           { transaction }
         );
@@ -150,7 +165,8 @@ class PurchasesController {
    */
   static async getById(req, res, next) {
     try {
-      const purchase = await Purchase.findByPk(req.params.id, {
+      const purchase = await Purchase.findOne({
+        where: { id: req.params.id, ...req.companyFilter },
         include: [
           { model: Customer, as: 'supplier' },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
@@ -178,7 +194,9 @@ class PurchasesController {
    */
   static async update(req, res, next) {
     try {
-      const purchase = await Purchase.findByPk(req.params.id);
+      const purchase = await Purchase.findOne({
+        where: { id: req.params.id, ...req.companyFilter },
+      });
 
       if (!purchase) {
         return ApiResponse.notFound(res, 'Purchase not found');
@@ -200,7 +218,8 @@ class PurchasesController {
 
       await purchase.update(updates);
 
-      const updatedPurchase = await Purchase.findByPk(req.params.id, {
+      const updatedPurchase = await Purchase.findOne({
+        where: { id: req.params.id, ...req.companyFilter },
         include: [
           { model: Customer, as: 'supplier' },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
@@ -224,7 +243,9 @@ class PurchasesController {
    */
   static async updateStatus(req, res, next) {
     try {
-      const purchase = await Purchase.findByPk(req.params.id);
+      const purchase = await Purchase.findOne({
+        where: { id: req.params.id, ...req.companyFilter },
+      });
 
       if (!purchase) {
         return ApiResponse.notFound(res, 'Purchase not found');
@@ -248,7 +269,8 @@ class PurchasesController {
 
       await purchase.update({ status });
 
-      const updatedPurchase = await Purchase.findByPk(req.params.id, {
+      const updatedPurchase = await Purchase.findOne({
+        where: { id: req.params.id, ...req.companyFilter },
         include: [
           { model: Customer, as: 'supplier' },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
@@ -272,7 +294,8 @@ class PurchasesController {
    */
   static async receive(req, res, next) {
     try {
-      const purchase = await Purchase.findByPk(req.params.id, {
+      const purchase = await Purchase.findOne({
+        where: { id: req.params.id, ...req.companyFilter },
         include: [{ model: PurchaseItem, as: 'items' }],
       });
 
@@ -328,7 +351,8 @@ class PurchasesController {
         await purchase.update({ status: newStatus }, { transaction });
       });
 
-      const updatedPurchase = await Purchase.findByPk(req.params.id, {
+      const updatedPurchase = await Purchase.findOne({
+        where: { id: req.params.id, ...req.companyFilter },
         include: [
           { model: Customer, as: 'supplier' },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
@@ -352,7 +376,9 @@ class PurchasesController {
    */
   static async delete(req, res, next) {
     try {
-      const purchase = await Purchase.findByPk(req.params.id);
+      const purchase = await Purchase.findOne({
+        where: { id: req.params.id, ...req.companyFilter },
+      });
 
       if (!purchase) {
         return ApiResponse.notFound(res, 'Purchase not found');

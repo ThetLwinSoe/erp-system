@@ -12,7 +12,8 @@ class ReportsController {
     try {
       const { startDate, endDate, customerId, status } = req.query;
 
-      const whereClause = {};
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
 
       // Date range filter
       if (startDate || endDate) {
@@ -83,7 +84,8 @@ class ReportsController {
     try {
       const { startDate, endDate, customerId, status } = req.query;
 
-      const whereClause = {};
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
 
       if (startDate || endDate) {
         whereClause.createdAt = {};
@@ -210,7 +212,8 @@ class ReportsController {
     try {
       const { startDate, endDate, supplierId, status } = req.query;
 
-      const whereClause = {};
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
 
       // Date range filter
       if (startDate || endDate) {
@@ -281,7 +284,8 @@ class ReportsController {
     try {
       const { startDate, endDate, supplierId, status } = req.query;
 
-      const whereClause = {};
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
 
       if (startDate || endDate) {
         whereClause.createdAt = {};

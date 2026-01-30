@@ -106,4 +106,15 @@ export const reportsAPI = {
   exportPurchasesCSV: (params) => api.get('/reports/purchases/export', { params, responseType: 'blob' }),
 };
 
+// Companies API (Super Admin only)
+export const companiesAPI = {
+  getAll: (params) => api.get('/companies', { params }),
+  getById: (id) => api.get(`/companies/${id}`),
+  create: (data) => api.post('/companies', data),
+  update: (id, data) => api.put(`/companies/${id}`, data),
+  delete: (id) => api.delete(`/companies/${id}`),
+  getUsers: (id) => api.get(`/companies/${id}/users`),
+  getStats: (id) => api.get(`/companies/${id}/stats`),
+};
+
 export default api;

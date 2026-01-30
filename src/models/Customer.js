@@ -41,6 +41,14 @@ module.exports = (sequelize) => {
         defaultValue: 'customer',
         allowNull: false,
       },
+      companyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'companies',
+          key: 'id',
+        },
+      },
     },
     {
       tableName: 'customers',

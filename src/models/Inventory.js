@@ -39,6 +39,14 @@ module.exports = (sequelize) => {
         type: DataTypes.DATE,
         allowNull: true,
       },
+      companyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'companies',
+          key: 'id',
+        },
+      },
     },
     {
       tableName: 'inventory',

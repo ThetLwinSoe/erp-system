@@ -12,7 +12,6 @@ module.exports = (sequelize) => {
       sku: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        unique: true,
       },
       name: {
         type: DataTypes.STRING(255),
@@ -41,10 +40,25 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 0,
       },
+      companyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'companies',
+          key: 'id',
+        },
+      },
     },
     {
       tableName: 'products',
       timestamps: true,
+      indexes: [
+        {
+          unique: true,
+          fields: ['sku', 'companyId'],
+          name: 'products_sku_company_unique',
+        },
+      ],
     }
   );
 
