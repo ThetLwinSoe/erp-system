@@ -42,16 +42,22 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const isAdmin = () => user?.role === 'admin';
-  const isManager = () => user?.role === 'manager' || user?.role === 'admin';
+  const isSuperAdmin = () => user?.role === 'superadmin';
+  const isAdmin = () => user?.role === 'admin' || user?.role === 'superadmin';
+  const isManager = () => user?.role === 'manager' || user?.role === 'admin' || user?.role === 'superadmin';
+  const getCompanyId = () => user?.companyId;
+  const getCompanyName = () => user?.company?.name;
 
   const value = {
     user,
     loading,
     login,
     logout,
+    isSuperAdmin,
     isAdmin,
     isManager,
+    getCompanyId,
+    getCompanyName,
     isAuthenticated: !!user,
   };
 

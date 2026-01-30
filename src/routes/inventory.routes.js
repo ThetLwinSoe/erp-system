@@ -1,12 +1,14 @@
 const express = require('express');
 const InventoryController = require('../controllers/inventory.controller');
 const { authenticate } = require('../middleware/auth');
+const { companyScope } = require('../middleware/companyScope');
 const { inventoryValidation, paginationValidation } = require('../middleware/validate');
 
 const router = express.Router();
 
-// All routes require authentication
+// All routes require authentication and company scope
 router.use(authenticate);
+router.use(companyScope);
 
 /**
  * @route GET /api/inventory

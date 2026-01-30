@@ -18,6 +18,7 @@ const sequelize = new Sequelize(
 );
 
 // Import models
+const Company = require('./Company')(sequelize);
 const User = require('./User')(sequelize);
 const Customer = require('./Customer')(sequelize);
 const Product = require('./Product')(sequelize);
@@ -28,6 +29,30 @@ const Purchase = require('./Purchase')(sequelize);
 const PurchaseItem = require('./PurchaseItem')(sequelize);
 
 // Define associations
+
+// Company - User (One-to-Many)
+Company.hasMany(User, { foreignKey: 'companyId', as: 'users' });
+User.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// Company - Customer (One-to-Many)
+Company.hasMany(Customer, { foreignKey: 'companyId', as: 'customers' });
+Customer.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// Company - Product (One-to-Many)
+Company.hasMany(Product, { foreignKey: 'companyId', as: 'products' });
+Product.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// Company - Inventory (One-to-Many)
+Company.hasMany(Inventory, { foreignKey: 'companyId', as: 'inventory' });
+Inventory.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// Company - Sale (One-to-Many)
+Company.hasMany(Sale, { foreignKey: 'companyId', as: 'sales' });
+Sale.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// Company - Purchase (One-to-Many)
+Company.hasMany(Purchase, { foreignKey: 'companyId', as: 'purchases' });
+Purchase.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
 
 // Product - Inventory (One-to-One)
 Product.hasOne(Inventory, { foreignKey: 'productId', as: 'inventory' });
@@ -68,6 +93,7 @@ PurchaseItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 module.exports = {
   sequelize,
   Sequelize,
+  Company,
   User,
   Customer,
   Product,

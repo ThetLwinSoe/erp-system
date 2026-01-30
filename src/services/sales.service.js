@@ -6,21 +6,23 @@ class SalesService {
   /**
    * Create a new sale order
    */
-  static async createSale(userId, saleData) {
+  static async createSale(userId, saleData, companyId) {
     const { customerId, items, tax = 0, notes } = saleData;
 
-    // Validate customer exists
-    const customer = await Customer.findByPk(customerId);
+    // Validate customer exists and belongs to the same company
+    const customer = await Customer.findOne({
+      where: { id: customerId, companyId },
+    });
     if (!customer) {
       const error = new Error('Customer not found');
       error.statusCode = 404;
       throw error;
     }
 
-    // Validate products and get prices
+    // Validate products and get prices - products must belong to the same company
     const productIds = items.map((item) => item.productId);
     const products = await Product.findAll({
-      where: { id: productIds },
+      where: { id: productIds, companyId },
     });
 
     if (products.length !== productIds.length) {
@@ -69,6 +71,7 @@ class SalesService {
         {
           customerId,
           userId,
+          companyId,
           orderNumber,
           subtotal,
           tax,
@@ -98,8 +101,9 @@ class SalesService {
   /**
    * Get sale by ID with all relations
    */
-  static async getSaleById(id) {
-    const sale = await Sale.findByPk(id, {
+  static async getSaleById(id, companyFilter = {}) {
+    const sale = await Sale.findOne({
+      where: { id, ...companyFilter },
       include: [
         { model: Customer, as: 'customer' },
         { model: User, as: 'user', attributes: { exclude: ['password'] } },
@@ -123,8 +127,10 @@ class SalesService {
   /**
    * Update sale status
    */
-  static async updateSaleStatus(id, status) {
-    const sale = await Sale.findByPk(id);
+  static async updateSaleStatus(id, status, companyFilter = {}) {
+    const sale = await Sale.findOne({
+      where: { id, ...companyFilter },
+    });
 
     if (!sale) {
       const error = new Error('Sale not found');
@@ -162,14 +168,16 @@ class SalesService {
       await sale.update({ status });
     }
 
-    return this.getSaleById(id);
+    return this.getSaleById(id, companyFilter);
   }
 
   /**
    * Update sale details
    */
-  static async updateSale(id, updateData) {
-    const sale = await Sale.findByPk(id);
+  static async updateSale(id, updateData, companyFilter = {}) {
+    const sale = await Sale.findOne({
+      where: { id, ...companyFilter },
+    });
 
     if (!sale) {
       const error = new Error('Sale not found');
@@ -198,14 +206,15 @@ class SalesService {
 
     await sale.update(updates);
 
-    return this.getSaleById(id);
+    return this.getSaleById(id, companyFilter);
   }
 
   /**
    * Delete/cancel sale
    */
-  static async deleteSale(id) {
-    const sale = await Sale.findByPk(id, {
+  static async deleteSale(id, companyFilter = {}) {
+    const sale = await Sale.findOne({
+      where: { id, ...companyFilter },
       include: [{ model: SaleItem, as: 'items' }],
     });
 

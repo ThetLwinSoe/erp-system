@@ -1,9 +1,16 @@
 module.exports = {
   // User roles
   ROLES: {
+    SUPERADMIN: 'superadmin',
     ADMIN: 'admin',
     MANAGER: 'manager',
     STAFF: 'staff',
+  },
+
+  // Company statuses
+  COMPANY_STATUS: {
+    ACTIVE: 'active',
+    INACTIVE: 'inactive',
   },
 
   // Order statuses

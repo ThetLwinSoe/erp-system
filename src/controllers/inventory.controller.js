@@ -17,7 +17,11 @@ class InventoryController {
       );
       const offset = (page - 1) * limit;
 
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
+
       const { count, rows } = await Inventory.findAndCountAll({
+        where: whereClause,
         include: [{ model: Product, as: 'product' }],
         order: [['updatedAt', 'DESC']],
         limit,
@@ -43,7 +47,7 @@ class InventoryController {
    */
   static async getLowStock(req, res, next) {
     try {
-      const items = await InventoryService.getLowStockItems();
+      const items = await InventoryService.getLowStockItems(req.companyFilter);
       return ApiResponse.success(res, items, 'Low stock items retrieved successfully');
     } catch (error) {
       next(error);
@@ -58,6 +62,15 @@ class InventoryController {
     try {
       const { productId } = req.params;
       const { quantity, location, minStockLevel } = req.body;
+
+      // Verify product belongs to the company
+      const product = await Product.findOne({
+        where: { id: productId, ...req.companyFilter },
+      });
+
+      if (!product) {
+        return ApiResponse.notFound(res, 'Product not found');
+      }
 
       const inventory = await InventoryService.updateInventory(productId, {
         quantity,
@@ -78,6 +91,15 @@ class InventoryController {
   static async adjust(req, res, next) {
     try {
       const { productId, quantity, type, reason } = req.body;
+
+      // Verify product belongs to the company
+      const product = await Product.findOne({
+        where: { id: productId, ...req.companyFilter },
+      });
+
+      if (!product) {
+        return ApiResponse.notFound(res, 'Product not found');
+      }
 
       const inventory = await InventoryService.adjustInventory(
         productId,
@@ -101,7 +123,7 @@ class InventoryController {
       const { productId } = req.params;
 
       const inventory = await Inventory.findOne({
-        where: { productId },
+        where: { productId, ...req.companyFilter },
         include: [{ model: Product, as: 'product' }],
       });
 

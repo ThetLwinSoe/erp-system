@@ -1,12 +1,14 @@
 const express = require('express');
 const SalesController = require('../controllers/sales.controller');
 const { authenticate } = require('../middleware/auth');
+const { companyScope } = require('../middleware/companyScope');
 const { salesValidation, paginationValidation } = require('../middleware/validate');
 
 const router = express.Router();
 
-// All routes require authentication
+// All routes require authentication and company scope
 router.use(authenticate);
+router.use(companyScope);
 
 /**
  * @route GET /api/sales

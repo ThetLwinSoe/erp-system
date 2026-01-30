@@ -144,13 +144,20 @@ class InventoryService {
   /**
    * Get low stock items
    */
-  static async getLowStockItems() {
+  static async getLowStockItems(companyFilter = {}) {
+    const whereClause = {
+      ...companyFilter,
+      [Op.and]: [
+        sequelize.where(
+          sequelize.col('quantity'),
+          Op.lte,
+          sequelize.col('minStockLevel')
+        ),
+      ],
+    };
+
     const inventory = await Inventory.findAll({
-      where: sequelize.where(
-        sequelize.col('quantity'),
-        Op.lte,
-        sequelize.col('minStockLevel')
-      ),
+      where: whereClause,
       include: [{ model: Product, as: 'product' }],
       order: [['quantity', 'ASC']],
     });

@@ -8,6 +8,8 @@ import PrivateRoute from './components/PrivateRoute'
 // Pages
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Companies from './pages/Companies'
+import CompanyDetails from './pages/CompanyDetails'
 import Users from './pages/Users'
 import Customers from './pages/Customers'
 import Products from './pages/Products'
@@ -34,6 +36,8 @@ function App() {
       <Route element={<PrivateRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/companies" element={<Companies />} />
+          <Route path="/companies/:id" element={<CompanyDetails />} />
           <Route path="/users" element={<Users />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/products" element={<Products />} />

@@ -1,7 +1,18 @@
 export const ROLES = {
+  SUPERADMIN: 'superadmin',
   ADMIN: 'admin',
   MANAGER: 'manager',
   STAFF: 'staff',
+};
+
+export const COMPANY_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+};
+
+export const COMPANY_STATUS_COLORS = {
+  active: 'success',
+  inactive: 'danger',
 };
 
 export const ORDER_STATUS = {

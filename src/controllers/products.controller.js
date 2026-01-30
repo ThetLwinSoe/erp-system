@@ -1,6 +1,7 @@
 const { Product, Inventory } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION } = require('../utils/constants');
+const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
 class ProductsController {
@@ -19,7 +20,8 @@ class ProductsController {
       const search = req.query.search || '';
       const category = req.query.category || '';
 
-      const whereClause = {};
+      // Add company filter
+      const whereClause = { ...req.companyFilter };
 
       if (search) {
         whereClause[Op.or] = [
@@ -60,6 +62,12 @@ class ProductsController {
    */
   static async create(req, res, next) {
     try {
+      const companyId = getCompanyIdForCreate(req);
+
+      if (!companyId) {
+        return ApiResponse.badRequest(res, 'Company ID is required');
+      }
+
       const { sku, name, description, category, unit, costPrice, sellingPrice } = req.body;
 
       const product = await Product.create({
@@ -70,6 +78,7 @@ class ProductsController {
         unit,
         costPrice,
         sellingPrice,
+        companyId,
       });
 
       // Create initial inventory record
@@ -77,6 +86,7 @@ class ProductsController {
         productId: product.id,
         quantity: 0,
         minStockLevel: 10,
+        companyId,
       });
 
       const productWithInventory = await Product.findByPk(product.id, {
@@ -95,7 +105,9 @@ class ProductsController {
    */
   static async getById(req, res, next) {
     try {
-      const product = await Product.findByPk(req.params.id, {
+      const whereClause = { id: req.params.id, ...req.companyFilter };
+      const product = await Product.findOne({
+        where: whereClause,
         include: [{ model: Inventory, as: 'inventory' }],
       });
 
@@ -115,7 +127,8 @@ class ProductsController {
    */
   static async update(req, res, next) {
     try {
-      const product = await Product.findByPk(req.params.id);
+      const whereClause = { id: req.params.id, ...req.companyFilter };
+      const product = await Product.findOne({ where: whereClause });
 
       if (!product) {
         return ApiResponse.notFound(res, 'Product not found');
@@ -150,7 +163,8 @@ class ProductsController {
    */
   static async delete(req, res, next) {
     try {
-      const product = await Product.findByPk(req.params.id);
+      const whereClause = { id: req.params.id, ...req.companyFilter };
+      const product = await Product.findOne({ where: whereClause });
 
       if (!product) {
         return ApiResponse.notFound(res, 'Product not found');

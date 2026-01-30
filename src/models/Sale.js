@@ -53,6 +53,14 @@ module.exports = (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      companyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'companies',
+          key: 'id',
+        },
+      },
     },
     {
       tableName: 'sales',

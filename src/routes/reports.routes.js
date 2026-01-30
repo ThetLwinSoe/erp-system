@@ -1,11 +1,13 @@
 const express = require('express');
 const ReportsController = require('../controllers/reports.controller');
 const { authenticate } = require('../middleware/auth');
+const { companyScope } = require('../middleware/companyScope');
 
 const router = express.Router();
 
-// All routes require authentication
+// All routes require authentication and company scope
 router.use(authenticate);
+router.use(companyScope);
 
 // Sales report
 router.get('/sales', ReportsController.getSalesReport);

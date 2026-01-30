@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const ApiResponse = require('../utils/apiResponse');
-const { User } = require('../models');
+const { User, Company } = require('../models');
+const { ROLES } = require('../utils/constants');
 
 /**
  * JWT Authentication Middleware
@@ -19,13 +20,22 @@ const authenticate = async (req, res, next) => {
 
     const user = await User.findByPk(decoded.id, {
       attributes: { exclude: ['password'] },
+      include: [{ model: Company, as: 'company' }],
     });
 
     if (!user) {
       return ApiResponse.unauthorized(res, 'User not found');
     }
 
+    // Check if company is active (for non-superadmin users)
+    if (user.role !== ROLES.SUPERADMIN && user.company?.status === 'inactive') {
+      return ApiResponse.forbidden(res, 'Company is inactive');
+    }
+
     req.user = user;
+    req.companyId = user.companyId;
+    req.isSuperAdmin = user.role === ROLES.SUPERADMIN;
+
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -47,6 +57,11 @@ const authorize = (...allowedRoles) => {
       return ApiResponse.unauthorized(res, 'Authentication required');
     }
 
+    // Superadmin can access everything
+    if (req.user.role === ROLES.SUPERADMIN) {
+      return next();
+    }
+
     if (!allowedRoles.includes(req.user.role)) {
       return ApiResponse.forbidden(res, 'Insufficient permissions');
     }
@@ -55,4 +70,14 @@ const authorize = (...allowedRoles) => {
   };
 };
 
-module.exports = { authenticate, authorize };
+/**
+ * Require Super Admin role
+ */
+const requireSuperAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== ROLES.SUPERADMIN) {
+    return ApiResponse.forbidden(res, 'Super admin access required');
+  }
+  next();
+};
+
+module.exports = { authenticate, authorize, requireSuperAdmin };

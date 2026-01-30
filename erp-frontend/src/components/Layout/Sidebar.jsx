@@ -12,16 +12,18 @@ import {
   FaChartBar,
   FaChevronDown,
   FaChevronRight,
+  FaBuilding,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin } = useAuth();
   const location = useLocation();
   const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith('/reports'));
 
   const menuItems = [
     { path: '/', icon: FaTachometerAlt, label: 'Dashboard' },
+    { path: '/companies', icon: FaBuilding, label: 'Companies', superAdminOnly: true },
     { path: '/users', icon: FaUsers, label: 'Users', adminOnly: true },
     { path: '/customers', icon: FaAddressBook, label: 'Customers' },
     { path: '/products', icon: FaBoxes, label: 'Products' },
@@ -39,6 +41,7 @@ const Sidebar = () => {
     <div className="sidebar bg-light border-end" style={{ width: '250px', minHeight: '100vh' }}>
       <Nav className="flex-column p-3">
         {menuItems.map((item) => {
+          if (item.superAdminOnly && !isSuperAdmin()) return null;
           if (item.adminOnly && !isAdmin()) return null;
 
           return (
