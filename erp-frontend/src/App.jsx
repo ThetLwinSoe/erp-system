@@ -16,6 +16,9 @@ import Products from './pages/Products'
 import Inventory from './pages/Inventory'
 import Sales from './pages/Sales'
 import SaleDetails from './pages/SaleDetails'
+import SalesReturns from './pages/SalesReturns'
+import SalesReturnDetails from './pages/SalesReturnDetails'
+import CreateSalesReturn from './pages/CreateSalesReturn'
 import Purchases from './pages/Purchases'
 import PurchaseDetails from './pages/PurchaseDetails'
 import SalesReport from './pages/SalesReport'
@@ -44,6 +47,9 @@ function App() {
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/sales" element={<Sales />} />
           <Route path="/sales/:id" element={<SaleDetails />} />
+          <Route path="/sales/:saleId/return" element={<CreateSalesReturn />} />
+          <Route path="/sales-returns" element={<SalesReturns />} />
+          <Route path="/sales-returns/:id" element={<SalesReturnDetails />} />
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/purchases/:id" element={<PurchaseDetails />} />
           <Route path="/reports/sales" element={<SalesReport />} />

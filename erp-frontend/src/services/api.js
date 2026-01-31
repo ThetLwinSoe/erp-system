@@ -87,6 +87,16 @@ export const salesAPI = {
   delete: (id) => api.delete(`/sales/${id}`),
 };
 
+// Sales Returns API
+export const salesReturnsAPI = {
+  getAll: (params) => api.get('/sales-returns', { params }),
+  getById: (id) => api.get(`/sales-returns/${id}`),
+  getReturnableItems: (saleId) => api.get(`/sales-returns/sale/${saleId}/returnable-items`),
+  create: (data) => api.post('/sales-returns', data),
+  updateStatus: (id, status) => api.patch(`/sales-returns/${id}/status`, { status }),
+  delete: (id) => api.delete(`/sales-returns/${id}`),
+};
+
 // Purchases API
 export const purchasesAPI = {
   getAll: (params) => api.get('/purchases', { params }),
