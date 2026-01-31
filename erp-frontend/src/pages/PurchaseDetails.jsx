@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Modal, Form, ProgressBar } from 'react-bootstrap';
-import { FaArrowLeft, FaCheck } from 'react-icons/fa';
-import { purchasesAPI } from '../services/api';
+import { FaArrowLeft, FaCheck, FaPrint } from 'react-icons/fa';
+import { purchasesAPI, getStaticUrl } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
+import { generateInvoicePDF } from '../utils/invoiceGenerator';
 
 const PurchaseDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [purchase, setPurchase] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [receiveItems, setReceiveItems] = useState([]);
 
@@ -103,6 +107,34 @@ const PurchaseDetails = () => {
     return ['ordered', 'partial'].includes(purchase?.status);
   };
 
+  const canPrint = () => {
+    return ['ordered', 'partial', 'received'].includes(purchase?.status);
+  };
+
+  const handlePrintInvoice = async () => {
+    try {
+      setPrinting(true);
+      const company = user?.company ? {
+        name: user.company.name,
+        logo: user.company.logo ? getStaticUrl(user.company.logo) : null,
+        address: user.company.address,
+        phone: user.company.phone,
+        email: user.company.email,
+      } : null;
+
+      await generateInvoicePDF({
+        type: 'purchase',
+        order: purchase,
+        company,
+      });
+    } catch (err) {
+      setError('Failed to generate purchase order PDF');
+      console.error(err);
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
@@ -129,7 +161,20 @@ const PurchaseDetails = () => {
           <Card>
             <Card.Header className="d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Order: {purchase.orderNumber}</h5>
-              <StatusBadge status={purchase.status} />
+              <div className="d-flex align-items-center gap-2">
+                {canPrint() && (
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={handlePrintInvoice}
+                    disabled={printing}
+                  >
+                    <FaPrint className="me-1" />
+                    {printing ? 'Generating...' : 'Print PO'}
+                  </Button>
+                )}
+                <StatusBadge status={purchase.status} />
+              </div>
             </Card.Header>
             <Card.Body>
               <Table striped hover>

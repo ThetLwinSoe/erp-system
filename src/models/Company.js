@@ -33,6 +33,10 @@ module.exports = (sequelize) => {
         defaultValue: 'active',
         allowNull: false,
       },
+      logo: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
     },
     {
       tableName: 'companies',

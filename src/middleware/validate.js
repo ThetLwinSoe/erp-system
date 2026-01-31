@@ -46,7 +46,7 @@ const authValidation = {
 const userValidation = {
   update: [
     param('id').isInt().withMessage('Valid user ID is required'),
-    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
     body('role')
       .optional()
@@ -66,7 +66,7 @@ const userValidation = {
 const customerValidation = {
   create: [
     body('name').trim().notEmpty().withMessage('Name is required'),
-    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('phone').optional().trim(),
     body('address').optional().trim(),
     body('city').optional().trim(),
@@ -76,7 +76,7 @@ const customerValidation = {
   update: [
     param('id').isInt().withMessage('Valid customer ID is required'),
     body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
-    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
     handleValidation,
   ],
 };
@@ -214,7 +214,7 @@ const purchaseValidation = {
 const companyValidation = {
   create: [
     body('name').trim().notEmpty().withMessage('Company name is required'),
-    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('phone').optional().trim(),
     body('address').optional().trim(),
     handleValidation,
@@ -222,7 +222,7 @@ const companyValidation = {
   update: [
     param('id').isInt().withMessage('Valid company ID is required'),
     body('name').optional().trim().notEmpty().withMessage('Company name cannot be empty'),
-    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('status')
       .optional()
       .isIn(Object.values(COMPANY_STATUS))

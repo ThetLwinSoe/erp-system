@@ -1,17 +1,19 @@
-import { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash, FaEye, FaUsers } from 'react-icons/fa';
+import { useState, useEffect, useRef } from 'react';
+import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge, Image } from 'react-bootstrap';
+import { FaPlus, FaEdit, FaTrash, FaEye, FaUpload, FaTimesCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { companiesAPI } from '../services/api';
+import { companiesAPI, getStaticUrl } from '../services/api';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
-import { COMPANY_STATUS, COMPANY_STATUS_COLORS, ROLES } from '../utils/constants';
+import { COMPANY_STATUS, COMPANY_STATUS_COLORS } from '../utils/constants';
 
 const Companies = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
@@ -19,6 +21,7 @@ const Companies = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [error, setError] = useState('');
+  const [logoPreview, setLogoPreview] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -62,6 +65,7 @@ const Companies = () => {
         adminEmail: '',
         adminPassword: '',
       });
+      setLogoPreview(company.logo ? getStaticUrl(company.logo) : null);
     } else {
       setSelectedCompany(null);
       setFormData({
@@ -75,9 +79,47 @@ const Companies = () => {
         adminEmail: '',
         adminPassword: '',
       });
+      setLogoPreview(null);
     }
     setError('');
     setShowModal(true);
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedCompany) return;
+
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    try {
+      setUploading(true);
+      const response = await companiesAPI.uploadLogo(selectedCompany.id, formData);
+      setLogoPreview(getStaticUrl(response.data.data.logo));
+      fetchCompanies();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Logo upload failed');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeleteLogo = async () => {
+    if (!selectedCompany) return;
+
+    try {
+      setUploading(true);
+      await companiesAPI.deleteLogo(selectedCompany.id);
+      setLogoPreview(null);
+      fetchCompanies();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Logo delete failed');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -146,6 +188,7 @@ const Companies = () => {
             <Table striped hover responsive>
               <thead>
                 <tr>
+                  <th style={{ width: '60px' }}>Logo</th>
                   <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
@@ -157,6 +200,25 @@ const Companies = () => {
               <tbody>
                 {companies.map((company) => (
                   <tr key={company.id}>
+                    <td>
+                      {company.logo ? (
+                        <Image
+                          src={getStaticUrl(company.logo)}
+                          alt={company.name}
+                          width={40}
+                          height={40}
+                          roundedCircle
+                          style={{ objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          className="bg-secondary text-white d-flex align-items-center justify-content-center rounded-circle"
+                          style={{ width: 40, height: 40, fontSize: '14px' }}
+                        >
+                          {company.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </td>
                     <td>{company.name}</td>
                     <td>{company.email || '-'}</td>
                     <td>{company.phone || '-'}</td>
@@ -260,6 +322,71 @@ const Companies = () => {
                 <option value={COMPANY_STATUS.INACTIVE}>Inactive</option>
               </Form.Select>
             </Form.Group>
+
+            {selectedCompany && (
+              <Form.Group className="mb-3">
+                <Form.Label>Company Logo</Form.Label>
+                <div className="d-flex align-items-center gap-3">
+                  {logoPreview ? (
+                    <div className="position-relative">
+                      <Image
+                        src={logoPreview}
+                        alt="Company Logo"
+                        width={80}
+                        height={80}
+                        roundedCircle
+                        style={{ objectFit: 'cover', border: '2px solid #dee2e6' }}
+                      />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="position-absolute top-0 end-0 rounded-circle p-0"
+                        style={{ width: '24px', height: '24px' }}
+                        onClick={handleDeleteLogo}
+                        disabled={uploading}
+                        title="Remove Logo"
+                      >
+                        <FaTimesCircle size={12} />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div
+                      className="bg-light d-flex align-items-center justify-content-center rounded-circle"
+                      style={{ width: 80, height: 80, border: '2px dashed #dee2e6' }}
+                    >
+                      <span className="text-muted">No Logo</span>
+                    </div>
+                  )}
+                  <div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleLogoUpload}
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      style={{ display: 'none' }}
+                    />
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      {uploading ? (
+                        <Spinner animation="border" size="sm" />
+                      ) : (
+                        <>
+                          <FaUpload className="me-1" />
+                          Upload Logo
+                        </>
+                      )}
+                    </Button>
+                    <Form.Text className="d-block text-muted mt-1">
+                      Max 5MB. JPEG, PNG, GIF, WebP
+                    </Form.Text>
+                  </div>
+                </div>
+              </Form.Group>
+            )}
 
             {!selectedCompany && (
               <>
