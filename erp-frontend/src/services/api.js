@@ -115,6 +115,17 @@ export const companiesAPI = {
   delete: (id) => api.delete(`/companies/${id}`),
   getUsers: (id) => api.get(`/companies/${id}/users`),
   getStats: (id) => api.get(`/companies/${id}/stats`),
+  uploadLogo: (id, formData) => api.post(`/companies/${id}/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  deleteLogo: (id) => api.delete(`/companies/${id}/logo`),
+};
+
+// Get base URL for static files
+export const getStaticUrl = (path) => {
+  if (!path) return null;
+  const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+  return `${baseUrl}${path}`;
 };
 
 export default api;

@@ -3,6 +3,7 @@ const router = express.Router();
 const CompaniesController = require('../controllers/companies.controller');
 const { authenticate, requireSuperAdmin } = require('../middleware/auth');
 const { companyValidation, paginationValidation } = require('../middleware/validate');
+const { uploadLogo } = require('../middleware/upload');
 
 // All routes require authentication and superadmin role
 router.use(authenticate);
@@ -28,5 +29,11 @@ router.get('/:id/users', CompaniesController.getUsers);
 
 // GET /api/companies/:id/stats - Get statistics for a specific company
 router.get('/:id/stats', CompaniesController.getStats);
+
+// POST /api/companies/:id/logo - Upload company logo
+router.post('/:id/logo', uploadLogo, CompaniesController.uploadLogo);
+
+// DELETE /api/companies/:id/logo - Delete company logo
+router.delete('/:id/logo', CompaniesController.deleteLogo);
 
 module.exports = router;

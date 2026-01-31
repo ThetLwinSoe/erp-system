@@ -3,6 +3,8 @@ const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, ROLES, COMPANY_STATUS } = require('../utils/constants');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 
 class CompaniesController {
   /**
@@ -63,7 +65,7 @@ class CompaniesController {
 
       const result = await sequelize.transaction(async (transaction) => {
         const company = await Company.create(
-          { name, address, phone, email, status: COMPANY_STATUS.ACTIVE },
+          { name, address: address || null, phone: phone || null, email: email || null, status: COMPANY_STATUS.ACTIVE },
           { transaction }
         );
 
@@ -145,9 +147,9 @@ class CompaniesController {
 
       const updates = {};
       if (name !== undefined) updates.name = name;
-      if (address !== undefined) updates.address = address;
-      if (phone !== undefined) updates.phone = phone;
-      if (email !== undefined) updates.email = email;
+      if (address !== undefined) updates.address = address || null;
+      if (phone !== undefined) updates.phone = phone || null;
+      if (email !== undefined) updates.email = email || null;
       if (status !== undefined) updates.status = status;
 
       await company.update(updates);
@@ -261,6 +263,79 @@ class CompaniesController {
       };
 
       return ApiResponse.success(res, stats, 'Company statistics retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Upload company logo
+   * POST /api/companies/:id/logo
+   */
+  static async uploadLogo(req, res, next) {
+    try {
+      const company = await Company.findByPk(req.params.id);
+
+      if (!company) {
+        // Delete uploaded file if company not found
+        if (req.file) {
+          fs.unlinkSync(req.file.path);
+        }
+        return ApiResponse.notFound(res, 'Company not found');
+      }
+
+      if (!req.file) {
+        return ApiResponse.badRequest(res, 'No logo file provided');
+      }
+
+      // Delete old logo if exists
+      if (company.logo) {
+        const oldLogoPath = path.join(__dirname, '../../', company.logo);
+        if (fs.existsSync(oldLogoPath)) {
+          fs.unlinkSync(oldLogoPath);
+        }
+      }
+
+      // Update company with new logo path
+      const logoPath = `/uploads/logos/${req.file.filename}`;
+      await company.update({ logo: logoPath });
+
+      return ApiResponse.success(res, { logo: logoPath }, 'Logo uploaded successfully');
+    } catch (error) {
+      // Clean up uploaded file on error
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      next(error);
+    }
+  }
+
+  /**
+   * Delete company logo
+   * DELETE /api/companies/:id/logo
+   */
+  static async deleteLogo(req, res, next) {
+    try {
+      const company = await Company.findByPk(req.params.id);
+
+      if (!company) {
+        return ApiResponse.notFound(res, 'Company not found');
+      }
+
+      if (!company.logo) {
+        return ApiResponse.badRequest(res, 'Company has no logo');
+      }
+
+      // Delete logo file
+      const logoPath = path.join(__dirname, '../../', company.logo);
+      if (fs.existsSync(logoPath)) {
+        fs.unlinkSync(logoPath);
+      }
+
+      // Update company to remove logo
+      await company.update({ logo: null });
+
+      return ApiResponse.success(res, null, 'Logo deleted successfully');
     } catch (error) {
       next(error);
     }

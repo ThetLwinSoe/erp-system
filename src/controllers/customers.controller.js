@@ -77,11 +77,11 @@ class CustomersController {
 
       const customer = await Customer.create({
         name,
-        email,
-        phone,
-        address,
-        city,
-        country,
+        email: email || null,
+        phone: phone || null,
+        address: address || null,
+        city: city || null,
+        country: country || null,
         type: type || CUSTOMER_TYPE.CUSTOMER,
         companyId,
       });
@@ -128,11 +128,11 @@ class CustomersController {
       const updates = {};
 
       if (name !== undefined) updates.name = name;
-      if (email !== undefined) updates.email = email;
-      if (phone !== undefined) updates.phone = phone;
-      if (address !== undefined) updates.address = address;
-      if (city !== undefined) updates.city = city;
-      if (country !== undefined) updates.country = country;
+      if (email !== undefined) updates.email = email || null;
+      if (phone !== undefined) updates.phone = phone || null;
+      if (address !== undefined) updates.address = address || null;
+      if (city !== undefined) updates.city = city || null;
+      if (country !== undefined) updates.country = country || null;
       if (type !== undefined) updates.type = type;
 
       await customer.update(updates);

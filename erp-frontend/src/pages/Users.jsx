@@ -187,15 +187,15 @@ const Users = () => {
           <Modal.Body>
             {error && <Alert variant="danger">{error}</Alert>}
             <Form.Group className="mb-3">
-              <Form.Label>Name</Form.Label>
+              <Form.Label>Name *</Form.Label>
               <Form.Control type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Email</Form.Label>
+              <Form.Label>Email *</Form.Label>
               <Form.Control type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Password {selectedUser && '(leave blank to keep current)'}</Form.Label>
+              <Form.Label>Password {selectedUser ? '(leave blank to keep current)' : '*'}</Form.Label>
               <Form.Control type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!selectedUser} />
             </Form.Group>
             <Form.Group className="mb-3">
@@ -208,7 +208,7 @@ const Users = () => {
             </Form.Group>
             {isSuperAdmin() && (
               <Form.Group className="mb-3">
-                <Form.Label>Company</Form.Label>
+                <Form.Label>Company *</Form.Label>
                 <Form.Select
                   value={formData.companyId}
                   onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
