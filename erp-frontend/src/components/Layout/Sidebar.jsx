@@ -8,6 +8,7 @@ import {
   FaBoxes,
   FaWarehouse,
   FaShoppingCart,
+  FaUndo,
   FaTruck,
   FaChartBar,
   FaChevronDown,
@@ -29,6 +30,7 @@ const Sidebar = () => {
     { path: '/products', icon: FaBoxes, label: 'Products' },
     { path: '/inventory', icon: FaWarehouse, label: 'Inventory' },
     { path: '/sales', icon: FaShoppingCart, label: 'Sales' },
+    { path: '/sales-returns', icon: FaUndo, label: 'Sales Returns' },
     { path: '/purchases', icon: FaTruck, label: 'Purchases' },
   ];
 

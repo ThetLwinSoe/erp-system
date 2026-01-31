@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Form } from 'react-bootstrap';
-import { FaArrowLeft, FaPrint } from 'react-icons/fa';
+import { FaArrowLeft, FaPrint, FaUndo } from 'react-icons/fa';
 import { salesAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
@@ -32,6 +32,7 @@ const SaleDetails = () => {
 
   useEffect(() => {
     fetchSale();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleStatusChange = async (newStatus) => {
@@ -58,6 +59,10 @@ const SaleDetails = () => {
   };
 
   const canPrint = () => {
+    return ['confirmed', 'shipped', 'delivered'].includes(sale?.status);
+  };
+
+  const canReturn = () => {
     return ['confirmed', 'shipped', 'delivered'].includes(sale?.status);
   };
 
@@ -112,6 +117,16 @@ const SaleDetails = () => {
             <Card.Header className="d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Order: {sale.orderNumber}</h5>
               <div className="d-flex align-items-center gap-2">
+                {canReturn() && (
+                  <Button
+                    variant="outline-warning"
+                    size="sm"
+                    onClick={() => navigate(`/sales/${id}/return`)}
+                  >
+                    <FaUndo className="me-1" />
+                    Create Return
+                  </Button>
+                )}
                 {canPrint() && (
                   <Button
                     variant="outline-secondary"
@@ -143,23 +158,23 @@ const SaleDetails = () => {
                       <td>{item.product?.name}</td>
                       <td><code>{item.product?.sku}</code></td>
                       <td>{item.quantity}</td>
-                      <td>${parseFloat(item.unitPrice).toFixed(2)}</td>
-                      <td>${parseFloat(item.total).toFixed(2)}</td>
+                      <td>${parseFloat(item.unitPrice || 0).toFixed(2)}</td>
+                      <td>${parseFloat(item.total || 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
                     <td colSpan="4" className="text-end">Subtotal:</td>
-                    <td>${parseFloat(sale.subtotal).toFixed(2)}</td>
+                    <td>${parseFloat(sale.subtotal || 0).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td colSpan="4" className="text-end">Tax:</td>
-                    <td>${parseFloat(sale.tax).toFixed(2)}</td>
+                    <td>${parseFloat(sale.tax || 0).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td colSpan="4" className="text-end"><strong>Total:</strong></td>
-                    <td><strong>${parseFloat(sale.total).toFixed(2)}</strong></td>
+                    <td><strong>${parseFloat(sale.total || 0).toFixed(2)}</strong></td>
                   </tr>
                 </tfoot>
               </Table>

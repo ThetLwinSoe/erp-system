@@ -32,6 +32,13 @@ export const PURCHASE_STATUS = {
   CANCELLED: 'cancelled',
 };
 
+export const SALES_RETURN_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
 export const STATUS_COLORS = {
   pending: 'warning',
   confirmed: 'info',
@@ -42,6 +49,7 @@ export const STATUS_COLORS = {
   ordered: 'primary',
   partial: 'warning',
   received: 'success',
+  completed: 'success',
 };
 
 export const ADJUSTMENT_TYPES = {

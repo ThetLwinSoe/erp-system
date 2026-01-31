@@ -32,6 +32,14 @@ module.exports = {
     CANCELLED: 'cancelled',
   },
 
+  // Sales return statuses
+  SALES_RETURN_STATUS: {
+    PENDING: 'pending',
+    APPROVED: 'approved',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled',
+  },
+
   // Inventory adjustment types
   ADJUSTMENT_TYPE: {
     ADD: 'add',
