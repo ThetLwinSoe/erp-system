@@ -24,6 +24,11 @@ class SalesController {
       // Add company filter
       const whereClause = { ...req.companyFilter };
 
+      // Sale Rep can only see their own sales
+      if (req.isSaleRep) {
+        whereClause.userId = req.user.id;
+      }
+
       if (status && Object.values(ORDER_STATUS).includes(status)) {
         whereClause.status = status;
       }
@@ -84,7 +89,12 @@ class SalesController {
    */
   static async getById(req, res, next) {
     try {
-      const sale = await SalesService.getSaleById(req.params.id, req.companyFilter);
+      // Sale Rep can only view their own sales
+      const filter = { ...req.companyFilter };
+      if (req.isSaleRep) {
+        filter.userId = req.user.id;
+      }
+      const sale = await SalesService.getSaleById(req.params.id, filter);
       return ApiResponse.success(res, sale, 'Sale retrieved successfully');
     } catch (error) {
       next(error);
@@ -97,7 +107,12 @@ class SalesController {
    */
   static async update(req, res, next) {
     try {
-      const sale = await SalesService.updateSale(req.params.id, req.body, req.companyFilter);
+      // Sale Rep can only update their own sales
+      const filter = { ...req.companyFilter };
+      if (req.isSaleRep) {
+        filter.userId = req.user.id;
+      }
+      const sale = await SalesService.updateSale(req.params.id, req.body, filter);
       return ApiResponse.success(res, sale, 'Sale updated successfully');
     } catch (error) {
       next(error);
@@ -110,8 +125,13 @@ class SalesController {
    */
   static async updateStatus(req, res, next) {
     try {
+      // Sale Rep can only update status of their own sales
+      const filter = { ...req.companyFilter };
+      if (req.isSaleRep) {
+        filter.userId = req.user.id;
+      }
       const { status } = req.body;
-      const sale = await SalesService.updateSaleStatus(req.params.id, status, req.companyFilter);
+      const sale = await SalesService.updateSaleStatus(req.params.id, status, filter);
       return ApiResponse.success(res, sale, 'Sale status updated successfully');
     } catch (error) {
       next(error);
@@ -124,7 +144,12 @@ class SalesController {
    */
   static async delete(req, res, next) {
     try {
-      await SalesService.deleteSale(req.params.id, req.companyFilter);
+      // Sale Rep can only delete their own sales
+      const filter = { ...req.companyFilter };
+      if (req.isSaleRep) {
+        filter.userId = req.user.id;
+      }
+      await SalesService.deleteSale(req.params.id, filter);
       return ApiResponse.success(res, null, 'Sale deleted successfully');
     } catch (error) {
       next(error);

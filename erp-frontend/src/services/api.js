@@ -45,7 +45,7 @@ export const authAPI = {
 export const usersAPI = {
   getAll: (params) => api.get('/users', { params }),
   getById: (id) => api.get(`/users/${id}`),
-  create: (data) => api.post('/auth/register', data),
+  create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
 };
@@ -75,6 +75,7 @@ export const inventoryAPI = {
   getByProductId: (productId) => api.get(`/inventory/${productId}`),
   update: (productId, data) => api.put(`/inventory/${productId}`, data),
   adjust: (data) => api.post('/inventory/adjust', data),
+  exportCSV: () => api.get('/inventory/export', { responseType: 'blob' }),
 };
 
 // Sales API
@@ -106,6 +107,26 @@ export const purchasesAPI = {
   updateStatus: (id, status) => api.patch(`/purchases/${id}/status`, { status }),
   receive: (id, items) => api.patch(`/purchases/${id}/receive`, { items }),
   delete: (id) => api.delete(`/purchases/${id}`),
+};
+
+// Purchase Returns API
+export const purchaseReturnsAPI = {
+  getAll: (params) => api.get('/purchase-returns', { params }),
+  getById: (id) => api.get(`/purchase-returns/${id}`),
+  getReturnableItems: (purchaseId) => api.get(`/purchase-returns/purchase/${purchaseId}/returnable-items`),
+  create: (data) => api.post('/purchase-returns', data),
+  updateStatus: (id, status) => api.patch(`/purchase-returns/${id}/status`, { status }),
+  delete: (id) => api.delete(`/purchase-returns/${id}`),
+};
+
+// Inventory Adjustments API
+export const inventoryAdjustmentsAPI = {
+  getAll: (params) => api.get('/inventory-adjustments', { params }),
+  getById: (id) => api.get(`/inventory-adjustments/${id}`),
+  getProductsWithStock: () => api.get('/inventory-adjustments/products'),
+  create: (data) => api.post('/inventory-adjustments', data),
+  updateStatus: (id, status) => api.patch(`/inventory-adjustments/${id}/status`, { status }),
+  delete: (id) => api.delete(`/inventory-adjustments/${id}`),
 };
 
 // Reports API

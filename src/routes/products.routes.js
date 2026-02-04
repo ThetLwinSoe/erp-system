@@ -1,6 +1,6 @@
 const express = require('express');
 const ProductsController = require('../controllers/products.controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { productValidation, paginationValidation } = require('../middleware/validate');
 
@@ -20,9 +20,9 @@ router.get('/', paginationValidation, ProductsController.getAll);
 /**
  * @route POST /api/products
  * @desc Create a new product
- * @access Private
+ * @access Private (Sale Rep cannot create)
  */
-router.post('/', productValidation.create, ProductsController.create);
+router.post('/', restrictSaleRep, productValidation.create, ProductsController.create);
 
 /**
  * @route GET /api/products/:id
@@ -34,15 +34,15 @@ router.get('/:id', ProductsController.getById);
 /**
  * @route PUT /api/products/:id
  * @desc Update product
- * @access Private
+ * @access Private (Sale Rep cannot update)
  */
-router.put('/:id', productValidation.update, ProductsController.update);
+router.put('/:id', restrictSaleRep, productValidation.update, ProductsController.update);
 
 /**
  * @route DELETE /api/products/:id
  * @desc Delete product
- * @access Private
+ * @access Private (Sale Rep cannot delete)
  */
-router.delete('/:id', ProductsController.delete);
+router.delete('/:id', restrictSaleRep, ProductsController.delete);
 
 module.exports = router;

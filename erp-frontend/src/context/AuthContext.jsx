@@ -45,6 +45,10 @@ export const AuthProvider = ({ children }) => {
   const isSuperAdmin = () => user?.role === 'superadmin';
   const isAdmin = () => user?.role === 'admin' || user?.role === 'superadmin';
   const isManager = () => user?.role === 'manager' || user?.role === 'admin' || user?.role === 'superadmin';
+  const isSaleRep = () => user?.role === 'sale_rep';
+  const canAccessInventory = () => user?.role !== 'sale_rep';
+  const canAccessPurchases = () => user?.role !== 'sale_rep';
+  const canAccessSalesReturns = () => user?.role !== 'sale_rep';
   const getCompanyId = () => user?.companyId;
   const getCompanyName = () => user?.company?.name;
 
@@ -56,6 +60,10 @@ export const AuthProvider = ({ children }) => {
     isSuperAdmin,
     isAdmin,
     isManager,
+    isSaleRep,
+    canAccessInventory,
+    canAccessPurchases,
+    canAccessSalesReturns,
     getCompanyId,
     getCompanyName,
     isAuthenticated: !!user,

@@ -5,12 +5,21 @@ module.exports = {
     ADMIN: 'admin',
     MANAGER: 'manager',
     STAFF: 'staff',
+    SALE_REP: 'sale_rep',
   },
 
   // Company statuses
   COMPANY_STATUS: {
     ACTIVE: 'active',
     INACTIVE: 'inactive',
+  },
+
+  // Supported currencies
+  CURRENCIES: {
+    USD: 'USD',
+    SGD: 'SGD',
+    THB: 'THB',
+    MMK: 'MMK',
   },
 
   // Order statuses
@@ -40,11 +49,37 @@ module.exports = {
     CANCELLED: 'cancelled',
   },
 
+  // Purchase return statuses
+  PURCHASE_RETURN_STATUS: {
+    PENDING: 'pending',
+    APPROVED: 'approved',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled',
+  },
+
   // Inventory adjustment types
   ADJUSTMENT_TYPE: {
     ADD: 'add',
     REMOVE: 'remove',
     SET: 'set',
+  },
+
+  // Inventory adjustment statuses
+  INVENTORY_ADJUSTMENT_STATUS: {
+    PENDING: 'pending',
+    APPROVED: 'approved',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled',
+  },
+
+  // Inventory adjustment reasons
+  INVENTORY_ADJUSTMENT_REASONS: {
+    PHYSICAL_COUNT: 'Physical Count',
+    DAMAGE: 'Damage',
+    THEFT: 'Theft',
+    EXPIRY: 'Expiry',
+    CORRECTION: 'Correction',
+    OTHER: 'Other',
   },
 
   // Customer types

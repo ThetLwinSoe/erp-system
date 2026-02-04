@@ -1,14 +1,16 @@
 const express = require('express');
 const SalesReturnsController = require('../controllers/salesReturns.controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { paginationValidation } = require('../middleware/validate');
 
 const router = express.Router();
 
 // All routes require authentication and company scope
+// Sale Rep cannot access sales returns module
 router.use(authenticate);
 router.use(companyScope);
+router.use(restrictSaleRep);
 
 /**
  * @route GET /api/sales-returns

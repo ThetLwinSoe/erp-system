@@ -1,6 +1,6 @@
 const express = require('express');
 const ReportsController = require('../controllers/reports.controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, checkSaleRep, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 
 const router = express.Router();
@@ -9,12 +9,12 @@ const router = express.Router();
 router.use(authenticate);
 router.use(companyScope);
 
-// Sales report
-router.get('/sales', ReportsController.getSalesReport);
-router.get('/sales/export', ReportsController.exportSalesReport);
+// Sales report - Sale Rep can access but filtered to their own sales
+router.get('/sales', checkSaleRep, ReportsController.getSalesReport);
+router.get('/sales/export', checkSaleRep, ReportsController.exportSalesReport);
 
-// Purchases report
-router.get('/purchases', ReportsController.getPurchasesReport);
-router.get('/purchases/export', ReportsController.exportPurchasesReport);
+// Purchases report - Sale Rep cannot access
+router.get('/purchases', restrictSaleRep, ReportsController.getPurchasesReport);
+router.get('/purchases/export', restrictSaleRep, ReportsController.exportPurchasesReport);
 
 module.exports = router;

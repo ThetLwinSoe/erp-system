@@ -3,6 +3,15 @@ export const ROLES = {
   ADMIN: 'admin',
   MANAGER: 'manager',
   STAFF: 'staff',
+  SALE_REP: 'sale_rep',
+};
+
+export const ROLE_LABELS = {
+  superadmin: 'Super Admin',
+  admin: 'Admin',
+  manager: 'Manager',
+  staff: 'Staff',
+  sale_rep: 'Sale Rep',
 };
 
 export const COMPANY_STATUS = {
@@ -39,6 +48,13 @@ export const SALES_RETURN_STATUS = {
   CANCELLED: 'cancelled',
 };
 
+export const PURCHASE_RETURN_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
 export const STATUS_COLORS = {
   pending: 'warning',
   confirmed: 'info',
@@ -58,6 +74,28 @@ export const ADJUSTMENT_TYPES = {
   SET: 'set',
 };
 
+export const ADJUSTMENT_TYPE_LABELS = {
+  add: 'Add',
+  remove: 'Remove',
+  set: 'Set',
+};
+
+export const INVENTORY_ADJUSTMENT_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
+export const INVENTORY_ADJUSTMENT_REASONS = [
+  'Physical Count',
+  'Damage',
+  'Theft',
+  'Expiry',
+  'Correction',
+  'Other',
+];
+
 export const CUSTOMER_TYPES = {
   CUSTOMER: 'customer',
   SUPPLIER: 'supplier',
@@ -68,4 +106,25 @@ export const CUSTOMER_TYPE_LABELS = {
   customer: 'Customer',
   supplier: 'Supplier',
   both: 'Both',
+};
+
+export const CURRENCIES = {
+  USD: 'USD',
+  SGD: 'SGD',
+  THB: 'THB',
+  MMK: 'MMK',
+};
+
+export const CURRENCY_SYMBOLS = {
+  USD: '$',
+  SGD: 'S$',
+  THB: '฿',
+  MMK: 'MMK',
+};
+
+export const CURRENCY_LABELS = {
+  USD: 'US Dollar (USD)',
+  SGD: 'Singapore Dollar (SGD)',
+  THB: 'Thai Baht (THB)',
+  MMK: 'Myanmar Kyat (MMK)',
 };

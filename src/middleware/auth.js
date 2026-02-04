@@ -80,4 +80,22 @@ const requireSuperAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { authenticate, authorize, requireSuperAdmin };
+/**
+ * Restrict Sale Rep from accessing certain modules
+ */
+const restrictSaleRep = (req, res, next) => {
+  if (req.user && req.user.role === ROLES.SALE_REP) {
+    return ApiResponse.forbidden(res, 'Sale Rep cannot access this module');
+  }
+  next();
+};
+
+/**
+ * Check if user is a Sale Rep (for filtering data)
+ */
+const checkSaleRep = (req, res, next) => {
+  req.isSaleRep = req.user && req.user.role === ROLES.SALE_REP;
+  next();
+};
+
+module.exports = { authenticate, authorize, requireSuperAdmin, restrictSaleRep, checkSaleRep };

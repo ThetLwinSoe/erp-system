@@ -20,6 +20,13 @@ router.use(companyScope);
 router.get('/', paginationValidation, UsersController.getAll);
 
 /**
+ * @route POST /api/users
+ * @desc Create user
+ * @access Private (Admin only)
+ */
+router.post('/', userValidation.create, UsersController.create);
+
+/**
  * @route GET /api/users/:id
  * @desc Get user by ID
  * @access Private (Admin only)
