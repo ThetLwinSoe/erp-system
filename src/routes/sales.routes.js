@@ -1,14 +1,16 @@
 const express = require('express');
 const SalesController = require('../controllers/sales.controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, checkSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { salesValidation, paginationValidation } = require('../middleware/validate');
 
 const router = express.Router();
 
 // All routes require authentication and company scope
+// Sale Rep can access sales but will be filtered to their own records
 router.use(authenticate);
 router.use(companyScope);
+router.use(checkSaleRep);
 
 /**
  * @route GET /api/sales

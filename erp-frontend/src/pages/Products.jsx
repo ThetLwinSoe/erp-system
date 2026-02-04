@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { productsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
+import { formatCurrency } from '../utils/currency';
 
 const Products = () => {
+  const { user, isSaleRep } = useAuth();
+  const currency = user?.company?.currency || 'USD';
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -110,10 +114,12 @@ const Products = () => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Products</h2>
-        <Button variant="primary" onClick={() => handleOpenModal()}>
-          <FaPlus className="me-2" />
-          Add Product
-        </Button>
+        {!isSaleRep() && (
+          <Button variant="primary" onClick={() => handleOpenModal()}>
+            <FaPlus className="me-2" />
+            Add Product
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -144,16 +150,20 @@ const Products = () => {
                     <td><code>{product.sku}</code></td>
                     <td>{product.name}</td>
                     <td>{product.category || '-'}</td>
-                    <td>${parseFloat(product.costPrice).toFixed(2)}</td>
-                    <td>${parseFloat(product.sellingPrice).toFixed(2)}</td>
+                    <td>{formatCurrency(product.costPrice, currency)}</td>
+                    <td>{formatCurrency(product.sellingPrice, currency)}</td>
                     <td>{getStockBadge(product)}</td>
                     <td>
-                      <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(product)}>
-                        <FaEdit />
-                      </Button>
-                      <Button variant="outline-danger" size="sm" onClick={() => { setSelectedProduct(product); setShowDeleteModal(true); }}>
-                        <FaTrash />
-                      </Button>
+                      {!isSaleRep() && (
+                        <>
+                          <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(product)}>
+                            <FaEdit />
+                          </Button>
+                          <Button variant="outline-danger" size="sm" onClick={() => { setSelectedProduct(product); setShowDeleteModal(true); }}>
+                            <FaTrash />
+                          </Button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

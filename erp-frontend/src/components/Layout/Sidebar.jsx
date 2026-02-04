@@ -14,12 +14,22 @@ import {
   FaChevronDown,
   FaChevronRight,
   FaBuilding,
+  FaClipboardList,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = () => {
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, canAccessInventory, canAccessPurchases, canAccessSalesReturns } = useAuth();
   const location = useLocation();
+  const [adjustmentOpen, setAdjustmentOpen] = useState(
+    location.pathname.startsWith('/inventory')
+  );
+  const [salesOpen, setSalesOpen] = useState(
+    location.pathname.startsWith('/sales')
+  );
+  const [purchasesOpen, setPurchasesOpen] = useState(
+    location.pathname.startsWith('/purchase')
+  );
   const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith('/reports'));
 
   const menuItems = [
@@ -28,16 +38,39 @@ const Sidebar = () => {
     { path: '/users', icon: FaUsers, label: 'Users', adminOnly: true },
     { path: '/customers', icon: FaAddressBook, label: 'Customers' },
     { path: '/products', icon: FaBoxes, label: 'Products' },
-    { path: '/inventory', icon: FaWarehouse, label: 'Inventory' },
-    { path: '/sales', icon: FaShoppingCart, label: 'Sales' },
-    { path: '/sales-returns', icon: FaUndo, label: 'Sales Returns' },
-    { path: '/purchases', icon: FaTruck, label: 'Purchases' },
+  ];
+
+  const adjustmentItems = [
+    { path: '/inventory', label: 'Inventory', icon: FaWarehouse },
+    { path: '/inventory-adjustments', label: 'Inv. Adjustments', icon: FaClipboardList },
+  ];
+
+  const salesItems = [
+    { path: '/sales', label: 'Sales Orders', icon: FaShoppingCart },
+    { path: '/sales-returns', label: 'Sales Returns', icon: FaUndo, requiresSalesReturns: true },
+  ];
+
+  const purchasesItems = [
+    { path: '/purchases', label: 'Purchase Orders', icon: FaTruck },
+    { path: '/purchase-returns', label: 'Purchase Returns', icon: FaUndo },
   ];
 
   const reportItems = [
     { path: '/reports/sales', label: 'Sales Report' },
-    { path: '/reports/purchases', label: 'Purchases Report' },
+    { path: '/reports/purchases', label: 'Purchases Report', requiresPurchases: true },
   ];
+
+  // Filter sales items for sale_rep (no sales returns)
+  const filteredSalesItems = salesItems.filter(item => {
+    if (item.requiresSalesReturns && !canAccessSalesReturns()) return false;
+    return true;
+  });
+
+  // Filter report items for sale_rep (no purchases report)
+  const filteredReportItems = reportItems.filter(item => {
+    if (item.requiresPurchases && !canAccessPurchases()) return false;
+    return true;
+  });
 
   return (
     <div className="sidebar bg-light border-end" style={{ width: '250px', minHeight: '100vh' }}>
@@ -63,6 +96,125 @@ const Sidebar = () => {
           );
         })}
 
+        {/* Inventory Submenu - Hidden for Sale Rep */}
+        {canAccessInventory() && (
+          <>
+            <Nav.Link
+              className="d-flex align-items-center justify-content-between py-2 text-dark"
+              onClick={() => setAdjustmentOpen(!adjustmentOpen)}
+              style={{
+                backgroundColor: location.pathname.startsWith('/inventory') ? '#e9ecef' : 'transparent',
+                borderRadius: '5px',
+                cursor: 'pointer',
+              }}
+            >
+              <span className="d-flex align-items-center">
+                <FaWarehouse className="me-3" />
+                Inventory
+              </span>
+              {adjustmentOpen ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+            </Nav.Link>
+            <Collapse in={adjustmentOpen}>
+              <div>
+                {adjustmentItems.map((item) => (
+                  <Nav.Link
+                    key={item.path}
+                    as={NavLink}
+                    to={item.path}
+                    end={item.path === '/inventory'}
+                    className="d-flex align-items-center py-2 text-dark ps-4"
+                    style={({ isActive }) => ({
+                      backgroundColor: isActive ? '#e9ecef' : 'transparent',
+                      borderRadius: '5px',
+                    })}
+                  >
+                    <item.icon className="me-2" size={14} />
+                    {item.label}
+                  </Nav.Link>
+                ))}
+              </div>
+            </Collapse>
+          </>
+        )}
+
+        {/* Sales Submenu */}
+        <Nav.Link
+          className="d-flex align-items-center justify-content-between py-2 text-dark"
+          onClick={() => setSalesOpen(!salesOpen)}
+          style={{
+            backgroundColor: location.pathname.startsWith('/sales') ? '#e9ecef' : 'transparent',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          <span className="d-flex align-items-center">
+            <FaShoppingCart className="me-3" />
+            Sales
+          </span>
+          {salesOpen ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+        </Nav.Link>
+        <Collapse in={salesOpen}>
+          <div>
+            {filteredSalesItems.map((item) => (
+              <Nav.Link
+                key={item.path}
+                as={NavLink}
+                to={item.path}
+                end={item.path === '/sales'}
+                className="d-flex align-items-center py-2 text-dark ps-4"
+                style={({ isActive }) => ({
+                  backgroundColor: isActive ? '#e9ecef' : 'transparent',
+                  borderRadius: '5px',
+                })}
+              >
+                <item.icon className="me-2" size={14} />
+                {item.label}
+              </Nav.Link>
+            ))}
+          </div>
+        </Collapse>
+
+        {/* Purchases Submenu - Hidden for Sale Rep */}
+        {canAccessPurchases() && (
+          <>
+            <Nav.Link
+              className="d-flex align-items-center justify-content-between py-2 text-dark"
+              onClick={() => setPurchasesOpen(!purchasesOpen)}
+              style={{
+                backgroundColor: location.pathname.startsWith('/purchase') ? '#e9ecef' : 'transparent',
+                borderRadius: '5px',
+                cursor: 'pointer',
+              }}
+            >
+              <span className="d-flex align-items-center">
+                <FaTruck className="me-3" />
+                Purchases
+              </span>
+              {purchasesOpen ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+            </Nav.Link>
+            <Collapse in={purchasesOpen}>
+              <div>
+                {purchasesItems.map((item) => (
+                  <Nav.Link
+                    key={item.path}
+                    as={NavLink}
+                    to={item.path}
+                    end={item.path === '/purchases'}
+                    className="d-flex align-items-center py-2 text-dark ps-4"
+                    style={({ isActive }) => ({
+                      backgroundColor: isActive ? '#e9ecef' : 'transparent',
+                      borderRadius: '5px',
+                    })}
+                  >
+                    <item.icon className="me-2" size={14} />
+                    {item.label}
+                  </Nav.Link>
+                ))}
+              </div>
+            </Collapse>
+          </>
+        )}
+
         {/* Reports Submenu */}
         <Nav.Link
           className="d-flex align-items-center justify-content-between py-2 text-dark"
@@ -81,7 +233,7 @@ const Sidebar = () => {
         </Nav.Link>
         <Collapse in={reportsOpen}>
           <div>
-            {reportItems.map((item) => (
+            {filteredReportItems.map((item) => (
               <Nav.Link
                 key={item.path}
                 as={NavLink}

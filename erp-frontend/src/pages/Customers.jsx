@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { customersAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../utils/constants';
 
 const Customers = () => {
+  const { isSaleRep } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -95,10 +97,12 @@ const Customers = () => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Customers</h2>
-        <Button variant="primary" onClick={() => handleOpenModal()}>
-          <FaPlus className="me-2" />
-          Add Customer
-        </Button>
+        {!isSaleRep() && (
+          <Button variant="primary" onClick={() => handleOpenModal()}>
+            <FaPlus className="me-2" />
+            Add Customer
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -135,12 +139,16 @@ const Customers = () => {
                     <td>{customer.phone || '-'}</td>
                     <td>{customer.city || '-'}</td>
                     <td>
-                      <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(customer)}>
-                        <FaEdit />
-                      </Button>
-                      <Button variant="outline-danger" size="sm" onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}>
-                        <FaTrash />
-                      </Button>
+                      {!isSaleRep() && (
+                        <>
+                          <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(customer)}>
+                            <FaEdit />
+                          </Button>
+                          <Button variant="outline-danger" size="sm" onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}>
+                            <FaTrash />
+                          </Button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

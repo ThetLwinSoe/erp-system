@@ -27,8 +27,11 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       role: {
-        type: DataTypes.ENUM('superadmin', 'admin', 'manager', 'staff'),
+        type: DataTypes.STRING(20),
         defaultValue: 'staff',
+        validate: {
+          isIn: [['superadmin', 'admin', 'manager', 'staff', 'sale_rep']],
+        },
       },
       companyId: {
         type: DataTypes.INTEGER,

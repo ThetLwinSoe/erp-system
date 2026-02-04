@@ -15,6 +15,11 @@ class ReportsController {
       // Add company filter
       const whereClause = { ...req.companyFilter };
 
+      // Sale Rep can only see their own sales
+      if (req.isSaleRep) {
+        whereClause.userId = req.user.id;
+      }
+
       // Date range filter
       if (startDate || endDate) {
         whereClause.createdAt = {};
@@ -86,6 +91,11 @@ class ReportsController {
 
       // Add company filter
       const whereClause = { ...req.companyFilter };
+
+      // Sale Rep can only export their own sales
+      if (req.isSaleRep) {
+        whereClause.userId = req.user.id;
+      }
 
       if (startDate || endDate) {
         whereClause.createdAt = {};

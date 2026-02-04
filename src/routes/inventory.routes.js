@@ -1,14 +1,16 @@
 const express = require('express');
 const InventoryController = require('../controllers/inventory.controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { inventoryValidation, paginationValidation } = require('../middleware/validate');
 
 const router = express.Router();
 
 // All routes require authentication and company scope
+// Sale Rep cannot access inventory module
 router.use(authenticate);
 router.use(companyScope);
+router.use(restrictSaleRep);
 
 /**
  * @route GET /api/inventory
@@ -23,6 +25,13 @@ router.get('/', paginationValidation, InventoryController.getAll);
  * @access Private
  */
 router.get('/low-stock', InventoryController.getLowStock);
+
+/**
+ * @route GET /api/inventory/export
+ * @desc Export inventory to CSV
+ * @access Private
+ */
+router.get('/export', InventoryController.exportCSV);
 
 /**
  * @route GET /api/inventory/:productId

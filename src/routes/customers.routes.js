@@ -1,6 +1,6 @@
 const express = require('express');
 const CustomersController = require('../controllers/customers.controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { customerValidation, paginationValidation } = require('../middleware/validate');
 
@@ -20,9 +20,9 @@ router.get('/', paginationValidation, CustomersController.getAll);
 /**
  * @route POST /api/customers
  * @desc Create a new customer
- * @access Private
+ * @access Private (Sale Rep cannot create)
  */
-router.post('/', customerValidation.create, CustomersController.create);
+router.post('/', restrictSaleRep, customerValidation.create, CustomersController.create);
 
 /**
  * @route GET /api/customers/:id
@@ -34,15 +34,15 @@ router.get('/:id', CustomersController.getById);
 /**
  * @route PUT /api/customers/:id
  * @desc Update customer
- * @access Private
+ * @access Private (Sale Rep cannot update)
  */
-router.put('/:id', customerValidation.update, CustomersController.update);
+router.put('/:id', restrictSaleRep, customerValidation.update, CustomersController.update);
 
 /**
  * @route DELETE /api/customers/:id
  * @desc Delete customer
- * @access Private
+ * @access Private (Sale Rep cannot delete)
  */
-router.delete('/:id', CustomersController.delete);
+router.delete('/:id', restrictSaleRep, CustomersController.delete);
 
 module.exports = router;

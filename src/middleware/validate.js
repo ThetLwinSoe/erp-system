@@ -44,6 +44,17 @@ const authValidation = {
  * User validation rules
  */
 const userValidation = {
+  create: [
+    body('name').trim().notEmpty().withMessage('Name is required'),
+    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('role')
+      .optional()
+      .isIn(Object.values(ROLES))
+      .withMessage('Invalid role'),
+    body('companyId').isInt().withMessage('Valid company ID is required'),
+    handleValidation,
+  ],
   update: [
     param('id').isInt().withMessage('Valid user ID is required'),
     body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),

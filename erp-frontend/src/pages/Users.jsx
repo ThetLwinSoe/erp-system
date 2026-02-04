@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
-import { ROLES } from '../utils/constants';
+import { ROLES, ROLE_LABELS } from '../utils/constants';
 
 const Users = () => {
   const { isSuperAdmin } = useAuth();
@@ -59,6 +59,13 @@ const Users = () => {
     fetchCompanies();
   }, []);
 
+  // Update companyId when companies load and modal is open for new user
+  useEffect(() => {
+    if (showModal && !selectedUser && !formData.companyId && companies.length > 0) {
+      setFormData(prev => ({ ...prev, companyId: String(companies[0].id) }));
+    }
+  }, [companies, showModal, selectedUser, formData.companyId]);
+
   const handleOpenModal = (user = null) => {
     if (user) {
       setSelectedUser(user);
@@ -67,7 +74,7 @@ const Users = () => {
         email: user.email,
         password: '',
         role: user.role,
-        companyId: user.companyId || '',
+        companyId: user.companyId ? String(user.companyId) : '',
       });
     } else {
       setSelectedUser(null);
@@ -76,7 +83,7 @@ const Users = () => {
         email: '',
         password: '',
         role: 'staff',
-        companyId: companies.length > 0 ? companies[0].id : '',
+        companyId: companies.length > 0 ? String(companies[0].id) : '',
       });
     }
     setError('');
@@ -88,12 +95,22 @@ const Users = () => {
     setError('');
 
     try {
+      // Get companyId - use formData value, fallback to first company if empty
+      let companyIdValue = formData.companyId;
+      if (!companyIdValue && companies.length > 0) {
+        companyIdValue = String(companies[0].id);
+      }
+
+      const submitData = {
+        ...formData,
+        companyId: companyIdValue ? parseInt(companyIdValue, 10) : null,
+      };
+
       if (selectedUser) {
-        const updateData = { ...formData };
-        if (!updateData.password) delete updateData.password;
-        await usersAPI.update(selectedUser.id, updateData);
+        if (!submitData.password) delete submitData.password;
+        await usersAPI.update(selectedUser.id, submitData);
       } else {
-        await usersAPI.create(formData);
+        await usersAPI.create(submitData);
       }
       setShowModal(false);
       fetchUsers();
@@ -157,7 +174,7 @@ const Users = () => {
                         )}
                       </td>
                     )}
-                    <td className="text-capitalize">{user.role}</td>
+                    <td>{ROLE_LABELS[user.role] || user.role}</td>
                     <td>{new Date(user.createdAt).toLocaleDateString()}</td>
                     <td>
                       <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(user)}>
@@ -202,6 +219,7 @@ const Users = () => {
               <Form.Label>Role</Form.Label>
               <Form.Select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}>
                 <option value={ROLES.STAFF}>Staff</option>
+                <option value={ROLES.SALE_REP}>Sale Rep</option>
                 <option value={ROLES.MANAGER}>Manager</option>
                 <option value={ROLES.ADMIN}>Admin</option>
               </Form.Select>
@@ -216,7 +234,7 @@ const Users = () => {
                 >
                   <option value="">Select Company</option>
                   {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
+                    <option key={company.id} value={String(company.id)}>
                       {company.name}
                     </option>
                   ))}
