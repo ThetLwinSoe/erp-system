@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaFileExport, FaSearch, FaChartBar } from 'react-icons/fa';
 import { reportsAPI, customersAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { ORDER_STATUS } from '../utils/constants';
+import { formatCurrency } from '../utils/currency';
 
 const SalesReport = () => {
+  const { user } = useAuth();
+  const currency = user?.company?.currency || 'USD';
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -93,8 +97,8 @@ const SalesReport = () => {
     fetchReport();
   };
 
-  const formatCurrency = (value) => {
-    return `$${parseFloat(value).toFixed(2)}`;
+  const formatAmount = (value) => {
+    return formatCurrency(value, currency);
   };
 
   return (
@@ -198,7 +202,7 @@ const SalesReport = () => {
             <Card className="text-center h-100">
               <Card.Body>
                 <h6 className="text-muted">Total Revenue</h6>
-                <h2 className="text-success">{formatCurrency(summary.totalRevenue)}</h2>
+                <h2 className="text-success">{formatAmount(summary.totalRevenue)}</h2>
               </Card.Body>
             </Card>
           </Col>
@@ -206,7 +210,7 @@ const SalesReport = () => {
             <Card className="text-center h-100">
               <Card.Body>
                 <h6 className="text-muted">Total Tax</h6>
-                <h2 className="text-info">{formatCurrency(summary.totalTax)}</h2>
+                <h2 className="text-info">{formatAmount(summary.totalTax)}</h2>
               </Card.Body>
             </Card>
           </Col>
@@ -271,9 +275,9 @@ const SalesReport = () => {
                           <td>{item.product?.name || '-'}</td>
                           <td className="text-end">{item.quantity}</td>
                           <td><StatusBadge status={sale.status} /></td>
-                          <td className="text-end">{formatCurrency(sale.subtotal)}</td>
-                          <td className="text-end">{formatCurrency(sale.tax)}</td>
-                          <td className="text-end fw-bold">{formatCurrency(sale.total)}</td>
+                          <td className="text-end">{formatAmount(sale.subtotal)}</td>
+                          <td className="text-end">{formatAmount(sale.tax)}</td>
+                          <td className="text-end fw-bold">{formatAmount(sale.total)}</td>
                         </tr>
                       ))
                     : [
@@ -286,9 +290,9 @@ const SalesReport = () => {
                           <td>-</td>
                           <td className="text-end">-</td>
                           <td><StatusBadge status={sale.status} /></td>
-                          <td className="text-end">{formatCurrency(sale.subtotal)}</td>
-                          <td className="text-end">{formatCurrency(sale.tax)}</td>
-                          <td className="text-end fw-bold">{formatCurrency(sale.total)}</td>
+                          <td className="text-end">{formatAmount(sale.subtotal)}</td>
+                          <td className="text-end">{formatAmount(sale.tax)}</td>
+                          <td className="text-end fw-bold">{formatAmount(sale.total)}</td>
                         </tr>
                       ]
                 )}
@@ -297,13 +301,13 @@ const SalesReport = () => {
                 <tr className="table-dark">
                   <td colSpan="8" className="text-end fw-bold">Totals:</td>
                   <td className="text-end fw-bold">
-                    {formatCurrency(sales.reduce((sum, s) => sum + parseFloat(s.subtotal), 0))}
+                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.subtotal), 0))}
                   </td>
                   <td className="text-end fw-bold">
-                    {formatCurrency(sales.reduce((sum, s) => sum + parseFloat(s.tax), 0))}
+                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.tax), 0))}
                   </td>
                   <td className="text-end fw-bold">
-                    {formatCurrency(sales.reduce((sum, s) => sum + parseFloat(s.total), 0))}
+                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.total), 0))}
                   </td>
                 </tr>
               </tfoot>

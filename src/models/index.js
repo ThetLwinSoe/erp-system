@@ -29,6 +29,10 @@ const Purchase = require('./Purchase')(sequelize);
 const PurchaseItem = require('./PurchaseItem')(sequelize);
 const SalesReturn = require('./SalesReturn')(sequelize);
 const SalesReturnItem = require('./SalesReturnItem')(sequelize);
+const PurchaseReturn = require('./PurchaseReturn')(sequelize);
+const PurchaseReturnItem = require('./PurchaseReturnItem')(sequelize);
+const InventoryAdjustment = require('./InventoryAdjustment')(sequelize);
+const InventoryAdjustmentItem = require('./InventoryAdjustmentItem')(sequelize);
 
 // Define associations
 
@@ -116,6 +120,46 @@ SalesReturnItem.belongsTo(SaleItem, { foreignKey: 'saleItemId', as: 'saleItem' }
 Product.hasMany(SalesReturnItem, { foreignKey: 'productId', as: 'salesReturnItems' });
 SalesReturnItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
+// Company - PurchaseReturn (One-to-Many)
+Company.hasMany(PurchaseReturn, { foreignKey: 'companyId', as: 'purchaseReturns' });
+PurchaseReturn.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// Purchase - PurchaseReturn (One-to-Many)
+Purchase.hasMany(PurchaseReturn, { foreignKey: 'purchaseId', as: 'returns' });
+PurchaseReturn.belongsTo(Purchase, { foreignKey: 'purchaseId', as: 'purchase' });
+
+// User - PurchaseReturn (One-to-Many)
+User.hasMany(PurchaseReturn, { foreignKey: 'userId', as: 'purchaseReturns' });
+PurchaseReturn.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// PurchaseReturn - PurchaseReturnItem (One-to-Many)
+PurchaseReturn.hasMany(PurchaseReturnItem, { foreignKey: 'purchaseReturnId', as: 'items' });
+PurchaseReturnItem.belongsTo(PurchaseReturn, { foreignKey: 'purchaseReturnId', as: 'purchaseReturn' });
+
+// PurchaseItem - PurchaseReturnItem (One-to-Many)
+PurchaseItem.hasMany(PurchaseReturnItem, { foreignKey: 'purchaseItemId', as: 'returnItems' });
+PurchaseReturnItem.belongsTo(PurchaseItem, { foreignKey: 'purchaseItemId', as: 'purchaseItem' });
+
+// Product - PurchaseReturnItem (One-to-Many)
+Product.hasMany(PurchaseReturnItem, { foreignKey: 'productId', as: 'purchaseReturnItems' });
+PurchaseReturnItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
+// Company - InventoryAdjustment (One-to-Many)
+Company.hasMany(InventoryAdjustment, { foreignKey: 'companyId', as: 'inventoryAdjustments' });
+InventoryAdjustment.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// User - InventoryAdjustment (One-to-Many)
+User.hasMany(InventoryAdjustment, { foreignKey: 'userId', as: 'inventoryAdjustments' });
+InventoryAdjustment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// InventoryAdjustment - InventoryAdjustmentItem (One-to-Many)
+InventoryAdjustment.hasMany(InventoryAdjustmentItem, { foreignKey: 'inventoryAdjustmentId', as: 'items' });
+InventoryAdjustmentItem.belongsTo(InventoryAdjustment, { foreignKey: 'inventoryAdjustmentId', as: 'inventoryAdjustment' });
+
+// Product - InventoryAdjustmentItem (One-to-Many)
+Product.hasMany(InventoryAdjustmentItem, { foreignKey: 'productId', as: 'inventoryAdjustmentItems' });
+InventoryAdjustmentItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -130,4 +174,8 @@ module.exports = {
   PurchaseItem,
   SalesReturn,
   SalesReturnItem,
+  PurchaseReturn,
+  PurchaseReturnItem,
+  InventoryAdjustment,
+  InventoryAdjustmentItem,
 };

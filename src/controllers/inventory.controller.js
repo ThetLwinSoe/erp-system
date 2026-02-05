@@ -136,6 +136,43 @@ class InventoryController {
       next(error);
     }
   }
+
+  /**
+   * Export inventory to CSV
+   * GET /api/inventory/export
+   */
+  static async exportCSV(req, res, next) {
+    try {
+      const inventory = await Inventory.findAll({
+        where: { ...req.companyFilter },
+        include: [{ model: Product, as: 'product' }],
+        order: [['product', 'sku', 'ASC']],
+      });
+
+      // Build CSV content
+      const headers = ['SKU', 'Product Name', 'Category', 'Stock', 'Min Level', 'Location', 'Last Restocked'];
+      const rows = inventory.map((item) => [
+        item.product?.sku || '',
+        item.product?.name || '',
+        item.product?.category || '',
+        item.quantity,
+        item.minStockLevel,
+        item.location || '',
+        item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString() : '',
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=inventory-${new Date().toISOString().split('T')[0]}.csv`);
+      return res.send(csvContent);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = InventoryController;

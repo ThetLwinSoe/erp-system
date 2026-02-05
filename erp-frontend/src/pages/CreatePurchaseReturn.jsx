@@ -2,19 +2,19 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Form } from 'react-bootstrap';
 import { FaArrowLeft } from 'react-icons/fa';
-import { salesReturnsAPI } from '../services/api';
+import { purchaseReturnsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/currency';
 
-const CreateSalesReturn = () => {
-  const { saleId } = useParams();
+const CreatePurchaseReturn = () => {
+  const { purchaseId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [sale, setSale] = useState(null);
+  const [purchase, setPurchase] = useState(null);
   const [returnableItems, setReturnableItems] = useState([]);
   const [returnItems, setReturnItems] = useState({});
   const [reason, setReason] = useState('');
@@ -23,18 +23,18 @@ const CreateSalesReturn = () => {
   const fetchReturnableItems = async () => {
     try {
       setLoading(true);
-      const response = await salesReturnsAPI.getReturnableItems(saleId);
-      setSale(response.data.data.sale);
+      const response = await purchaseReturnsAPI.getReturnableItems(purchaseId);
+      setPurchase(response.data.data.purchase);
       setReturnableItems(response.data.data.returnableItems);
 
       // Initialize return quantities to 0
       const initialReturnItems = {};
       response.data.data.returnableItems.forEach((item) => {
-        initialReturnItems[item.saleItemId] = 0;
+        initialReturnItems[item.purchaseItemId] = 0;
       });
       setReturnItems(initialReturnItems);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load sale details');
+      setError(err.response?.data?.message || 'Failed to load purchase details');
     } finally {
       setLoading(false);
     }
@@ -43,17 +43,17 @@ const CreateSalesReturn = () => {
   useEffect(() => {
     fetchReturnableItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saleId]);
+  }, [purchaseId]);
 
-  const handleQuantityChange = (saleItemId, value, maxQty) => {
+  const handleQuantityChange = (purchaseItemId, value, maxQty) => {
     const qty = Math.min(Math.max(0, parseInt(value) || 0), maxQty);
-    setReturnItems({ ...returnItems, [saleItemId]: qty });
+    setReturnItems({ ...returnItems, [purchaseItemId]: qty });
   };
 
   const calculateTotal = () => {
     let subtotal = 0;
     returnableItems.forEach((item) => {
-      const returnQty = returnItems[item.saleItemId] || 0;
+      const returnQty = returnItems[item.purchaseItemId] || 0;
       subtotal += returnQty * parseFloat(item.unitPrice || 0);
     });
     return subtotal;
@@ -77,21 +77,21 @@ const CreateSalesReturn = () => {
 
       const items = Object.entries(returnItems)
         .filter(([, qty]) => qty > 0)
-        .map(([saleItemId, quantity]) => ({
-          saleItemId: parseInt(saleItemId),
+        .map(([purchaseItemId, quantity]) => ({
+          purchaseItemId: parseInt(purchaseItemId),
           quantity,
         }));
 
-      await salesReturnsAPI.create({
-        saleId: parseInt(saleId),
+      await purchaseReturnsAPI.create({
+        purchaseId: parseInt(purchaseId),
         items,
         reason,
         notes,
       });
 
-      navigate('/sales-returns');
+      navigate('/purchase-returns');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create sales return');
+      setError(err.response?.data?.message || 'Failed to create purchase return');
     } finally {
       setSubmitting(false);
     }
@@ -105,18 +105,18 @@ const CreateSalesReturn = () => {
     );
   }
 
-  if (!sale) {
-    return <Alert variant="danger">Sale not found or not eligible for returns</Alert>;
+  if (!purchase) {
+    return <Alert variant="danger">Purchase not found or not eligible for returns</Alert>;
   }
 
   return (
     <div>
-      <Button variant="link" className="mb-3 ps-0" onClick={() => navigate(`/sales/${saleId}`)}>
+      <Button variant="link" className="mb-3 ps-0" onClick={() => navigate(`/purchases/${purchaseId}`)}>
         <FaArrowLeft className="me-2" />
-        Back to Sale
+        Back to Purchase
       </Button>
 
-      <h2 className="mb-4">Create Sales Return</h2>
+      <h2 className="mb-4">Create Purchase Return</h2>
 
       {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
 
@@ -126,8 +126,8 @@ const CreateSalesReturn = () => {
             <Card>
               <Card.Header>
                 <div className="d-flex justify-content-between align-items-center">
-                  <span>Original Order: <code>{sale.orderNumber}</code></span>
-                  <span className="text-muted">Customer: {sale.customer?.name}</span>
+                  <span>Original PO: <code>{purchase.orderNumber}</code></span>
+                  <span className="text-muted">Supplier: {purchase.supplier?.name}</span>
                 </div>
               </Card.Header>
               <Card.Body>
@@ -137,6 +137,7 @@ const CreateSalesReturn = () => {
                       <th>Product</th>
                       <th>SKU</th>
                       <th>Ordered</th>
+                      <th>Received</th>
                       <th>Returned</th>
                       <th>Available</th>
                       <th>Return Qty</th>
@@ -145,10 +146,11 @@ const CreateSalesReturn = () => {
                   </thead>
                   <tbody>
                     {returnableItems.map((item) => (
-                      <tr key={item.saleItemId} className={!item.canReturn ? 'table-secondary' : ''}>
+                      <tr key={item.purchaseItemId} className={!item.canReturn ? 'table-secondary' : ''}>
                         <td>{item.product?.name}</td>
                         <td><code>{item.product?.sku}</code></td>
                         <td>{item.orderedQuantity}</td>
+                        <td>{item.receivedQuantity}</td>
                         <td>{item.returnedQuantity}</td>
                         <td>
                           <strong className={item.remainingQuantity > 0 ? 'text-success' : 'text-muted'}>
@@ -160,8 +162,8 @@ const CreateSalesReturn = () => {
                             type="number"
                             min="0"
                             max={item.remainingQuantity}
-                            value={returnItems[item.saleItemId] || 0}
-                            onChange={(e) => handleQuantityChange(item.saleItemId, e.target.value, item.remainingQuantity)}
+                            value={returnItems[item.purchaseItemId] || 0}
+                            onChange={(e) => handleQuantityChange(item.purchaseItemId, e.target.value, item.remainingQuantity)}
                             disabled={!item.canReturn}
                             size="sm"
                           />
@@ -185,7 +187,7 @@ const CreateSalesReturn = () => {
                     <option value="">Select reason...</option>
                     <option value="Defective product">Defective product</option>
                     <option value="Wrong item received">Wrong item received</option>
-                    <option value="Customer changed mind">Customer changed mind</option>
+                    <option value="Excess quantity">Excess quantity</option>
                     <option value="Damaged during shipping">Damaged during shipping</option>
                     <option value="Quality not as expected">Quality not as expected</option>
                     <option value="Other">Other</option>
@@ -222,7 +224,7 @@ const CreateSalesReturn = () => {
                 </div>
                 <hr />
                 <div className="d-flex justify-content-between">
-                  <span>Estimated Refund:</span>
+                  <span>Estimated Credit:</span>
                   <strong className="text-success">
                     {formatCurrency(calculateTotal(), currency)}
                   </strong>
@@ -240,7 +242,7 @@ const CreateSalesReturn = () => {
               </Button>
               <Button
                 variant="outline-secondary"
-                onClick={() => navigate(`/sales/${saleId}`)}
+                onClick={() => navigate(`/purchases/${purchaseId}`)}
               >
                 Cancel
               </Button>
@@ -252,4 +254,4 @@ const CreateSalesReturn = () => {
   );
 };
 
-export default CreateSalesReturn;
+export default CreatePurchaseReturn;

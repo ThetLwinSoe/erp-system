@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react';
 import { Card, Table, Button, Spinner, Form } from 'react-bootstrap';
 import { FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { salesReturnsAPI } from '../services/api';
+import { purchaseReturnsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
-import { SALES_RETURN_STATUS } from '../utils/constants';
+import { PURCHASE_RETURN_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
 
-const SalesReturns = () => {
+const PurchaseReturns = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const currency = user?.company?.currency || 'USD';
@@ -32,11 +32,11 @@ const SalesReturns = () => {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
 
-      const response = await salesReturnsAPI.getAll(params);
+      const response = await purchaseReturnsAPI.getAll(params);
       setReturns(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
     } catch (error) {
-      console.error('Error fetching sales returns:', error);
+      console.error('Error fetching purchase returns:', error);
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ const SalesReturns = () => {
 
   const handleDelete = async () => {
     try {
-      await salesReturnsAPI.delete(selectedReturn.id);
+      await purchaseReturnsAPI.delete(selectedReturn.id);
       setShowDeleteModal(false);
       fetchReturns();
     } catch (err) {
@@ -60,7 +60,7 @@ const SalesReturns = () => {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Sales Returns</h2>
+        <h2>Purchase Returns</h2>
       </div>
 
       {error && (
@@ -75,7 +75,7 @@ const SalesReturns = () => {
           <SearchBar value={search} onChange={setSearch} placeholder="Search return number..." />
           <Form.Select style={{ maxWidth: '200px' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">All Status</option>
-            {Object.values(SALES_RETURN_STATUS).map((status) => (
+            {Object.values(PURCHASE_RETURN_STATUS).map((status) => (
               <option key={status} value={status} className="text-capitalize">{status}</option>
             ))}
           </Form.Select>
@@ -87,15 +87,15 @@ const SalesReturns = () => {
             </div>
           ) : returns.length === 0 ? (
             <div className="text-center py-4 text-muted">
-              No sales returns found
+              No purchase returns found
             </div>
           ) : (
             <Table striped hover responsive>
               <thead>
                 <tr>
                   <th>Return #</th>
-                  <th>Order #</th>
-                  <th>Customer</th>
+                  <th>PO #</th>
+                  <th>Supplier</th>
                   <th>Status</th>
                   <th>Total</th>
                   <th>Date</th>
@@ -106,13 +106,13 @@ const SalesReturns = () => {
                 {returns.map((ret) => (
                   <tr key={ret.id}>
                     <td><code>{ret.returnNumber}</code></td>
-                    <td><code>{ret.sale?.orderNumber}</code></td>
-                    <td>{ret.sale?.customer?.name}</td>
+                    <td><code>{ret.purchase?.orderNumber}</code></td>
+                    <td>{ret.purchase?.supplier?.name}</td>
                     <td><StatusBadge status={ret.status} /></td>
                     <td><strong>{formatCurrency(ret.total, currency)}</strong></td>
                     <td>{new Date(ret.createdAt).toLocaleDateString()}</td>
                     <td>
-                      <Button variant="outline-info" size="sm" className="me-2" onClick={() => navigate(`/sales-returns/${ret.id}`)}>
+                      <Button variant="outline-info" size="sm" className="me-2" onClick={() => navigate(`/purchase-returns/${ret.id}`)}>
                         <FaEye />
                       </Button>
                       {ret.status === 'pending' && (
@@ -137,11 +137,11 @@ const SalesReturns = () => {
         show={showDeleteModal}
         onHide={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
-        title="Delete Sales Return"
+        title="Delete Purchase Return"
         message={`Are you sure you want to delete return ${selectedReturn?.returnNumber}?`}
       />
     </div>
   );
 };
 
-export default SalesReturns;
+export default PurchaseReturns;

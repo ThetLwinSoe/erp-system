@@ -7,8 +7,10 @@ const inventoryRoutes = require('./inventory.routes');
 const salesRoutes = require('./sales.routes');
 const salesReturnsRoutes = require('./salesReturns.routes');
 const purchasesRoutes = require('./purchases.routes');
+const purchaseReturnsRoutes = require('./purchaseReturns.routes');
 const reportsRoutes = require('./reports.routes');
 const companiesRoutes = require('./companies.routes');
+const inventoryAdjustmentsRoutes = require('./inventoryAdjustments.routes');
 
 const router = express.Router();
 
@@ -21,8 +23,10 @@ router.use('/inventory', inventoryRoutes);
 router.use('/sales', salesRoutes);
 router.use('/sales-returns', salesReturnsRoutes);
 router.use('/purchases', purchasesRoutes);
+router.use('/purchase-returns', purchaseReturnsRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/companies', companiesRoutes);
+router.use('/inventory-adjustments', inventoryAdjustmentsRoutes);
 
 // API Info
 router.get('/', (req, res) => {
@@ -38,8 +42,10 @@ router.get('/', (req, res) => {
       sales: '/api/sales',
       salesReturns: '/api/sales-returns',
       purchases: '/api/purchases',
+      purchaseReturns: '/api/purchase-returns',
       reports: '/api/reports',
       companies: '/api/companies',
+      inventoryAdjustments: '/api/inventory-adjustments',
     },
   });
 });

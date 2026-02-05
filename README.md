@@ -1,25 +1,58 @@
 # ERP System for SME
 
-A Node.js REST API for a basic Enterprise Resource Planning (ERP) system targeting Small and Medium Enterprises.
+A full-stack Enterprise Resource Planning (ERP) system for Small and Medium Enterprises, featuring a Node.js REST API backend and React frontend.
 
 ## Features
 
+### Core Modules
+- **Multi-Tenant Support**: Company-based data isolation with Super Admin management
 - **User Authentication**: JWT-based authentication with role-based access control
 - **User Management**: Admin-only user CRUD operations
-- **Customer Management**: Full CRUD for customers/suppliers
+- **Customer Management**: Full CRUD for customers and suppliers
 - **Product Management**: Product catalog with SKU tracking
-- **Inventory Management**: Stock tracking with low-stock alerts
-- **Sales Orders**: Sales order processing with automatic inventory deduction
+
+### Inventory Management
+- **Stock Tracking**: Real-time inventory levels with low-stock alerts
+- **Inventory Adjustments**: Audit trail for stock adjustments with approval workflow
+  - Create adjustment records with physical count (ground values)
+  - Status workflow: Pending → Approved → Completed
+  - Automatic inventory update on completion
+- **CSV Export**: Export current inventory to CSV
+
+### Sales Module
+- **Sales Orders**: Order processing with automatic inventory deduction
+- **Sales Returns**: Partial/full return support with inventory restoration
+- **PDF Invoices**: Generate and print professional invoices with company branding
+- **Sales Reports**: Filterable reports with CSV export
+
+### Purchases Module
 - **Purchase Orders**: Purchase order management with goods receiving
+- **Purchase Returns**: Return management with supplier credit tracking
+- **Purchases Reports**: Filterable reports with CSV export
+
+### Additional Features
+- **Multi-Currency Support**: USD, SGD, THB, MMK
+- **Company Branding**: Logo upload for invoices
+- **Reports & Analytics**: Sales and purchases reports with export functionality
 
 ## Tech Stack
 
+### Backend
 - **Runtime**: Node.js with Express.js
 - **Database**: PostgreSQL with Sequelize ORM
 - **Authentication**: JWT (JSON Web Tokens)
 - **Validation**: express-validator
 - **Password Hashing**: bcryptjs
 - **Security**: helmet, cors
+- **File Upload**: multer
+
+### Frontend
+- **Framework**: React 18 with Vite
+- **UI Library**: React Bootstrap
+- **Routing**: React Router v6
+- **Icons**: React Icons (Font Awesome)
+- **PDF Generation**: jsPDF with jspdf-autotable
+- **HTTP Client**: Axios
 
 ## Prerequisites
 
@@ -28,6 +61,8 @@ A Node.js REST API for a basic Enterprise Resource Planning (ERP) system targeti
 - npm or yarn
 
 ## Installation
+
+### Backend Setup
 
 1. Clone the repository:
 ```bash
@@ -64,7 +99,7 @@ JWT_EXPIRES_IN=24h
 CREATE DATABASE erp_database;
 ```
 
-6. Start the server:
+6. Start the backend server:
 ```bash
 # Development mode
 npm run dev
@@ -72,6 +107,30 @@ npm run dev
 # Production mode
 npm start
 ```
+
+### Frontend Setup
+
+1. Navigate to the frontend directory:
+```bash
+cd erp-frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create a `.env` file:
+```env
+VITE_API_URL=http://localhost:3000/api
+```
+
+4. Start the frontend development server:
+```bash
+npm run dev
+```
+
+The frontend will be available at `http://localhost:5173`
 
 ## API Endpoints
 
@@ -81,6 +140,17 @@ npm start
 | POST | `/api/auth/register` | Register new user |
 | POST | `/api/auth/login` | Login and get JWT |
 | GET | `/api/auth/me` | Get current user profile |
+
+### Companies (Super Admin only)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/companies` | List all companies |
+| POST | `/api/companies` | Create company |
+| GET | `/api/companies/:id` | Get company details |
+| PUT | `/api/companies/:id` | Update company |
+| DELETE | `/api/companies/:id` | Delete company |
+| POST | `/api/companies/:id/logo` | Upload company logo |
+| DELETE | `/api/companies/:id/logo` | Delete company logo |
 
 ### Users (Admin only)
 | Method | Endpoint | Description |
@@ -113,9 +183,20 @@ npm start
 |--------|----------|-------------|
 | GET | `/api/inventory` | List stock levels |
 | GET | `/api/inventory/low-stock` | Get low stock items |
+| GET | `/api/inventory/export` | Export inventory to CSV |
 | GET | `/api/inventory/:productId` | Get product inventory |
 | PUT | `/api/inventory/:productId` | Update stock |
 | POST | `/api/inventory/adjust` | Adjust stock (add/remove/set) |
+
+### Inventory Adjustments
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/inventory-adjustments` | List all adjustments |
+| GET | `/api/inventory-adjustments/products` | Get products with current stock |
+| POST | `/api/inventory-adjustments` | Create adjustment |
+| GET | `/api/inventory-adjustments/:id` | Get adjustment details |
+| PATCH | `/api/inventory-adjustments/:id/status` | Update status |
+| DELETE | `/api/inventory-adjustments/:id` | Delete adjustment (pending only) |
 
 ### Sales
 | Method | Endpoint | Description |
@@ -126,6 +207,16 @@ npm start
 | PUT | `/api/sales/:id` | Update sale |
 | PATCH | `/api/sales/:id/status` | Update status |
 | DELETE | `/api/sales/:id` | Cancel/delete sale |
+
+### Sales Returns
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/sales-returns` | List sales returns |
+| GET | `/api/sales-returns/sale/:saleId/returnable-items` | Get returnable items |
+| POST | `/api/sales-returns` | Create sales return |
+| GET | `/api/sales-returns/:id` | Get return details |
+| PATCH | `/api/sales-returns/:id/status` | Update status |
+| DELETE | `/api/sales-returns/:id` | Delete return |
 
 ### Purchases
 | Method | Endpoint | Description |
@@ -138,9 +229,28 @@ npm start
 | PATCH | `/api/purchases/:id/receive` | Receive goods |
 | DELETE | `/api/purchases/:id` | Delete purchase |
 
+### Purchase Returns
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/purchase-returns` | List purchase returns |
+| GET | `/api/purchase-returns/purchase/:purchaseId/returnable-items` | Get returnable items |
+| POST | `/api/purchase-returns` | Create purchase return |
+| GET | `/api/purchase-returns/:id` | Get return details |
+| PATCH | `/api/purchase-returns/:id/status` | Update status |
+| DELETE | `/api/purchase-returns/:id` | Delete return |
+
+### Reports
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/reports/sales` | Get sales report |
+| GET | `/api/reports/sales/export` | Export sales to CSV |
+| GET | `/api/reports/purchases` | Get purchases report |
+| GET | `/api/reports/purchases/export` | Export purchases to CSV |
+
 ## User Roles
 
-- **admin**: Full access to all features including user management
+- **superadmin**: Full access including company management
+- **admin**: Full access to all features within their company
 - **manager**: Access to all business operations
 - **staff**: Limited access to day-to-day operations
 
@@ -179,64 +289,6 @@ npm start
 }
 ```
 
-## Example Usage
-
-### Register a User
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@example.com",
-    "password": "password123",
-    "name": "Admin User",
-    "role": "admin"
-  }'
-```
-
-### Login
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@example.com",
-    "password": "password123"
-  }'
-```
-
-### Create a Product (with auth token)
-```bash
-curl -X POST http://localhost:3000/api/products \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{
-    "sku": "PROD-001",
-    "name": "Sample Product",
-    "description": "A sample product",
-    "category": "Electronics",
-    "unit": "piece",
-    "costPrice": 50.00,
-    "sellingPrice": 79.99
-  }'
-```
-
-### Create a Sale Order
-```bash
-curl -X POST http://localhost:3000/api/sales \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{
-    "customerId": 1,
-    "items": [
-      {
-        "productId": 1,
-        "quantity": 2
-      }
-    ],
-    "tax": 10.00,
-    "notes": "First order"
-  }'
-```
-
 ## Project Structure
 
 ```
@@ -246,35 +298,53 @@ erp-system/
 │   │   └── database.js
 │   ├── middleware/
 │   │   ├── auth.js
+│   │   ├── companyScope.js
 │   │   ├── errorHandler.js
 │   │   └── validate.js
 │   ├── models/
 │   │   ├── index.js
+│   │   ├── Company.js
 │   │   ├── User.js
 │   │   ├── Customer.js
 │   │   ├── Product.js
 │   │   ├── Inventory.js
+│   │   ├── InventoryAdjustment.js
+│   │   ├── InventoryAdjustmentItem.js
 │   │   ├── Sale.js
 │   │   ├── SaleItem.js
+│   │   ├── SalesReturn.js
+│   │   ├── SalesReturnItem.js
 │   │   ├── Purchase.js
-│   │   └── PurchaseItem.js
+│   │   ├── PurchaseItem.js
+│   │   ├── PurchaseReturn.js
+│   │   └── PurchaseReturnItem.js
 │   ├── routes/
 │   │   ├── index.js
 │   │   ├── auth.routes.js
+│   │   ├── companies.routes.js
 │   │   ├── users.routes.js
 │   │   ├── customers.routes.js
 │   │   ├── products.routes.js
 │   │   ├── inventory.routes.js
+│   │   ├── inventoryAdjustments.routes.js
 │   │   ├── sales.routes.js
-│   │   └── purchases.routes.js
+│   │   ├── salesReturns.routes.js
+│   │   ├── purchases.routes.js
+│   │   ├── purchaseReturns.routes.js
+│   │   └── reports.routes.js
 │   ├── controllers/
 │   │   ├── auth.controller.js
+│   │   ├── companies.controller.js
 │   │   ├── users.controller.js
 │   │   ├── customers.controller.js
 │   │   ├── products.controller.js
 │   │   ├── inventory.controller.js
+│   │   ├── inventoryAdjustments.controller.js
 │   │   ├── sales.controller.js
-│   │   └── purchases.controller.js
+│   │   ├── salesReturns.controller.js
+│   │   ├── purchases.controller.js
+│   │   ├── purchaseReturns.controller.js
+│   │   └── reports.controller.js
 │   ├── services/
 │   │   ├── auth.service.js
 │   │   ├── inventory.service.js
@@ -282,12 +352,44 @@ erp-system/
 │   └── utils/
 │       ├── apiResponse.js
 │       └── constants.js
+├── uploads/                    # Uploaded files (logos)
+├── erp-frontend/              # React frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── common/
+│   │   │   └── Layout/
+│   │   ├── context/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── utils/
+│   ├── public/
+│   └── package.json
 ├── app.js
 ├── server.js
 ├── package.json
 ├── .env.example
 └── README.md
 ```
+
+## Screenshots
+
+### Dashboard
+The main dashboard provides an overview of key business metrics.
+
+### Inventory Management
+- View all inventory with stock levels
+- Export inventory data to CSV
+- Low stock alerts
+
+### Inventory Adjustments
+- Create adjustments with physical count values
+- Approval workflow (Pending → Approved → Completed)
+- Audit trail for all stock changes
+
+### Sales & Purchases
+- Create and manage orders
+- Generate PDF invoices
+- Process returns
 
 ## License
 

@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaFileExport, FaSearch, FaChartBar } from 'react-icons/fa';
 import { reportsAPI, customersAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { PURCHASE_STATUS } from '../utils/constants';
+import { formatCurrency } from '../utils/currency';
 
 const PurchasesReport = () => {
+  const { user } = useAuth();
+  const currency = user?.company?.currency || 'USD';
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -93,8 +97,8 @@ const PurchasesReport = () => {
     fetchReport();
   };
 
-  const formatCurrency = (value) => {
-    return `$${parseFloat(value).toFixed(2)}`;
+  const formatAmount = (value) => {
+    return formatCurrency(value, currency);
   };
 
   return (
@@ -198,7 +202,7 @@ const PurchasesReport = () => {
             <Card className="text-center h-100">
               <Card.Body>
                 <h6 className="text-muted">Total Amount</h6>
-                <h2 className="text-success">{formatCurrency(summary.totalAmount)}</h2>
+                <h2 className="text-success">{formatAmount(summary.totalAmount)}</h2>
               </Card.Body>
             </Card>
           </Col>
@@ -206,7 +210,7 @@ const PurchasesReport = () => {
             <Card className="text-center h-100">
               <Card.Body>
                 <h6 className="text-muted">Total Tax</h6>
-                <h2 className="text-info">{formatCurrency(summary.totalTax)}</h2>
+                <h2 className="text-info">{formatAmount(summary.totalTax)}</h2>
               </Card.Body>
             </Card>
           </Col>
@@ -271,9 +275,9 @@ const PurchasesReport = () => {
                           <td>{item.product?.name || '-'}</td>
                           <td className="text-end">{item.quantity}</td>
                           <td><StatusBadge status={purchase.status} /></td>
-                          <td className="text-end">{formatCurrency(purchase.subtotal)}</td>
-                          <td className="text-end">{formatCurrency(purchase.tax)}</td>
-                          <td className="text-end fw-bold">{formatCurrency(purchase.total)}</td>
+                          <td className="text-end">{formatAmount(purchase.subtotal)}</td>
+                          <td className="text-end">{formatAmount(purchase.tax)}</td>
+                          <td className="text-end fw-bold">{formatAmount(purchase.total)}</td>
                         </tr>
                       ))
                     : [
@@ -286,9 +290,9 @@ const PurchasesReport = () => {
                           <td>-</td>
                           <td className="text-end">-</td>
                           <td><StatusBadge status={purchase.status} /></td>
-                          <td className="text-end">{formatCurrency(purchase.subtotal)}</td>
-                          <td className="text-end">{formatCurrency(purchase.tax)}</td>
-                          <td className="text-end fw-bold">{formatCurrency(purchase.total)}</td>
+                          <td className="text-end">{formatAmount(purchase.subtotal)}</td>
+                          <td className="text-end">{formatAmount(purchase.tax)}</td>
+                          <td className="text-end fw-bold">{formatAmount(purchase.total)}</td>
                         </tr>
                       ]
                 )}
@@ -297,13 +301,13 @@ const PurchasesReport = () => {
                 <tr className="table-dark">
                   <td colSpan="8" className="text-end fw-bold">Totals:</td>
                   <td className="text-end fw-bold">
-                    {formatCurrency(purchases.reduce((sum, p) => sum + parseFloat(p.subtotal), 0))}
+                    {formatAmount(purchases.reduce((sum, p) => sum + parseFloat(p.subtotal), 0))}
                   </td>
                   <td className="text-end fw-bold">
-                    {formatCurrency(purchases.reduce((sum, p) => sum + parseFloat(p.tax), 0))}
+                    {formatAmount(purchases.reduce((sum, p) => sum + parseFloat(p.tax), 0))}
                   </td>
                   <td className="text-end fw-bold">
-                    {formatCurrency(purchases.reduce((sum, p) => sum + parseFloat(p.total), 0))}
+                    {formatAmount(purchases.reduce((sum, p) => sum + parseFloat(p.total), 0))}
                   </td>
                 </tr>
               </tfoot>

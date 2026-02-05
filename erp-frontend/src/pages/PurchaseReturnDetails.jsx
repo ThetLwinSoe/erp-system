@@ -2,43 +2,43 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import { FaArrowLeft } from 'react-icons/fa';
-import { salesReturnsAPI } from '../services/api';
+import { purchaseReturnsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { formatCurrency } from '../utils/currency';
 
-const SalesReturnDetails = () => {
+const PurchaseReturnDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const currency = user?.company?.currency || 'USD';
-  const [salesReturn, setSalesReturn] = useState(null);
+  const [purchaseReturn, setPurchaseReturn] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updating, setUpdating] = useState(false);
 
-  const fetchSalesReturn = async () => {
+  const fetchPurchaseReturn = async () => {
     try {
       setLoading(true);
-      const response = await salesReturnsAPI.getById(id);
-      setSalesReturn(response.data.data);
+      const response = await purchaseReturnsAPI.getById(id);
+      setPurchaseReturn(response.data.data);
     } catch (err) {
-      setError('Failed to load sales return details');
+      setError('Failed to load purchase return details');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSalesReturn();
+    fetchPurchaseReturn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleStatusChange = async (newStatus) => {
     try {
       setUpdating(true);
-      await salesReturnsAPI.updateStatus(id, newStatus);
-      fetchSalesReturn();
+      await purchaseReturnsAPI.updateStatus(id, newStatus);
+      fetchPurchaseReturn();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update status');
     } finally {
@@ -53,7 +53,7 @@ const SalesReturnDetails = () => {
       completed: [],
       cancelled: [],
     };
-    return transitions[salesReturn?.status] || [];
+    return transitions[purchaseReturn?.status] || [];
   };
 
   if (loading) {
@@ -64,15 +64,15 @@ const SalesReturnDetails = () => {
     );
   }
 
-  if (!salesReturn) {
-    return <Alert variant="danger">Sales return not found</Alert>;
+  if (!purchaseReturn) {
+    return <Alert variant="danger">Purchase return not found</Alert>;
   }
 
   return (
     <div>
-      <Button variant="link" className="mb-3 ps-0" onClick={() => navigate('/sales-returns')}>
+      <Button variant="link" className="mb-3 ps-0" onClick={() => navigate('/purchase-returns')}>
         <FaArrowLeft className="me-2" />
-        Back to Sales Returns
+        Back to Purchase Returns
       </Button>
 
       {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
@@ -81,18 +81,18 @@ const SalesReturnDetails = () => {
         <Col md={8}>
           <Card>
             <Card.Header className="d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">Return: {salesReturn.returnNumber}</h5>
-              <StatusBadge status={salesReturn.status} />
+              <h5 className="mb-0">Return: {purchaseReturn.returnNumber}</h5>
+              <StatusBadge status={purchaseReturn.status} />
             </Card.Header>
             <Card.Body>
               <div className="mb-3">
-                <strong>Original Order:</strong>{' '}
+                <strong>Original PO:</strong>{' '}
                 <Button
                   variant="link"
                   className="p-0"
-                  onClick={() => navigate(`/sales/${salesReturn.sale?.id}`)}
+                  onClick={() => navigate(`/purchases/${purchaseReturn.purchase?.id}`)}
                 >
-                  {salesReturn.sale?.orderNumber}
+                  {purchaseReturn.purchase?.orderNumber}
                 </Button>
               </div>
 
@@ -107,7 +107,7 @@ const SalesReturnDetails = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {salesReturn.items?.map((item) => (
+                  {purchaseReturn.items?.map((item) => (
                     <tr key={item.id}>
                       <td>{item.product?.name}</td>
                       <td><code>{item.product?.sku}</code></td>
@@ -120,28 +120,28 @@ const SalesReturnDetails = () => {
                 <tfoot>
                   <tr>
                     <td colSpan="4" className="text-end">Subtotal:</td>
-                    <td>{formatCurrency(salesReturn.subtotal, currency)}</td>
+                    <td>{formatCurrency(purchaseReturn.subtotal, currency)}</td>
                   </tr>
                   <tr>
                     <td colSpan="4" className="text-end">Tax:</td>
-                    <td>{formatCurrency(salesReturn.tax, currency)}</td>
+                    <td>{formatCurrency(purchaseReturn.tax, currency)}</td>
                   </tr>
                   <tr>
                     <td colSpan="4" className="text-end"><strong>Total:</strong></td>
-                    <td><strong>{formatCurrency(salesReturn.total, currency)}</strong></td>
+                    <td><strong>{formatCurrency(purchaseReturn.total, currency)}</strong></td>
                   </tr>
                 </tfoot>
               </Table>
 
-              {salesReturn.reason && (
+              {purchaseReturn.reason && (
                 <Alert variant="light">
-                  <strong>Reason:</strong> {salesReturn.reason}
+                  <strong>Reason:</strong> {purchaseReturn.reason}
                 </Alert>
               )}
 
-              {salesReturn.notes && (
+              {purchaseReturn.notes && (
                 <Alert variant="light">
-                  <strong>Notes:</strong> {salesReturn.notes}
+                  <strong>Notes:</strong> {purchaseReturn.notes}
                 </Alert>
               )}
             </Card.Body>
@@ -150,20 +150,20 @@ const SalesReturnDetails = () => {
 
         <Col md={4}>
           <Card className="mb-4">
-            <Card.Header>Customer Info</Card.Header>
+            <Card.Header>Supplier Info</Card.Header>
             <Card.Body>
-              <p className="mb-1"><strong>{salesReturn.sale?.customer?.name}</strong></p>
-              <p className="mb-1 text-muted">{salesReturn.sale?.customer?.email}</p>
-              <p className="mb-0 text-muted">{salesReturn.sale?.customer?.phone}</p>
+              <p className="mb-1"><strong>{purchaseReturn.purchase?.supplier?.name}</strong></p>
+              <p className="mb-1 text-muted">{purchaseReturn.purchase?.supplier?.email}</p>
+              <p className="mb-0 text-muted">{purchaseReturn.purchase?.supplier?.phone}</p>
             </Card.Body>
           </Card>
 
           <Card className="mb-4">
             <Card.Header>Return Info</Card.Header>
             <Card.Body>
-              <p className="mb-1"><strong>Created:</strong> {new Date(salesReturn.createdAt).toLocaleString()}</p>
-              <p className="mb-1"><strong>Created By:</strong> {salesReturn.user?.name}</p>
-              <p className="mb-0"><strong>Last Updated:</strong> {new Date(salesReturn.updatedAt).toLocaleString()}</p>
+              <p className="mb-1"><strong>Created:</strong> {new Date(purchaseReturn.createdAt).toLocaleString()}</p>
+              <p className="mb-1"><strong>Created By:</strong> {purchaseReturn.user?.name}</p>
+              <p className="mb-0"><strong>Last Updated:</strong> {new Date(purchaseReturn.updatedAt).toLocaleString()}</p>
             </Card.Body>
           </Card>
 
@@ -193,4 +193,4 @@ const SalesReturnDetails = () => {
   );
 };
 
-export default SalesReturnDetails;
+export default PurchaseReturnDetails;

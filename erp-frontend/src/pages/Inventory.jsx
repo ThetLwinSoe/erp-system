@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge, Tab, Tabs } from 'react-bootstrap';
-import { FaEdit, FaExclamationTriangle } from 'react-icons/fa';
+import { Card, Table, Button, Spinner, Alert, Badge, Tab, Tabs } from 'react-bootstrap';
+import { FaExclamationTriangle, FaFileExport } from 'react-icons/fa';
 import { inventoryAPI } from '../services/api';
 import Pagination from '../components/common/Pagination';
-import { ADJUSTMENT_TYPES } from '../utils/constants';
 
 const Inventory = () => {
   const [inventory, setInventory] = useState([]);
@@ -11,15 +10,8 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
-  const [showModal, setShowModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-  const [formData, setFormData] = useState({
-    type: 'add',
-    quantity: '',
-    reason: '',
-  });
+  const [exporting, setExporting] = useState(false);
 
   const fetchInventory = async () => {
     try {
@@ -42,36 +34,33 @@ const Inventory = () => {
     fetchInventory();
   }, [page]);
 
-  const handleOpenModal = (item) => {
-    setSelectedItem(item);
-    setFormData({ type: 'add', quantity: '', reason: '' });
-    setError('');
-    setShowModal(true);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      await inventoryAPI.adjust({
-        productId: selectedItem.productId,
-        type: formData.type,
-        quantity: parseInt(formData.quantity),
-        reason: formData.reason,
-      });
-      setShowModal(false);
-      fetchInventory();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Adjustment failed');
-    }
-  };
-
   const getStockBadge = (item) => {
     const { quantity, minStockLevel } = item;
     if (quantity <= 0) return <Badge bg="danger">{quantity}</Badge>;
     if (quantity <= minStockLevel) return <Badge bg="warning">{quantity}</Badge>;
     return <Badge bg="success">{quantity}</Badge>;
+  };
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const response = await inventoryAPI.exportCSV();
+
+      // Create download link
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting inventory:', error);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const renderTable = (data) => (
@@ -85,7 +74,6 @@ const Inventory = () => {
           <th>Min Level</th>
           <th>Location</th>
           <th>Last Restocked</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -98,11 +86,6 @@ const Inventory = () => {
             <td>{item.minStockLevel}</td>
             <td>{item.location || '-'}</td>
             <td>{item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString() : '-'}</td>
-            <td>
-              <Button variant="outline-primary" size="sm" onClick={() => handleOpenModal(item)}>
-                <FaEdit className="me-1" /> Adjust
-              </Button>
-            </td>
           </tr>
         ))}
       </tbody>
@@ -111,7 +94,15 @@ const Inventory = () => {
 
   return (
     <div>
-      <h2 className="mb-4">Inventory Management</h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="mb-0">Inventory Management</h2>
+        {inventory.length > 0 && (
+          <Button variant="success" onClick={handleExport} disabled={exporting}>
+            <FaFileExport className="me-2" />
+            {exporting ? 'Exporting...' : 'Export to CSV'}
+          </Button>
+        )}
+      </div>
 
       <Card>
         <Card.Header>
@@ -151,57 +142,6 @@ const Inventory = () => {
           </Card.Footer>
         )}
       </Card>
-
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Adjust Inventory</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body>
-            {error && <Alert variant="danger">{error}</Alert>}
-
-            <Alert variant="info">
-              <strong>{selectedItem?.product?.name}</strong><br />
-              Current Stock: {selectedItem?.quantity}
-            </Alert>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Adjustment Type</Form.Label>
-              <Form.Select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
-                <option value={ADJUSTMENT_TYPES.ADD}>Add Stock</option>
-                <option value={ADJUSTMENT_TYPES.REMOVE}>Remove Stock</option>
-                <option value={ADJUSTMENT_TYPES.SET}>Set Stock Level</option>
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Quantity</Form.Label>
-              <Form.Control
-                type="number"
-                min="0"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Reason (optional)</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                value={formData.reason}
-                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                placeholder="e.g., Damaged goods, Restock, Inventory count adjustment"
-              />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit">Apply Adjustment</Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
     </div>
   );
 };

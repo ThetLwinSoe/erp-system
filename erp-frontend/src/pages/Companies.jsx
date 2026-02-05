@@ -6,7 +6,7 @@ import { companiesAPI, getStaticUrl } from '../services/api';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
-import { COMPANY_STATUS, COMPANY_STATUS_COLORS } from '../utils/constants';
+import { COMPANY_STATUS, COMPANY_STATUS_COLORS, CURRENCIES, CURRENCY_LABELS } from '../utils/constants';
 
 const Companies = () => {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ const Companies = () => {
     phone: '',
     email: '',
     status: COMPANY_STATUS.ACTIVE,
+    currency: CURRENCIES.USD,
     createAdmin: false,
     adminName: '',
     adminEmail: '',
@@ -60,6 +61,7 @@ const Companies = () => {
         phone: company.phone || '',
         email: company.email || '',
         status: company.status,
+        currency: company.currency || CURRENCIES.USD,
         createAdmin: false,
         adminName: '',
         adminEmail: '',
@@ -74,6 +76,7 @@ const Companies = () => {
         phone: '',
         email: '',
         status: COMPANY_STATUS.ACTIVE,
+        currency: CURRENCIES.USD,
         createAdmin: false,
         adminName: '',
         adminEmail: '',
@@ -133,6 +136,7 @@ const Companies = () => {
         phone: formData.phone,
         email: formData.email,
         status: formData.status,
+        currency: formData.currency,
       };
 
       if (!selectedCompany && formData.createAdmin) {
@@ -192,6 +196,7 @@ const Companies = () => {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
+                  <th>Currency</th>
                   <th>Status</th>
                   <th>Created At</th>
                   <th>Actions</th>
@@ -222,6 +227,7 @@ const Companies = () => {
                     <td>{company.name}</td>
                     <td>{company.email || '-'}</td>
                     <td>{company.phone || '-'}</td>
+                    <td>{company.currency || 'USD'}</td>
                     <td>
                       <Badge bg={COMPANY_STATUS_COLORS[company.status]}>
                         {company.status}
@@ -320,6 +326,19 @@ const Companies = () => {
               >
                 <option value={COMPANY_STATUS.ACTIVE}>Active</option>
                 <option value={COMPANY_STATUS.INACTIVE}>Inactive</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Currency</Form.Label>
+              <Form.Select
+                value={formData.currency}
+                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+              >
+                {Object.keys(CURRENCIES).map((key) => (
+                  <option key={key} value={CURRENCIES[key]}>
+                    {CURRENCY_LABELS[key]}
+                  </option>
+                ))}
               </Form.Select>
             </Form.Group>
 

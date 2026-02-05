@@ -37,6 +37,11 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(500),
         allowNull: true,
       },
+      currency: {
+        type: DataTypes.ENUM('USD', 'SGD', 'THB', 'MMK'),
+        defaultValue: 'USD',
+        allowNull: false,
+      },
     },
     {
       tableName: 'companies',

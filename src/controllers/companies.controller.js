@@ -61,11 +61,11 @@ class CompaniesController {
    */
   static async create(req, res, next) {
     try {
-      const { name, address, phone, email, adminUser } = req.body;
+      const { name, address, phone, email, currency, adminUser } = req.body;
 
       const result = await sequelize.transaction(async (transaction) => {
         const company = await Company.create(
-          { name, address: address || null, phone: phone || null, email: email || null, status: COMPANY_STATUS.ACTIVE },
+          { name, address: address || null, phone: phone || null, email: email || null, status: COMPANY_STATUS.ACTIVE, currency: currency || 'USD' },
           { transaction }
         );
 
@@ -143,7 +143,7 @@ class CompaniesController {
         return ApiResponse.notFound(res, 'Company not found');
       }
 
-      const { name, address, phone, email, status } = req.body;
+      const { name, address, phone, email, status, currency } = req.body;
 
       const updates = {};
       if (name !== undefined) updates.name = name;
@@ -151,6 +151,7 @@ class CompaniesController {
       if (phone !== undefined) updates.phone = phone || null;
       if (email !== undefined) updates.email = email || null;
       if (status !== undefined) updates.status = status;
+      if (currency !== undefined) updates.currency = currency;
 
       await company.update(updates);
 

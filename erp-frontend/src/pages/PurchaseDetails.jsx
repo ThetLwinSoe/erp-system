@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Modal, Form, ProgressBar } from 'react-bootstrap';
-import { FaArrowLeft, FaCheck, FaPrint } from 'react-icons/fa';
+import { FaArrowLeft, FaCheck, FaPrint, FaUndo } from 'react-icons/fa';
 import { purchasesAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
+import { formatCurrency } from '../utils/currency';
 
 const PurchaseDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const currency = user?.company?.currency || 'USD';
   const [purchase, setPurchase] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,6 +35,7 @@ const PurchaseDetails = () => {
 
   useEffect(() => {
     fetchPurchase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleStatusChange = async (newStatus) => {
@@ -111,6 +114,10 @@ const PurchaseDetails = () => {
     return ['ordered', 'partial', 'received'].includes(purchase?.status);
   };
 
+  const canReturn = () => {
+    return ['partial', 'received'].includes(purchase?.status);
+  };
+
   const handlePrintInvoice = async () => {
     try {
       setPrinting(true);
@@ -120,6 +127,7 @@ const PurchaseDetails = () => {
         address: user.company.address,
         phone: user.company.phone,
         email: user.company.email,
+        currency: user.company.currency,
       } : null;
 
       await generateInvoicePDF({
@@ -162,6 +170,16 @@ const PurchaseDetails = () => {
             <Card.Header className="d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Order: {purchase.orderNumber}</h5>
               <div className="d-flex align-items-center gap-2">
+                {canReturn() && (
+                  <Button
+                    variant="outline-warning"
+                    size="sm"
+                    onClick={() => navigate(`/purchases/${id}/return`)}
+                  >
+                    <FaUndo className="me-1" />
+                    Create Return
+                  </Button>
+                )}
                 {canPrint() && (
                   <Button
                     variant="outline-secondary"
@@ -203,23 +221,23 @@ const PurchaseDetails = () => {
                           />
                         )}
                       </td>
-                      <td>${parseFloat(item.unitPrice).toFixed(2)}</td>
-                      <td>${parseFloat(item.total).toFixed(2)}</td>
+                      <td>{formatCurrency(item.unitPrice, currency)}</td>
+                      <td>{formatCurrency(item.total, currency)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
                     <td colSpan="5" className="text-end">Subtotal:</td>
-                    <td>${parseFloat(purchase.subtotal).toFixed(2)}</td>
+                    <td>{formatCurrency(purchase.subtotal, currency)}</td>
                   </tr>
                   <tr>
                     <td colSpan="5" className="text-end">Tax:</td>
-                    <td>${parseFloat(purchase.tax).toFixed(2)}</td>
+                    <td>{formatCurrency(purchase.tax, currency)}</td>
                   </tr>
                   <tr>
                     <td colSpan="5" className="text-end"><strong>Total:</strong></td>
-                    <td><strong>${parseFloat(purchase.total).toFixed(2)}</strong></td>
+                    <td><strong>{formatCurrency(purchase.total, currency)}</strong></td>
                   </tr>
                 </tfoot>
               </Table>

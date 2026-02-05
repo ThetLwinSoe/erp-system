@@ -3,14 +3,18 @@ import { Card, Table, Button, Modal, Form, Spinner, Alert, Row, Col } from 'reac
 import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { purchasesAPI, customersAPI, productsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { PURCHASE_STATUS } from '../utils/constants';
+import { formatCurrency } from '../utils/currency';
 
 const Purchases = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const currency = user?.company?.currency || 'USD';
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -194,7 +198,7 @@ const Purchases = () => {
                     <td><code>{purchase.orderNumber}</code></td>
                     <td>{purchase.supplier?.name}</td>
                     <td><StatusBadge status={purchase.status} /></td>
-                    <td><strong>${parseFloat(purchase.total).toFixed(2)}</strong></td>
+                    <td><strong>{formatCurrency(purchase.total, currency)}</strong></td>
                     <td>{purchase.expectedDelivery ? new Date(purchase.expectedDelivery).toLocaleDateString() : '-'}</td>
                     <td>{new Date(purchase.createdAt).toLocaleDateString()}</td>
                     <td>
@@ -296,16 +300,16 @@ const Purchases = () => {
             <Alert variant="secondary">
               <div className="d-flex justify-content-between">
                 <span>Subtotal:</span>
-                <strong>${calculateSubtotal().toFixed(2)}</strong>
+                <strong>{formatCurrency(calculateSubtotal(), currency)}</strong>
               </div>
               <div className="d-flex justify-content-between">
                 <span>Tax:</span>
-                <strong>${(parseFloat(formData.tax) || 0).toFixed(2)}</strong>
+                <strong>{formatCurrency(parseFloat(formData.tax) || 0, currency)}</strong>
               </div>
               <hr className="my-1" />
               <div className="d-flex justify-content-between">
                 <span>Total:</span>
-                <strong>${(calculateSubtotal() + (parseFloat(formData.tax) || 0)).toFixed(2)}</strong>
+                <strong>{formatCurrency(calculateSubtotal() + (parseFloat(formData.tax) || 0), currency)}</strong>
               </div>
             </Alert>
           </Modal.Body>

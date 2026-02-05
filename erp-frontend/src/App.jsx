@@ -21,8 +21,14 @@ import SalesReturnDetails from './pages/SalesReturnDetails'
 import CreateSalesReturn from './pages/CreateSalesReturn'
 import Purchases from './pages/Purchases'
 import PurchaseDetails from './pages/PurchaseDetails'
+import PurchaseReturns from './pages/PurchaseReturns'
+import PurchaseReturnDetails from './pages/PurchaseReturnDetails'
+import CreatePurchaseReturn from './pages/CreatePurchaseReturn'
 import SalesReport from './pages/SalesReport'
 import PurchasesReport from './pages/PurchasesReport'
+import InventoryAdjustments from './pages/InventoryAdjustments'
+import InventoryAdjustmentDetails from './pages/InventoryAdjustmentDetails'
+import CreateInventoryAdjustment from './pages/CreateInventoryAdjustment'
 
 function App() {
   const { isAuthenticated } = useAuth()
@@ -45,6 +51,9 @@ function App() {
           <Route path="/customers" element={<Customers />} />
           <Route path="/products" element={<Products />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />
+          <Route path="/inventory-adjustments/new" element={<CreateInventoryAdjustment />} />
+          <Route path="/inventory-adjustments/:id" element={<InventoryAdjustmentDetails />} />
           <Route path="/sales" element={<Sales />} />
           <Route path="/sales/:id" element={<SaleDetails />} />
           <Route path="/sales/:saleId/return" element={<CreateSalesReturn />} />
@@ -52,6 +61,9 @@ function App() {
           <Route path="/sales-returns/:id" element={<SalesReturnDetails />} />
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/purchases/:id" element={<PurchaseDetails />} />
+          <Route path="/purchases/:purchaseId/return" element={<CreatePurchaseReturn />} />
+          <Route path="/purchase-returns" element={<PurchaseReturns />} />
+          <Route path="/purchase-returns/:id" element={<PurchaseReturnDetails />} />
           <Route path="/reports/sales" element={<SalesReport />} />
           <Route path="/reports/purchases" element={<PurchasesReport />} />
         </Route>

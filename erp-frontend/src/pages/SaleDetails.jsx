@@ -7,11 +7,13 @@ import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { ORDER_STATUS } from '../utils/constants';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
+import { formatCurrency } from '../utils/currency';
 
 const SaleDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const currency = user?.company?.currency || 'USD';
   const [sale, setSale] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,6 +77,7 @@ const SaleDetails = () => {
         address: user.company.address,
         phone: user.company.phone,
         email: user.company.email,
+        currency: user.company.currency,
       } : null;
 
       await generateInvoicePDF({
@@ -158,23 +161,23 @@ const SaleDetails = () => {
                       <td>{item.product?.name}</td>
                       <td><code>{item.product?.sku}</code></td>
                       <td>{item.quantity}</td>
-                      <td>${parseFloat(item.unitPrice || 0).toFixed(2)}</td>
-                      <td>${parseFloat(item.total || 0).toFixed(2)}</td>
+                      <td>{formatCurrency(item.unitPrice, currency)}</td>
+                      <td>{formatCurrency(item.total, currency)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
                     <td colSpan="4" className="text-end">Subtotal:</td>
-                    <td>${parseFloat(sale.subtotal || 0).toFixed(2)}</td>
+                    <td>{formatCurrency(sale.subtotal, currency)}</td>
                   </tr>
                   <tr>
                     <td colSpan="4" className="text-end">Tax:</td>
-                    <td>${parseFloat(sale.tax || 0).toFixed(2)}</td>
+                    <td>{formatCurrency(sale.tax, currency)}</td>
                   </tr>
                   <tr>
                     <td colSpan="4" className="text-end"><strong>Total:</strong></td>
-                    <td><strong>${parseFloat(sale.total || 0).toFixed(2)}</strong></td>
+                    <td><strong>{formatCurrency(sale.total, currency)}</strong></td>
                   </tr>
                 </tfoot>
               </Table>

@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatCurrency } from './currency';
 
 /**
  * Generate and download invoice PDF
@@ -122,12 +123,13 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
 
   // Items table
   const tableColumns = type === 'sale'
-    ? ['#', 'Product', 'Qty', 'Price', 'Total']
-    : ['#', 'Product', 'Qty', 'Recv', 'Price', 'Total'];
+    ? ['#', 'SKU', 'Product', 'Qty', 'Price', 'Total']
+    : ['#', 'SKU', 'Product', 'Qty', 'Recv', 'Price', 'Total'];
 
   const tableData = (order.items || []).map((item, index) => {
     const row = [
       index + 1,
+      item.product?.sku || '-',
       item.product?.name || 'Unknown',
       item.quantity || 0,
     ];
@@ -136,8 +138,8 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
       row.push(item.receivedQuantity || 0);
     }
 
-    row.push(`$${parseFloat(item.unitPrice || 0).toFixed(2)}`);
-    row.push(`$${parseFloat(item.total || 0).toFixed(2)}`);
+    row.push(formatCurrency(item.unitPrice, company?.currency));
+    row.push(formatCurrency(item.total, company?.currency));
 
     return row;
   });
@@ -162,17 +164,19 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     },
     columnStyles: type === 'sale' ? {
       0: { cellWidth: 8 },
-      1: { cellWidth: 'auto' },
-      2: { cellWidth: 15, halign: 'center' },
-      3: { cellWidth: 22, halign: 'right' },
-      4: { cellWidth: 25, halign: 'right' },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 'auto' },
+      3: { cellWidth: 12, halign: 'center' },
+      4: { cellWidth: 20, halign: 'right' },
+      5: { cellWidth: 22, halign: 'right' },
     } : {
       0: { cellWidth: 8 },
-      1: { cellWidth: 'auto' },
-      2: { cellWidth: 12, halign: 'center' },
-      3: { cellWidth: 12, halign: 'center' },
-      4: { cellWidth: 18, halign: 'right' },
-      5: { cellWidth: 22, halign: 'right' },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 'auto' },
+      3: { cellWidth: 10, halign: 'center' },
+      4: { cellWidth: 10, halign: 'center' },
+      5: { cellWidth: 18, halign: 'right' },
+      6: { cellWidth: 20, halign: 'right' },
     },
   });
 
@@ -183,11 +187,11 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   const totalsX = pageWidth - margin - 50;
 
   addText('Subtotal:', totalsX, yPos, { fontSize: 9 });
-  addText(`$${parseFloat(order.subtotal || 0).toFixed(2)}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+  addText(formatCurrency(order.subtotal, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
   yPos += 5;
 
   addText('Tax:', totalsX, yPos, { fontSize: 9 });
-  addText(`$${parseFloat(order.tax || 0).toFixed(2)}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+  addText(formatCurrency(order.tax, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
   yPos += 5;
 
   doc.setLineWidth(0.3);
@@ -195,7 +199,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   yPos += 4;
 
   addText('TOTAL:', totalsX, yPos, { fontSize: 10, fontStyle: 'bold' });
-  addText(`$${parseFloat(order.total || 0).toFixed(2)}`, pageWidth - margin, yPos, { fontSize: 10, fontStyle: 'bold', align: 'right' });
+  addText(formatCurrency(order.total, company?.currency), pageWidth - margin, yPos, { fontSize: 10, fontStyle: 'bold', align: 'right' });
   yPos += 10;
 
   // Notes section
