@@ -50,13 +50,35 @@ const CreateSalesReturn = () => {
     setReturnItems({ ...returnItems, [saleItemId]: qty });
   };
 
-  const calculateTotal = () => {
+  const calculateItemTotal = (item, returnQty) => {
+    const price = parseFloat(item.unitPrice || 0);
+    const discountPercent = parseFloat(item.discountPercent || 0);
+    const itemSubtotal = returnQty * price;
+    const itemDiscount = itemSubtotal * (discountPercent / 100);
+    return itemSubtotal - itemDiscount;
+  };
+
+  const calculateSubtotal = () => {
     let subtotal = 0;
     returnableItems.forEach((item) => {
       const returnQty = returnItems[item.saleItemId] || 0;
-      subtotal += returnQty * parseFloat(item.unitPrice || 0);
+      if (returnQty > 0) {
+        subtotal += calculateItemTotal(item, returnQty);
+      }
     });
     return subtotal;
+  };
+
+  const calculateOrderDiscount = () => {
+    const subtotal = calculateSubtotal();
+    const orderDiscountPercent = parseFloat(sale?.discountPercent || 0);
+    return subtotal * (orderDiscountPercent / 100);
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const orderDiscount = calculateOrderDiscount();
+    return subtotal - orderDiscount;
   };
 
   const hasItemsToReturn = () => {
@@ -141,6 +163,7 @@ const CreateSalesReturn = () => {
                       <th>Available</th>
                       <th>Return Qty</th>
                       <th>Unit Price</th>
+                      <th>Discount %</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -167,6 +190,11 @@ const CreateSalesReturn = () => {
                           />
                         </td>
                         <td>{formatCurrency(item.unitPrice, currency)}</td>
+                        <td>
+                          {item.discountPercent > 0
+                            ? `${item.discountPercent}`
+                            : '-'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -221,12 +249,26 @@ const CreateSalesReturn = () => {
                   </strong>
                 </div>
                 <hr />
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Subtotal (after item discounts):</span>
+                  <span>{formatCurrency(calculateSubtotal(), currency)}</span>
+                </div>
+                {sale?.discountPercent > 0 && (
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Order Discount % ({sale.discountPercent}):</span>
+                    <span className="text-danger">-{formatCurrency(calculateOrderDiscount(), currency)}</span>
+                  </div>
+                )}
+                <hr />
                 <div className="d-flex justify-content-between">
                   <span>Estimated Refund:</span>
                   <strong className="text-success">
                     {formatCurrency(calculateTotal(), currency)}
                   </strong>
                 </div>
+                <small className="text-muted d-block mt-2">
+                  * Tax will be calculated proportionally
+                </small>
               </Card.Body>
             </Card>
 

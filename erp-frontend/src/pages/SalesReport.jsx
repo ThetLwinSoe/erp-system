@@ -71,8 +71,8 @@ const SalesReport = () => {
 
       const response = await reportsAPI.exportSalesCSV(params);
 
-      // Create download link
-      const blob = new Blob([response.data], { type: 'text/csv' });
+      // Create download link with UTF-8 BOM for proper encoding (supports Unicode/Burmese text)
+      const blob = new Blob(['\uFEFF' + response.data], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -102,8 +102,8 @@ const SalesReport = () => {
   };
 
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
+    <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+      <div className="d-flex justify-content-between align-items-center mb-4" style={{ width: '100%' }}>
         <h2>
           <FaChartBar className="me-2" />
           Sales Report
@@ -119,11 +119,11 @@ const SalesReport = () => {
       {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
 
       {/* Filters */}
-      <Card className="mb-4">
+      <Card className="mb-4" style={{ width: '100%', maxWidth: '100%' }}>
         <Card.Header>Filters</Card.Header>
         <Card.Body>
           <Form onSubmit={handleSubmit}>
-            <Row className="g-3">
+            <Row className="g-3" style={{ margin: 0 }}>
               <Col md={3}>
                 <Form.Group>
                   <Form.Label>Start Date</Form.Label>
@@ -189,73 +189,91 @@ const SalesReport = () => {
 
       {/* Summary Cards */}
       {summary && (
-        <Row className="g-4 mb-4">
-          <Col md={3}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Total Orders</h6>
-                <h2 className="text-primary">{summary.totalOrders}</h2>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Total Revenue</h6>
-                <h2 className="text-success">{formatAmount(summary.totalRevenue)}</h2>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Total Tax</h6>
-                <h2 className="text-info">{formatAmount(summary.totalTax)}</h2>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">By Status</h6>
-                <div className="d-flex flex-wrap justify-content-center gap-1 mt-2">
-                  {Object.entries(summary.byStatus).map(([status, data]) => (
-                    <Badge key={status} bg="secondary" className="me-1">
-                      {status}: {data.count}
-                    </Badge>
-                  ))}
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+        <div style={{ width: '100%', maxWidth: '100%' }}>
+          <Row className="g-3 mb-3" style={{ margin: 0 }}>
+            <Col md={3}>
+              <Card className="text-center h-100">
+                <Card.Body>
+                  <h6 className="text-muted">Total Orders</h6>
+                  <h2 className="text-primary">{summary.totalOrders}</h2>
+                  <small className="text-muted">Returns: {summary.totalReturns || 0}</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center h-100">
+                <Card.Body>
+                  <h6 className="text-muted">Gross Revenue</h6>
+                  <h2 className="text-success">{formatAmount(summary.totalRevenue)}</h2>
+                  <small className="text-danger">Returns: -{formatAmount(summary.returnRevenue || 0)}</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center h-100">
+                <Card.Body>
+                  <h6 className="text-muted">Net Revenue</h6>
+                  <h2 className="text-success">{formatAmount(summary.netRevenue || summary.totalRevenue)}</h2>
+                  <small className="text-muted">After returns</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center h-100">
+                <Card.Body>
+                  <h6 className="text-muted">Net Tax</h6>
+                  <h2 className="text-info">{formatAmount(summary.totalTax)}</h2>
+                  <small className="text-muted">After returns</small>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </div>
       )}
 
       {/* Results Table */}
-      <Card>
+      <Card style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
         <Card.Header>
           Sales Data {sales.length > 0 && <Badge bg="primary" className="ms-2">{sales.length} records</Badge>}
         </Card.Header>
-        <Card.Body>
+        <Card.Body className="p-0" style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
           {loading ? (
             <div className="text-center py-4">
               <Spinner animation="border" variant="primary" />
             </div>
           ) : sales.length === 0 ? (
-            <Alert variant="info">
+            <Alert variant="info" className="m-3">
               No sales data found. Use the filters above and click "Generate Report" to view sales data.
             </Alert>
           ) : (
-            <Table striped hover responsive>
+            <div style={{
+              width: '100%',
+              overflowX: 'auto',
+              overflowY: 'auto',
+              maxHeight: 'calc(100vh - 450px)',
+              position: 'relative'
+            }}>
+              <table className="table table-striped table-hover mb-0" style={{
+                width: '1400px',
+                minWidth: '1400px',
+                maxWidth: '1400px',
+                tableLayout: 'fixed',
+                margin: 0
+              }}>
               <thead>
                 <tr>
+                  <th>Type</th>
                   <th>Order #</th>
+                  <th>Original Order</th>
                   <th>Date</th>
                   <th>Customer ID</th>
                   <th>Customer</th>
                   <th>Item SKU</th>
                   <th>Item Name</th>
                   <th className="text-end">Qty</th>
+                  <th className="text-end">Unit Price</th>
+                  <th className="text-end">Item Disc %</th>
+                  <th className="text-end">Order Disc %</th>
                   <th>Status</th>
                   <th className="text-end">Subtotal</th>
                   <th className="text-end">Tax</th>
@@ -263,55 +281,94 @@ const SalesReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {sales.flatMap((sale) =>
-                  sale.items && sale.items.length > 0
-                    ? sale.items.map((item, idx) => (
-                        <tr key={`${sale.id}-${idx}`}>
-                          <td><code>{sale.orderNumber}</code></td>
-                          <td>{new Date(sale.createdAt).toLocaleDateString()}</td>
-                          <td><code>{sale.customer?.id || '-'}</code></td>
-                          <td>{sale.customer?.name || '-'}</td>
+                {sales.flatMap((transaction) =>
+                  transaction.items && transaction.items.length > 0
+                    ? transaction.items.map((item, idx) => (
+                        <tr key={`${transaction.id}-${idx}`} className={transaction.type === 'return' ? 'table-warning' : ''}>
+                          <td>
+                            <Badge bg={transaction.type === 'return' ? 'danger' : 'success'}>
+                              {transaction.type === 'return' ? 'Return' : 'Sale'}
+                            </Badge>
+                          </td>
+                          <td><code>{transaction.orderNumber}</code></td>
+                          <td>{transaction.type === 'return' ? <code>{transaction.originalOrderNumber}</code> : '-'}</td>
+                          <td>{new Date(transaction.createdAt).toLocaleDateString()}</td>
+                          <td><code>{transaction.customer?.id || '-'}</code></td>
+                          <td>{transaction.customer?.name || '-'}</td>
                           <td><code>{item.product?.sku || '-'}</code></td>
                           <td>{item.product?.name || '-'}</td>
-                          <td className="text-end">{item.quantity}</td>
-                          <td><StatusBadge status={sale.status} /></td>
-                          <td className="text-end">{formatAmount(sale.subtotal)}</td>
-                          <td className="text-end">{formatAmount(sale.tax)}</td>
-                          <td className="text-end fw-bold">{formatAmount(sale.total)}</td>
+                          <td className={`text-end ${item.quantity < 0 ? 'text-danger' : ''}`}>
+                            {item.quantity}
+                          </td>
+                          <td className="text-end">{formatAmount(Math.abs(item.unitPrice))}</td>
+                          <td className="text-end">
+                            {item.discountPercent > 0 ? `${item.discountPercent}` : '-'}
+                          </td>
+                          <td className="text-end">
+                            {transaction.discountPercent > 0 ? `${transaction.discountPercent}` : '-'}
+                          </td>
+                          <td><StatusBadge status={transaction.status} /></td>
+                          <td className={`text-end ${transaction.subtotal < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.subtotal)}
+                          </td>
+                          <td className={`text-end ${transaction.tax < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.tax)}
+                          </td>
+                          <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.total)}
+                          </td>
                         </tr>
                       ))
                     : [
-                        <tr key={sale.id}>
-                          <td><code>{sale.orderNumber}</code></td>
-                          <td>{new Date(sale.createdAt).toLocaleDateString()}</td>
-                          <td><code>{sale.customer?.id || '-'}</code></td>
-                          <td>{sale.customer?.name || '-'}</td>
+                        <tr key={transaction.id} className={transaction.type === 'return' ? 'table-warning' : ''}>
+                          <td>
+                            <Badge bg={transaction.type === 'return' ? 'danger' : 'success'}>
+                              {transaction.type === 'return' ? 'Return' : 'Sale'}
+                            </Badge>
+                          </td>
+                          <td><code>{transaction.orderNumber}</code></td>
+                          <td>{transaction.type === 'return' ? <code>{transaction.originalOrderNumber}</code> : '-'}</td>
+                          <td>{new Date(transaction.createdAt).toLocaleDateString()}</td>
+                          <td><code>{transaction.customer?.id || '-'}</code></td>
+                          <td>{transaction.customer?.name || '-'}</td>
                           <td>-</td>
                           <td>-</td>
                           <td className="text-end">-</td>
-                          <td><StatusBadge status={sale.status} /></td>
-                          <td className="text-end">{formatAmount(sale.subtotal)}</td>
-                          <td className="text-end">{formatAmount(sale.tax)}</td>
-                          <td className="text-end fw-bold">{formatAmount(sale.total)}</td>
+                          <td className="text-end">-</td>
+                          <td className="text-end">-</td>
+                          <td className="text-end">
+                            {transaction.discountPercent > 0 ? `${transaction.discountPercent}` : '-'}
+                          </td>
+                          <td><StatusBadge status={transaction.status} /></td>
+                          <td className={`text-end ${transaction.subtotal < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.subtotal)}
+                          </td>
+                          <td className={`text-end ${transaction.tax < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.tax)}
+                          </td>
+                          <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.total)}
+                          </td>
                         </tr>
                       ]
                 )}
               </tbody>
               <tfoot>
                 <tr className="table-dark">
-                  <td colSpan="8" className="text-end fw-bold">Totals:</td>
+                  <td colSpan="13" className="text-end fw-bold">Totals:</td>
                   <td className="text-end fw-bold">
-                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.subtotal), 0))}
+                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.subtotal || 0), 0))}
                   </td>
                   <td className="text-end fw-bold">
-                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.tax), 0))}
+                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.tax || 0), 0))}
                   </td>
                   <td className="text-end fw-bold">
-                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.total), 0))}
+                    {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.total || 0), 0))}
                   </td>
                 </tr>
               </tfoot>
-            </Table>
+            </table>
+          </div>
           )}
         </Card.Body>
       </Card>

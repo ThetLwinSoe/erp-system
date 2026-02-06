@@ -1,4 +1,4 @@
-const { Sale, SaleItem, Purchase, PurchaseItem, Customer, User, Product, sequelize } = require('../models');
+const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, Customer, User, Product, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { Op } = require('sequelize');
 
@@ -38,9 +38,14 @@ class ReportsController {
         whereClause.customerId = parseInt(customerId);
       }
 
-      // Status filter
+      // Status filter - exclude pending and cancelled by default
       if (status) {
         whereClause.status = status;
+      } else {
+        // By default, exclude pending and cancelled transactions
+        whereClause.status = {
+          [Op.notIn]: ['pending', 'cancelled']
+        };
       }
 
       const sales = await Sale.findAll({
@@ -57,15 +62,91 @@ class ReportsController {
         order: [['createdAt', 'DESC']],
       });
 
-      // Calculate summary
+      // Fetch sales returns with same filters
+      const returns = await SalesReturn.findAll({
+        where: whereClause,
+        include: [
+          {
+            model: Sale,
+            as: 'sale',
+            include: [{ model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] }],
+          },
+          { model: User, as: 'user', attributes: ['id', 'name'] },
+          {
+            model: SalesReturnItem,
+            as: 'items',
+            include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name'] }],
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+      });
+
+      // Transform returns to have negative values and add type flag
+      const transformedReturns = returns.map((ret) => ({
+        id: ret.id,
+        orderNumber: ret.returnNumber,
+        type: 'return',
+        originalOrderNumber: ret.sale?.orderNumber,
+        createdAt: ret.createdAt,
+        updatedAt: ret.updatedAt,
+        customer: ret.sale?.customer,
+        user: ret.user,
+        status: ret.status,
+        // Negative values for amounts
+        subtotal: -parseFloat(ret.subtotal),
+        discountPercent: parseFloat(ret.discountPercent || 0),
+        discountAmount: -parseFloat(ret.discountAmount || 0),
+        tax: -parseFloat(ret.tax),
+        total: -parseFloat(ret.total),
+        notes: ret.notes,
+        reason: ret.reason,
+        items: (ret.items || []).map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          product: item.product,
+          quantity: -item.quantity, // Negative quantity
+          unitPrice: parseFloat(item.unitPrice), // Price stays positive
+          discountPercent: parseFloat(item.discountPercent || 0),
+          discountAmount: -parseFloat(item.discountAmount || 0), // Negative discount amount
+          total: -parseFloat(item.total), // Negative total
+        })),
+      }));
+
+      // Add type flag to sales
+      const transformedSales = sales.map((sale) => ({
+        ...sale.toJSON(),
+        type: 'sale',
+      }));
+
+      // Combine sales and returns
+      const allTransactions = [...transformedSales, ...transformedReturns].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      // Calculate summary (returns reduce the totals)
       const summary = {
         totalOrders: sales.length,
+        totalReturns: returns.length,
         totalRevenue: sales.reduce((sum, sale) => sum + parseFloat(sale.total), 0),
-        totalTax: sales.reduce((sum, sale) => sum + parseFloat(sale.tax), 0),
+        returnRevenue: returns.reduce((sum, ret) => sum + parseFloat(ret.total), 0),
+        netRevenue: sales.reduce((sum, sale) => sum + parseFloat(sale.total), 0) -
+                    returns.reduce((sum, ret) => sum + parseFloat(ret.total), 0),
+        totalTax: sales.reduce((sum, sale) => sum + parseFloat(sale.tax), 0) -
+                  returns.reduce((sum, ret) => sum + parseFloat(ret.tax), 0),
+        totalItemDiscounts: sales.reduce((sum, sale) =>
+          sum + sale.items.reduce((itemSum, item) =>
+            itemSum + parseFloat(item.discountAmount || 0), 0), 0) -
+          returns.reduce((sum, ret) =>
+            sum + ret.items.reduce((itemSum, item) =>
+              itemSum + parseFloat(item.discountAmount || 0), 0), 0),
+        totalOrderDiscounts: sales.reduce((sum, sale) =>
+          sum + parseFloat(sale.discountAmount || 0), 0) -
+          returns.reduce((sum, ret) =>
+            sum + parseFloat(ret.discountAmount || 0), 0),
         byStatus: {},
       };
 
-      // Group by status
+      // Group by status (sales)
       sales.forEach((sale) => {
         if (!summary.byStatus[sale.status]) {
           summary.byStatus[sale.status] = { count: 0, total: 0 };
@@ -74,7 +155,17 @@ class ReportsController {
         summary.byStatus[sale.status].total += parseFloat(sale.total);
       });
 
-      return ApiResponse.success(res, { sales, summary }, 'Sales report retrieved successfully');
+      // Group by status (returns) - separate key
+      returns.forEach((ret) => {
+        const key = `return-${ret.status}`;
+        if (!summary.byStatus[key]) {
+          summary.byStatus[key] = { count: 0, total: 0 };
+        }
+        summary.byStatus[key].count++;
+        summary.byStatus[key].total -= parseFloat(ret.total);
+      });
+
+      return ApiResponse.success(res, { sales: allTransactions, summary }, 'Sales report retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -113,8 +204,14 @@ class ReportsController {
         whereClause.customerId = parseInt(customerId);
       }
 
+      // Status filter - exclude pending and cancelled by default
       if (status) {
         whereClause.status = status;
+      } else {
+        // By default, exclude pending and cancelled transactions
+        whereClause.status = {
+          [Op.notIn]: ['pending', 'cancelled']
+        };
       }
 
       const sales = await Sale.findAll({
@@ -131,9 +228,30 @@ class ReportsController {
         order: [['createdAt', 'DESC']],
       });
 
+      // Fetch sales returns with same filters
+      const returns = await SalesReturn.findAll({
+        where: whereClause,
+        include: [
+          {
+            model: Sale,
+            as: 'sale',
+            include: [{ model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] }],
+          },
+          { model: User, as: 'user', attributes: ['id', 'name'] },
+          {
+            model: SalesReturnItem,
+            as: 'items',
+            include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name'] }],
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+      });
+
       // Build CSV content - one row per item
       const csvHeaders = [
+        'Type',
         'Order Number',
+        'Original Order',
         'Date',
         'Customer ID',
         'Customer',
@@ -142,6 +260,11 @@ class ReportsController {
         'Item SKU',
         'Item Name',
         'Qty',
+        'Unit Price',
+        'Item Discount %',
+        'Item Discount Amount',
+        'Order Discount %',
+        'Order Discount Amount',
         'Subtotal',
         'Tax',
         'Total',
@@ -149,11 +272,15 @@ class ReportsController {
       ];
 
       const csvRows = [];
+
+      // Add sales
       sales.forEach((sale) => {
         if (sale.items && sale.items.length > 0) {
           sale.items.forEach((item) => {
             csvRows.push([
+              'Sale',
               sale.orderNumber,
+              '',
               new Date(sale.createdAt).toISOString().split('T')[0],
               sale.customer?.id || '',
               sale.customer?.name || '',
@@ -162,6 +289,11 @@ class ReportsController {
               item.product?.sku || '',
               item.product?.name || '',
               item.quantity,
+              parseFloat(item.unitPrice || 0).toFixed(2),
+              parseFloat(item.discountPercent || 0).toFixed(2),
+              parseFloat(item.discountAmount || 0).toFixed(2),
+              parseFloat(sale.discountPercent || 0).toFixed(2),
+              parseFloat(sale.discountAmount || 0).toFixed(2),
               parseFloat(sale.subtotal).toFixed(2),
               parseFloat(sale.tax).toFixed(2),
               parseFloat(sale.total).toFixed(2),
@@ -169,9 +301,10 @@ class ReportsController {
             ]);
           });
         } else {
-          // Order with no items
           csvRows.push([
+            'Sale',
             sale.orderNumber,
+            '',
             new Date(sale.createdAt).toISOString().split('T')[0],
             sale.customer?.id || '',
             sale.customer?.name || '',
@@ -180,10 +313,68 @@ class ReportsController {
             '',
             '',
             '',
+            '',
+            '',
+            '',
+            parseFloat(sale.discountPercent || 0).toFixed(2),
+            parseFloat(sale.discountAmount || 0).toFixed(2),
             parseFloat(sale.subtotal).toFixed(2),
             parseFloat(sale.tax).toFixed(2),
             parseFloat(sale.total).toFixed(2),
             sale.user?.name || '',
+          ]);
+        }
+      });
+
+      // Add returns (with negative values except prices)
+      returns.forEach((ret) => {
+        if (ret.items && ret.items.length > 0) {
+          ret.items.forEach((item) => {
+            csvRows.push([
+              'Return',
+              ret.returnNumber,
+              ret.sale?.orderNumber || '',
+              new Date(ret.createdAt).toISOString().split('T')[0],
+              ret.sale?.customer?.id || '',
+              ret.sale?.customer?.name || '',
+              ret.sale?.customer?.email || '',
+              ret.status,
+              item.product?.sku || '',
+              item.product?.name || '',
+              -item.quantity, // Negative
+              parseFloat(item.unitPrice || 0).toFixed(2), // Positive
+              parseFloat(item.discountPercent || 0).toFixed(2),
+              (-parseFloat(item.discountAmount || 0)).toFixed(2), // Negative
+              parseFloat(ret.discountPercent || 0).toFixed(2),
+              (-parseFloat(ret.discountAmount || 0)).toFixed(2), // Negative
+              (-parseFloat(ret.subtotal)).toFixed(2), // Negative
+              (-parseFloat(ret.tax)).toFixed(2), // Negative
+              (-parseFloat(ret.total)).toFixed(2), // Negative
+              ret.user?.name || '',
+            ]);
+          });
+        } else {
+          csvRows.push([
+            'Return',
+            ret.returnNumber,
+            ret.sale?.orderNumber || '',
+            new Date(ret.createdAt).toISOString().split('T')[0],
+            ret.sale?.customer?.id || '',
+            ret.sale?.customer?.name || '',
+            ret.sale?.customer?.email || '',
+            ret.status,
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            parseFloat(ret.discountPercent || 0).toFixed(2),
+            (-parseFloat(ret.discountAmount || 0)).toFixed(2),
+            (-parseFloat(ret.subtotal)).toFixed(2),
+            (-parseFloat(ret.tax)).toFixed(2),
+            (-parseFloat(ret.total)).toFixed(2),
+            ret.user?.name || '',
           ]);
         }
       });

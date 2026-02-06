@@ -11,7 +11,7 @@ db.sequelize
     console.log('Database connection established successfully.');
 
     // Sync database (in development, you might use { force: true } to recreate tables)
-    return db.sequelize.sync({ alter: true });
+    return db.sequelize.sync();
   })
   .then(() => {
     console.log('Database synchronized.');
