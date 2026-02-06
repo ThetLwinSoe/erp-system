@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency } from './currency';
+import { setupMyanmarFont, getFontForText, containsMyanmarText } from './pdfFonts';
 
 /**
  * Generate and download invoice PDF
@@ -21,11 +22,35 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   const margin = 10;
   let yPos = 15;
 
-  // Helper function to add text
+  // Try to load Myanmar font for Unicode support
+  const myanmarFontLoaded = setupMyanmarFont(doc);
+
+  // Show warning if Myanmar text detected but font not available
+  if (!myanmarFontLoaded) {
+    const hasMyanmar =
+      containsMyanmarText(company?.name) ||
+      containsMyanmarText(company?.address) ||
+      containsMyanmarText(order.customer?.name || order.supplier?.name) ||
+      (order.items || []).some(item => containsMyanmarText(item.product?.name));
+
+    if (hasMyanmar) {
+      console.warn('Myanmar text detected but Myanmar font not loaded. Text may not display correctly.');
+      console.warn('See pdfFonts.js for instructions on adding Myanmar font support.');
+    }
+  }
+
+  // Helper function to add text with automatic font selection
   const addText = (text, x, y, options = {}) => {
     const { fontSize = 10, fontStyle = 'normal', align = 'left' } = options;
     doc.setFontSize(fontSize);
-    doc.setFont('helvetica', fontStyle);
+
+    // Use Myanmar font if available and text contains Myanmar characters
+    const fontName = getFontForText(text, myanmarFontLoaded);
+
+    // Myanmar font only has 'normal' style - use normal even for bold requests
+    const actualFontStyle = fontName === 'NotoSansMyanmar' ? 'normal' : fontStyle;
+    doc.setFont(fontName, actualFontStyle);
+
     doc.text(String(text || ''), x, y, { align });
   };
 
@@ -121,9 +146,14 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
 
   yPos += 10;
 
+  // Check if any item has a discount for sales type
+  const hasItemDiscounts = type === 'sale' && (order.items || []).some(item => item.discountPercent > 0);
+
   // Items table
   const tableColumns = type === 'sale'
-    ? ['#', 'SKU', 'Product', 'Qty', 'Price', 'Total']
+    ? hasItemDiscounts
+      ? ['#', 'SKU', 'Product', 'Qty', 'Price', 'Disc %', 'Total']
+      : ['#', 'SKU', 'Product', 'Qty', 'Price', 'Total']
     : ['#', 'SKU', 'Product', 'Qty', 'Recv', 'Price', 'Total'];
 
   const tableData = (order.items || []).map((item, index) => {
@@ -139,6 +169,12 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     }
 
     row.push(formatCurrency(item.unitPrice, company?.currency));
+
+    // Add discount column for sales if any item has discount
+    if (type === 'sale' && hasItemDiscounts) {
+      row.push(item.discountPercent > 0 ? `${item.discountPercent}` : '-');
+    }
+
     row.push(formatCurrency(item.total, company?.currency));
 
     return row;
@@ -153,23 +189,34 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     styles: {
       fontSize: 8,
       cellPadding: 2,
+      font: myanmarFontLoaded ? 'NotoSansMyanmar' : 'helvetica',
     },
     headStyles: {
       fillColor: [66, 66, 66],
       textColor: 255,
-      fontStyle: 'bold',
+      // Myanmar font only has 'normal' style, use normal for headers too
+      fontStyle: myanmarFontLoaded ? 'normal' : 'bold',
+      font: myanmarFontLoaded ? 'NotoSansMyanmar' : 'helvetica',
     },
     alternateRowStyles: {
       fillColor: [245, 245, 245],
     },
-    columnStyles: type === 'sale' ? {
+    columnStyles: type === 'sale' ? (hasItemDiscounts ? {
+      0: { cellWidth: 8 },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 'auto' },
+      3: { cellWidth: 10, halign: 'center' },
+      4: { cellWidth: 18, halign: 'right' },
+      5: { cellWidth: 12, halign: 'center' },
+      6: { cellWidth: 20, halign: 'right' },
+    } : {
       0: { cellWidth: 8 },
       1: { cellWidth: 20 },
       2: { cellWidth: 'auto' },
       3: { cellWidth: 12, halign: 'center' },
       4: { cellWidth: 20, halign: 'right' },
       5: { cellWidth: 22, halign: 'right' },
-    } : {
+    }) : {
       0: { cellWidth: 8 },
       1: { cellWidth: 18 },
       2: { cellWidth: 'auto' },
@@ -184,11 +231,18 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   yPos = doc.lastAutoTable.finalY + 8;
 
   // Totals section
-  const totalsX = pageWidth - margin - 50;
+  const totalsX = pageWidth - margin - 55;
 
   addText('Subtotal:', totalsX, yPos, { fontSize: 9 });
   addText(formatCurrency(order.subtotal, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
   yPos += 5;
+
+  // Add order discount if applicable (for sales)
+  if (type === 'sale' && order.discountPercent > 0) {
+    addText(`Order Discount % (${order.discountPercent}):`, totalsX, yPos, { fontSize: 9 });
+    addText(`-${formatCurrency(order.discountAmount, company?.currency)}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+    yPos += 5;
+  }
 
   addText('Tax:', totalsX, yPos, { fontSize: 9 });
   addText(formatCurrency(order.tax, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });

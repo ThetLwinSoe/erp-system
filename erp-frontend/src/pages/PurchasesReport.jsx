@@ -71,8 +71,8 @@ const PurchasesReport = () => {
 
       const response = await reportsAPI.exportPurchasesCSV(params);
 
-      // Create download link
-      const blob = new Blob([response.data], { type: 'text/csv' });
+      // Create download link with UTF-8 BOM for proper encoding (supports Unicode/Burmese text)
+      const blob = new Blob(['\uFEFF' + response.data], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

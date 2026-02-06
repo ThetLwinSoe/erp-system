@@ -7,7 +7,7 @@ class SalesService {
    * Create a new sale order
    */
   static async createSale(userId, saleData, companyId) {
-    const { customerId, items, tax = 0, notes } = saleData;
+    const { customerId, items, tax = 0, discountPercent = 0, notes } = saleData;
 
     // Validate customer exists and belongs to the same company
     const customer = await Customer.findOne({
@@ -40,25 +40,36 @@ class SalesService {
       throw error;
     }
 
-    // Calculate totals
+    // Calculate totals with two-tier discount
     const productMap = new Map(products.map((p) => [p.id, p]));
     let subtotal = 0;
 
     const saleItems = items.map((item) => {
       const product = productMap.get(item.productId);
       const unitPrice = item.unitPrice !== undefined ? item.unitPrice : product.sellingPrice;
-      const total = item.quantity * unitPrice;
-      subtotal += total;
+      const itemDiscountPercent = parseFloat(item.discountPercent || 0);
+
+      // Calculate item subtotal and discount
+      const itemSubtotal = item.quantity * unitPrice;
+      const itemDiscountAmount = itemSubtotal * (itemDiscountPercent / 100);
+      const itemTotal = itemSubtotal - itemDiscountAmount;
+
+      subtotal += itemTotal;
 
       return {
         productId: item.productId,
         quantity: item.quantity,
         unitPrice,
-        total,
+        discountPercent: itemDiscountPercent,
+        // discountAmount and total will be auto-calculated by model hook
       };
     });
 
-    const total = subtotal + parseFloat(tax);
+    // Calculate order-level discount
+    const orderDiscountPercent = parseFloat(discountPercent);
+    const orderDiscountAmount = subtotal * (orderDiscountPercent / 100);
+    const subtotalAfterOrderDiscount = subtotal - orderDiscountAmount;
+    const total = subtotalAfterOrderDiscount + parseFloat(tax);
 
     // Generate order number
     const timestamp = Date.now().toString(36).toUpperCase();
@@ -74,6 +85,8 @@ class SalesService {
           companyId,
           orderNumber,
           subtotal,
+          discountPercent: orderDiscountPercent,
+          discountAmount: orderDiscountAmount,
           tax,
           total,
           notes,
@@ -87,7 +100,7 @@ class SalesService {
         saleId: sale.id,
       }));
 
-      await SaleItem.bulkCreate(itemsWithSaleId, { transaction });
+      await SaleItem.bulkCreate(itemsWithSaleId, { transaction, individualHooks: true });
 
       // Deduct inventory
       await InventoryService.deductStock(items, transaction);
@@ -191,7 +204,7 @@ class SalesService {
       throw error;
     }
 
-    const allowedFields = ['notes', 'tax'];
+    const allowedFields = ['notes', 'tax', 'discountPercent'];
     const updates = {};
 
     allowedFields.forEach((field) => {
@@ -200,8 +213,17 @@ class SalesService {
       }
     });
 
-    if (updates.tax !== undefined) {
-      updates.total = parseFloat(sale.subtotal) + parseFloat(updates.tax);
+    // Recalculate totals if tax or discount changed
+    if (updates.tax !== undefined || updates.discountPercent !== undefined) {
+      const newTax = updates.tax !== undefined ? parseFloat(updates.tax) : parseFloat(sale.tax);
+      const newDiscountPercent = updates.discountPercent !== undefined ? parseFloat(updates.discountPercent) : parseFloat(sale.discountPercent);
+
+      const subtotal = parseFloat(sale.subtotal);
+      const orderDiscountAmount = subtotal * (newDiscountPercent / 100);
+      const subtotalAfterOrderDiscount = subtotal - orderDiscountAmount;
+
+      updates.discountAmount = orderDiscountAmount;
+      updates.total = subtotalAfterOrderDiscount + newTax;
     }
 
     await sale.update(updates);

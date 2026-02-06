@@ -132,9 +132,9 @@ export const inventoryAdjustmentsAPI = {
 // Reports API
 export const reportsAPI = {
   getSalesReport: (params) => api.get('/reports/sales', { params }),
-  exportSalesCSV: (params) => api.get('/reports/sales/export', { params, responseType: 'blob' }),
+  exportSalesCSV: (params) => api.get('/reports/sales/export', { params, responseType: 'text' }),
   getPurchasesReport: (params) => api.get('/reports/purchases', { params }),
-  exportPurchasesCSV: (params) => api.get('/reports/purchases/export', { params, responseType: 'blob' }),
+  exportPurchasesCSV: (params) => api.get('/reports/purchases/export', { params, responseType: 'text' }),
 };
 
 // Companies API (Super Admin only)

@@ -31,8 +31,9 @@ const Sales = () => {
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState({
     customerId: '',
-    items: [{ productId: '', quantity: 1, unitPrice: '' }],
+    items: [{ productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
     tax: 0,
+    discountPercent: 0,
     notes: '',
   });
 
@@ -74,8 +75,9 @@ const Sales = () => {
     fetchFormData();
     setFormData({
       customerId: '',
-      items: [{ productId: '', quantity: 1, unitPrice: '' }],
+      items: [{ productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
       tax: 0,
+      discountPercent: 0,
       notes: '',
     });
     setError('');
@@ -85,7 +87,7 @@ const Sales = () => {
   const handleAddItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', quantity: 1, unitPrice: '' }],
+      items: [...formData.items, { productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
     });
   };
 
@@ -122,8 +124,10 @@ const Sales = () => {
           productId: parseInt(item.productId),
           quantity: parseInt(item.quantity),
           unitPrice: parseFloat(item.unitPrice),
+          discountPercent: parseFloat(item.discountPercent) || 0,
         })),
         tax: parseFloat(formData.tax) || 0,
+        discountPercent: parseFloat(formData.discountPercent) || 0,
         notes: formData.notes,
       };
 
@@ -145,12 +149,30 @@ const Sales = () => {
     }
   };
 
+  const calculateItemTotal = (item) => {
+    const qty = parseInt(item.quantity) || 0;
+    const price = parseFloat(item.unitPrice) || 0;
+    const discount = parseFloat(item.discountPercent) || 0;
+    const subtotal = qty * price;
+    const discountAmount = subtotal * (discount / 100);
+    return subtotal - discountAmount;
+  };
+
   const calculateSubtotal = () => {
-    return formData.items.reduce((sum, item) => {
-      const qty = parseInt(item.quantity) || 0;
-      const price = parseFloat(item.unitPrice) || 0;
-      return sum + qty * price;
-    }, 0);
+    return formData.items.reduce((sum, item) => sum + calculateItemTotal(item), 0);
+  };
+
+  const calculateOrderDiscount = () => {
+    const subtotal = calculateSubtotal();
+    const discountPercent = parseFloat(formData.discountPercent) || 0;
+    return subtotal * (discountPercent / 100);
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const orderDiscount = calculateOrderDiscount();
+    const tax = parseFloat(formData.tax) || 0;
+    return subtotal - orderDiscount + tax;
   };
 
   return (
@@ -248,9 +270,28 @@ const Sales = () => {
                 <Button variant="outline-primary" size="sm" onClick={handleAddItem}>+ Add Item</Button>
               </div>
 
+              {/* Item Headers */}
+              <Row className="mb-2">
+                <Col md={4}>
+                  <small className="text-muted fw-semibold">Product</small>
+                </Col>
+                <Col md={2}>
+                  <small className="text-muted fw-semibold">Quantity</small>
+                </Col>
+                <Col md={2}>
+                  <small className="text-muted fw-semibold">Unit Price</small>
+                </Col>
+                <Col md={2}>
+                  <small className="text-muted fw-semibold">Disc %</small>
+                </Col>
+                <Col md={2}>
+                  <small className="text-muted fw-semibold">Actions</small>
+                </Col>
+              </Row>
+
               {formData.items.map((item, index) => (
                 <Row key={index} className="mb-2 align-items-end">
-                  <Col md={5}>
+                  <Col md={4}>
                     <Form.Select value={item.productId} onChange={(e) => handleItemChange(index, 'productId', e.target.value)} required>
                       <option value="">Select Product</option>
                       {products.map((p) => (
@@ -263,8 +304,11 @@ const Sales = () => {
                   <Col md={2}>
                     <Form.Control type="number" min="1" placeholder="Qty" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} required />
                   </Col>
-                  <Col md={3}>
-                    <Form.Control type="number" step="0.01" min="0" placeholder="Unit Price" value={item.unitPrice} onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)} required />
+                  <Col md={2}>
+                    <Form.Control type="number" step="0.01" min="0" placeholder="Price" value={item.unitPrice} onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)} required />
+                  </Col>
+                  <Col md={2}>
+                    <Form.Control type="number" step="0.01" min="0" max="100" placeholder="Disc %" value={item.discountPercent || 0} onChange={(e) => handleItemChange(index, 'discountPercent', e.target.value)} />
                   </Col>
                   <Col md={2}>
                     <Button variant="outline-danger" size="sm" onClick={() => handleRemoveItem(index)} disabled={formData.items.length === 1}>
@@ -276,13 +320,20 @@ const Sales = () => {
             </div>
 
             <Row>
-              <Col md={6}>
+              <Col md={4}>
                 <Form.Group className="mb-3">
                   <Form.Label>Tax</Form.Label>
                   <Form.Control type="number" step="0.01" min="0" value={formData.tax} onChange={(e) => setFormData({ ...formData, tax: e.target.value })} />
                 </Form.Group>
               </Col>
-              <Col md={6}>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Order Discount %</Form.Label>
+                  <Form.Control type="number" step="0.01" min="0" max="100" value={formData.discountPercent} onChange={(e) => setFormData({ ...formData, discountPercent: e.target.value })} />
+                  <Form.Text className="text-muted">Applied after item discounts</Form.Text>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
                 <Form.Group className="mb-3">
                   <Form.Label>Notes</Form.Label>
                   <Form.Control as="textarea" rows={1} value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
@@ -292,9 +343,15 @@ const Sales = () => {
 
             <Alert variant="secondary">
               <div className="d-flex justify-content-between">
-                <span>Subtotal:</span>
+                <span>Subtotal (after item discounts):</span>
                 <strong>{formatCurrency(calculateSubtotal(), currency)}</strong>
               </div>
+              {formData.discountPercent > 0 && (
+                <div className="d-flex justify-content-between">
+                  <span>Order Discount % ({formData.discountPercent}):</span>
+                  <strong className="text-danger">-{formatCurrency(calculateOrderDiscount(), currency)}</strong>
+                </div>
+              )}
               <div className="d-flex justify-content-between">
                 <span>Tax:</span>
                 <strong>{formatCurrency(parseFloat(formData.tax) || 0, currency)}</strong>
@@ -302,7 +359,7 @@ const Sales = () => {
               <hr className="my-1" />
               <div className="d-flex justify-content-between">
                 <span>Total:</span>
-                <strong>{formatCurrency(calculateSubtotal() + (parseFloat(formData.tax) || 0), currency)}</strong>
+                <strong>{formatCurrency(calculateTotal(), currency)}</strong>
               </div>
             </Alert>
           </Modal.Body>

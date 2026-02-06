@@ -162,6 +162,8 @@ class SalesReturnsController {
           returnedQuantity: returnedQty,
           remainingQuantity: remainingQty,
           unitPrice: item.unitPrice,
+          discountPercent: item.discountPercent,
+          discountAmount: item.discountAmount,
           canReturn: remainingQty > 0,
         };
       });
@@ -280,7 +282,12 @@ class SalesReturnsController {
           );
         }
 
-        const itemTotal = parseFloat(saleItem.unitPrice) * quantity;
+        // Inherit item-level discount from original sale item
+        const itemDiscountPercent = parseFloat(saleItem.discountPercent || 0);
+        const itemSubtotal = parseFloat(saleItem.unitPrice) * quantity;
+        const itemDiscountAmount = itemSubtotal * (itemDiscountPercent / 100);
+        const itemTotal = itemSubtotal - itemDiscountAmount;
+
         subtotal += itemTotal;
 
         validatedItems.push({
@@ -288,14 +295,23 @@ class SalesReturnsController {
           productId: saleItem.productId,
           quantity,
           unitPrice: saleItem.unitPrice,
-          total: itemTotal,
+          discountPercent: itemDiscountPercent,
+          // discountAmount and total will be auto-calculated by model hook
         });
       }
 
+      // Calculate order-level discount (inherited from original sale)
+      const orderDiscountPercent = parseFloat(sale.discountPercent || 0);
+      const orderDiscountAmount = subtotal * (orderDiscountPercent / 100);
+      const subtotalAfterOrderDiscount = subtotal - orderDiscountAmount;
+
       // Calculate tax proportionally based on original sale
-      const taxRate = sale.subtotal > 0 ? parseFloat(sale.tax) / parseFloat(sale.subtotal) : 0;
+      const originalSubtotal = parseFloat(sale.subtotal);
+      const taxRate = originalSubtotal > 0 ? parseFloat(sale.tax) / originalSubtotal : 0;
       const tax = subtotal * taxRate;
-      const total = subtotal + tax;
+
+      // Calculate total: (subtotal after item discounts - order discount) + tax
+      const total = subtotalAfterOrderDiscount + tax;
 
       // Generate return number
       const timestamp = Date.now().toString(36).toUpperCase();
@@ -310,6 +326,8 @@ class SalesReturnsController {
           returnNumber,
           status: SALES_RETURN_STATUS.PENDING,
           subtotal,
+          discountPercent: orderDiscountPercent,
+          discountAmount: orderDiscountAmount,
           tax,
           total,
           reason,
@@ -325,7 +343,7 @@ class SalesReturnsController {
         salesReturnId: salesReturn.id,
       }));
 
-      await SalesReturnItem.bulkCreate(returnItems, { transaction });
+      await SalesReturnItem.bulkCreate(returnItems, { transaction, individualHooks: true });
 
       await transaction.commit();
 

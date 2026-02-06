@@ -103,6 +103,7 @@ const SalesReturnDetails = () => {
                     <th>SKU</th>
                     <th>Return Qty</th>
                     <th>Unit Price</th>
+                    <th>Discount %</th>
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -113,21 +114,32 @@ const SalesReturnDetails = () => {
                       <td><code>{item.product?.sku}</code></td>
                       <td>{item.quantity}</td>
                       <td>{formatCurrency(item.unitPrice, currency)}</td>
+                      <td>
+                        {item.discountPercent > 0
+                          ? `${item.discountPercent} (-${formatCurrency(item.discountAmount, currency)})`
+                          : '-'}
+                      </td>
                       <td>{formatCurrency(item.total, currency)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="4" className="text-end">Subtotal:</td>
+                    <td colSpan="5" className="text-end">Subtotal (after item discounts):</td>
                     <td>{formatCurrency(salesReturn.subtotal, currency)}</td>
                   </tr>
+                  {salesReturn.discountPercent > 0 && (
+                    <tr>
+                      <td colSpan="5" className="text-end">Order Discount % ({salesReturn.discountPercent}):</td>
+                      <td className="text-danger">-{formatCurrency(salesReturn.discountAmount, currency)}</td>
+                    </tr>
+                  )}
                   <tr>
-                    <td colSpan="4" className="text-end">Tax:</td>
+                    <td colSpan="5" className="text-end">Tax:</td>
                     <td>{formatCurrency(salesReturn.tax, currency)}</td>
                   </tr>
                   <tr>
-                    <td colSpan="4" className="text-end"><strong>Total:</strong></td>
+                    <td colSpan="5" className="text-end"><strong>Total Refund:</strong></td>
                     <td><strong>{formatCurrency(salesReturn.total, currency)}</strong></td>
                   </tr>
                 </tfoot>
