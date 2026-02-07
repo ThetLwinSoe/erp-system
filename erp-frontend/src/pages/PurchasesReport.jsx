@@ -189,73 +189,91 @@ const PurchasesReport = () => {
 
       {/* Summary Cards */}
       {summary && (
-        <Row className="g-4 mb-4">
-          <Col md={3}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Total Orders</h6>
-                <h2 className="text-primary">{summary.totalOrders}</h2>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Total Amount</h6>
-                <h2 className="text-success">{formatAmount(summary.totalAmount)}</h2>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Total Tax</h6>
-                <h2 className="text-info">{formatAmount(summary.totalTax)}</h2>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">By Status</h6>
-                <div className="d-flex flex-wrap justify-content-center gap-1 mt-2">
-                  {Object.entries(summary.byStatus).map(([status, data]) => (
-                    <Badge key={status} bg="secondary" className="me-1">
-                      {status}: {data.count}
-                    </Badge>
-                  ))}
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+        <div style={{ width: '100%', maxWidth: '100%' }}>
+          <Row className="g-3 mb-3" style={{ margin: 0 }}>
+            <Col md={3}>
+              <Card className="text-center h-100">
+                <Card.Body>
+                  <h6 className="text-muted">Total Orders</h6>
+                  <h2 className="text-primary">{summary.totalOrders}</h2>
+                  <small className="text-muted">Returns: {summary.totalReturns || 0}</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center h-100">
+                <Card.Body>
+                  <h6 className="text-muted">Gross Amount</h6>
+                  <h2 className="text-success">{formatAmount(summary.totalAmount)}</h2>
+                  <small className="text-danger">Returns: -{formatAmount(summary.returnAmount || 0)}</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center h-100">
+                <Card.Body>
+                  <h6 className="text-muted">Net Amount</h6>
+                  <h2 className="text-success">{formatAmount(summary.netAmount || summary.totalAmount)}</h2>
+                  <small className="text-muted">After returns</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center h-100">
+                <Card.Body>
+                  <h6 className="text-muted">Net Tax</h6>
+                  <h2 className="text-info">{formatAmount(summary.totalTax)}</h2>
+                  <small className="text-muted">After returns</small>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </div>
       )}
 
       {/* Results Table */}
-      <Card>
+      <Card style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
         <Card.Header>
           Purchases Data {purchases.length > 0 && <Badge bg="primary" className="ms-2">{purchases.length} records</Badge>}
         </Card.Header>
-        <Card.Body>
+        <Card.Body className="p-0" style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
           {loading ? (
             <div className="text-center py-4">
               <Spinner animation="border" variant="primary" />
             </div>
           ) : purchases.length === 0 ? (
-            <Alert variant="info">
+            <Alert variant="info" className="m-3">
               No purchases data found. Use the filters above and click "Generate Report" to view purchases data.
             </Alert>
           ) : (
-            <Table striped hover responsive>
+            <div style={{
+              width: '100%',
+              overflowX: 'auto',
+              overflowY: 'auto',
+              maxHeight: 'calc(100vh - 450px)',
+              position: 'relative'
+            }}>
+              <table className="table table-striped table-hover mb-0" style={{
+                width: '1600px',
+                minWidth: '1600px',
+                maxWidth: '1600px',
+                tableLayout: 'fixed',
+                margin: 0
+              }}>
               <thead>
                 <tr>
+                  <th>Type</th>
                   <th>Order #</th>
+                  <th>Original Order</th>
                   <th>Date</th>
                   <th>Supplier ID</th>
                   <th>Supplier</th>
                   <th>Item SKU</th>
                   <th>Item Name</th>
                   <th className="text-end">Qty</th>
+                  <th className="text-end">Unit Price</th>
+                  <th className="text-end">Item Disc %</th>
+                  <th className="text-end">Order Disc %</th>
                   <th>Status</th>
                   <th className="text-end">Subtotal</th>
                   <th className="text-end">Tax</th>
@@ -263,43 +281,81 @@ const PurchasesReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {purchases.flatMap((purchase) =>
-                  purchase.items && purchase.items.length > 0
-                    ? purchase.items.map((item, idx) => (
-                        <tr key={`${purchase.id}-${idx}`}>
-                          <td><code>{purchase.orderNumber}</code></td>
-                          <td>{new Date(purchase.createdAt).toLocaleDateString()}</td>
-                          <td><code>{purchase.supplier?.id || '-'}</code></td>
-                          <td>{purchase.supplier?.name || '-'}</td>
+                {purchases.flatMap((transaction) =>
+                  transaction.items && transaction.items.length > 0
+                    ? transaction.items.map((item, idx) => (
+                        <tr key={`${transaction.id}-${idx}`} className={transaction.type === 'return' ? 'table-warning' : ''}>
+                          <td>
+                            <Badge bg={transaction.type === 'return' ? 'danger' : 'success'}>
+                              {transaction.type === 'return' ? 'Return' : 'Purchase'}
+                            </Badge>
+                          </td>
+                          <td><code>{transaction.orderNumber}</code></td>
+                          <td>{transaction.type === 'return' ? <code>{transaction.originalOrderNumber}</code> : '-'}</td>
+                          <td>{new Date(transaction.createdAt).toLocaleDateString()}</td>
+                          <td><code>{transaction.supplier?.id || '-'}</code></td>
+                          <td>{transaction.supplier?.name || '-'}</td>
                           <td><code>{item.product?.sku || '-'}</code></td>
                           <td>{item.product?.name || '-'}</td>
-                          <td className="text-end">{item.quantity}</td>
-                          <td><StatusBadge status={purchase.status} /></td>
-                          <td className="text-end">{formatAmount(purchase.subtotal)}</td>
-                          <td className="text-end">{formatAmount(purchase.tax)}</td>
-                          <td className="text-end fw-bold">{formatAmount(purchase.total)}</td>
+                          <td className={`text-end ${item.quantity < 0 ? 'text-danger' : ''}`}>
+                            {item.quantity}
+                          </td>
+                          <td className="text-end">{formatAmount(Math.abs(item.unitPrice))}</td>
+                          <td className="text-end">
+                            {item.discountPercent > 0 ? `${item.discountPercent}` : '-'}
+                          </td>
+                          <td className="text-end">
+                            {transaction.discountPercent > 0 ? `${transaction.discountPercent}` : '-'}
+                          </td>
+                          <td><StatusBadge status={transaction.status} /></td>
+                          <td className={`text-end ${transaction.subtotal < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.subtotal)}
+                          </td>
+                          <td className={`text-end ${transaction.tax < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.tax)}
+                          </td>
+                          <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.total)}
+                          </td>
                         </tr>
                       ))
                     : [
-                        <tr key={purchase.id}>
-                          <td><code>{purchase.orderNumber}</code></td>
-                          <td>{new Date(purchase.createdAt).toLocaleDateString()}</td>
-                          <td><code>{purchase.supplier?.id || '-'}</code></td>
-                          <td>{purchase.supplier?.name || '-'}</td>
+                        <tr key={transaction.id} className={transaction.type === 'return' ? 'table-warning' : ''}>
+                          <td>
+                            <Badge bg={transaction.type === 'return' ? 'danger' : 'success'}>
+                              {transaction.type === 'return' ? 'Return' : 'Purchase'}
+                            </Badge>
+                          </td>
+                          <td><code>{transaction.orderNumber}</code></td>
+                          <td>{transaction.type === 'return' ? <code>{transaction.originalOrderNumber}</code> : '-'}</td>
+                          <td>{new Date(transaction.createdAt).toLocaleDateString()}</td>
+                          <td><code>{transaction.supplier?.id || '-'}</code></td>
+                          <td>{transaction.supplier?.name || '-'}</td>
                           <td>-</td>
                           <td>-</td>
                           <td className="text-end">-</td>
-                          <td><StatusBadge status={purchase.status} /></td>
-                          <td className="text-end">{formatAmount(purchase.subtotal)}</td>
-                          <td className="text-end">{formatAmount(purchase.tax)}</td>
-                          <td className="text-end fw-bold">{formatAmount(purchase.total)}</td>
+                          <td className="text-end">-</td>
+                          <td className="text-end">-</td>
+                          <td className="text-end">
+                            {transaction.discountPercent > 0 ? `${transaction.discountPercent}` : '-'}
+                          </td>
+                          <td><StatusBadge status={transaction.status} /></td>
+                          <td className={`text-end ${transaction.subtotal < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.subtotal)}
+                          </td>
+                          <td className={`text-end ${transaction.tax < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.tax)}
+                          </td>
+                          <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(transaction.total)}
+                          </td>
                         </tr>
                       ]
                 )}
               </tbody>
               <tfoot>
                 <tr className="table-dark">
-                  <td colSpan="8" className="text-end fw-bold">Totals:</td>
+                  <td colSpan="13" className="text-end fw-bold">Totals:</td>
                   <td className="text-end fw-bold">
                     {formatAmount(purchases.reduce((sum, p) => sum + parseFloat(p.subtotal), 0))}
                   </td>
@@ -311,7 +367,8 @@ const PurchasesReport = () => {
                   </td>
                 </tr>
               </tfoot>
-            </Table>
+              </table>
+            </div>
           )}
         </Card.Body>
       </Card>

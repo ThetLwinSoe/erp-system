@@ -103,6 +103,7 @@ const PurchaseReturnDetails = () => {
                     <th>SKU</th>
                     <th>Return Qty</th>
                     <th>Unit Price</th>
+                    <th>Discount %</th>
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -113,21 +114,32 @@ const PurchaseReturnDetails = () => {
                       <td><code>{item.product?.sku}</code></td>
                       <td>{item.quantity}</td>
                       <td>{formatCurrency(item.unitPrice, currency)}</td>
+                      <td>
+                        {item.discountPercent > 0
+                          ? `${item.discountPercent}% (-${formatCurrency(item.discountAmount, currency)})`
+                          : '-'}
+                      </td>
                       <td>{formatCurrency(item.total, currency)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="4" className="text-end">Subtotal:</td>
+                    <td colSpan="5" className="text-end">Subtotal (after item discounts):</td>
                     <td>{formatCurrency(purchaseReturn.subtotal, currency)}</td>
                   </tr>
+                  {purchaseReturn.discountPercent > 0 && (
+                    <tr>
+                      <td colSpan="5" className="text-end">Order Discount % ({purchaseReturn.discountPercent}):</td>
+                      <td className="text-danger">-{formatCurrency(purchaseReturn.discountAmount, currency)}</td>
+                    </tr>
+                  )}
                   <tr>
-                    <td colSpan="4" className="text-end">Tax:</td>
+                    <td colSpan="5" className="text-end">Tax:</td>
                     <td>{formatCurrency(purchaseReturn.tax, currency)}</td>
                   </tr>
                   <tr>
-                    <td colSpan="4" className="text-end"><strong>Total:</strong></td>
+                    <td colSpan="5" className="text-end"><strong>Total:</strong></td>
                     <td><strong>{formatCurrency(purchaseReturn.total, currency)}</strong></td>
                   </tr>
                 </tfoot>

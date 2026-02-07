@@ -284,7 +284,12 @@ class PurchaseReturnsController {
           );
         }
 
-        const itemTotal = parseFloat(purchaseItem.unitPrice) * quantity;
+        // Inherit item-level discount from original purchase item
+        const itemDiscountPercent = parseFloat(purchaseItem.discountPercent || 0);
+        const itemSubtotal = parseFloat(purchaseItem.unitPrice) * quantity;
+        const itemDiscountAmount = itemSubtotal * (itemDiscountPercent / 100);
+        const itemTotal = itemSubtotal - itemDiscountAmount;
+
         subtotal += itemTotal;
 
         validatedItems.push({
@@ -292,14 +297,23 @@ class PurchaseReturnsController {
           productId: purchaseItem.productId,
           quantity,
           unitPrice: purchaseItem.unitPrice,
-          total: itemTotal,
+          discountPercent: itemDiscountPercent,
+          // discountAmount and total will be auto-calculated by model hook
         });
       }
 
+      // Calculate order-level discount (inherited from original purchase)
+      const orderDiscountPercent = parseFloat(purchase.discountPercent || 0);
+      const orderDiscountAmount = subtotal * (orderDiscountPercent / 100);
+      const subtotalAfterOrderDiscount = subtotal - orderDiscountAmount;
+
       // Calculate tax proportionally based on original purchase
-      const taxRate = purchase.subtotal > 0 ? parseFloat(purchase.tax) / parseFloat(purchase.subtotal) : 0;
+      const originalSubtotal = parseFloat(purchase.subtotal);
+      const taxRate = originalSubtotal > 0 ? parseFloat(purchase.tax) / originalSubtotal : 0;
       const tax = subtotal * taxRate;
-      const total = subtotal + tax;
+
+      // Calculate total: (subtotal after item discounts - order discount) + tax
+      const total = subtotalAfterOrderDiscount + tax;
 
       // Generate return number
       const timestamp = Date.now().toString(36).toUpperCase();
@@ -314,6 +328,8 @@ class PurchaseReturnsController {
           returnNumber,
           status: PURCHASE_RETURN_STATUS.PENDING,
           subtotal,
+          discountPercent: orderDiscountPercent,
+          discountAmount: orderDiscountAmount,
           tax,
           total,
           reason,
@@ -329,7 +345,7 @@ class PurchaseReturnsController {
         purchaseReturnId: purchaseReturn.id,
       }));
 
-      await PurchaseReturnItem.bulkCreate(returnItems, { transaction });
+      await PurchaseReturnItem.bulkCreate(returnItems, { transaction, individualHooks: true });
 
       await transaction.commit();
 

@@ -203,6 +203,7 @@ const PurchaseDetails = () => {
                     <th>Ordered</th>
                     <th>Received</th>
                     <th>Unit Price</th>
+                    <th>Discount %</th>
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -222,21 +223,32 @@ const PurchaseDetails = () => {
                         )}
                       </td>
                       <td>{formatCurrency(item.unitPrice, currency)}</td>
+                      <td>
+                        {item.discountPercent > 0
+                          ? `${item.discountPercent}% (-${formatCurrency(item.discountAmount, currency)})`
+                          : '-'}
+                      </td>
                       <td>{formatCurrency(item.total, currency)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="5" className="text-end">Subtotal:</td>
+                    <td colSpan="6" className="text-end">Subtotal (after item discounts):</td>
                     <td>{formatCurrency(purchase.subtotal, currency)}</td>
                   </tr>
+                  {purchase.discountPercent > 0 && (
+                    <tr>
+                      <td colSpan="6" className="text-end">Order Discount % ({purchase.discountPercent}):</td>
+                      <td className="text-danger">-{formatCurrency(purchase.discountAmount, currency)}</td>
+                    </tr>
+                  )}
                   <tr>
-                    <td colSpan="5" className="text-end">Tax:</td>
+                    <td colSpan="6" className="text-end">Tax:</td>
                     <td>{formatCurrency(purchase.tax, currency)}</td>
                   </tr>
                   <tr>
-                    <td colSpan="5" className="text-end"><strong>Total:</strong></td>
+                    <td colSpan="6" className="text-end"><strong>Total:</strong></td>
                     <td><strong>{formatCurrency(purchase.total, currency)}</strong></td>
                   </tr>
                 </tfoot>

@@ -1,4 +1,4 @@
-const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, Customer, User, Product, sequelize } = require('../models');
+const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem, Customer, User, Product, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { Op } = require('sequelize');
 
@@ -453,15 +453,90 @@ class ReportsController {
         order: [['createdAt', 'DESC']],
       });
 
-      // Calculate summary
+      // Fetch purchase returns with same filters
+      const returns = await PurchaseReturn.findAll({
+        where: whereClause,
+        include: [
+          {
+            model: Purchase,
+            as: 'purchase',
+            include: [{ model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] }],
+          },
+          { model: User, as: 'user', attributes: ['id', 'name'] },
+          {
+            model: PurchaseReturnItem,
+            as: 'items',
+            include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name'] }],
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+      });
+
+      // Transform returns to have negative values and add type flag
+      const transformedReturns = returns.map((ret) => ({
+        id: ret.id,
+        orderNumber: ret.returnNumber,
+        type: 'return',
+        originalOrderNumber: ret.purchase?.orderNumber,
+        createdAt: ret.createdAt,
+        updatedAt: ret.updatedAt,
+        supplier: ret.purchase?.supplier,
+        user: ret.user,
+        status: ret.status,
+        subtotal: -parseFloat(ret.subtotal),
+        discountPercent: parseFloat(ret.discountPercent || 0),
+        discountAmount: -parseFloat(ret.discountAmount || 0),
+        tax: -parseFloat(ret.tax),
+        total: -parseFloat(ret.total),
+        notes: ret.notes,
+        reason: ret.reason,
+        items: (ret.items || []).map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          product: item.product,
+          quantity: -item.quantity,
+          unitPrice: parseFloat(item.unitPrice),
+          discountPercent: parseFloat(item.discountPercent || 0),
+          discountAmount: -parseFloat(item.discountAmount || 0),
+          total: -parseFloat(item.total),
+        })),
+      }));
+
+      // Add type flag to purchases
+      const transformedPurchases = purchases.map((purchase) => ({
+        ...purchase.toJSON(),
+        type: 'purchase',
+      }));
+
+      // Combine purchases and returns
+      const allTransactions = [...transformedPurchases, ...transformedReturns].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      // Calculate summary (returns reduce the totals)
       const summary = {
         totalOrders: purchases.length,
+        totalReturns: returns.length,
         totalAmount: purchases.reduce((sum, purchase) => sum + parseFloat(purchase.total), 0),
-        totalTax: purchases.reduce((sum, purchase) => sum + parseFloat(purchase.tax), 0),
+        returnAmount: returns.reduce((sum, ret) => sum + parseFloat(ret.total), 0),
+        netAmount: purchases.reduce((sum, purchase) => sum + parseFloat(purchase.total), 0) -
+                   returns.reduce((sum, ret) => sum + parseFloat(ret.total), 0),
+        totalTax: purchases.reduce((sum, purchase) => sum + parseFloat(purchase.tax), 0) -
+                  returns.reduce((sum, ret) => sum + parseFloat(ret.tax), 0),
+        totalItemDiscounts: purchases.reduce((sum, purchase) =>
+          sum + purchase.items.reduce((itemSum, item) =>
+            itemSum + parseFloat(item.discountAmount || 0), 0), 0) -
+          returns.reduce((sum, ret) =>
+            sum + ret.items.reduce((itemSum, item) =>
+              itemSum + parseFloat(item.discountAmount || 0), 0), 0),
+        totalOrderDiscounts: purchases.reduce((sum, purchase) =>
+          sum + parseFloat(purchase.discountAmount || 0), 0) -
+          returns.reduce((sum, ret) =>
+            sum + parseFloat(ret.discountAmount || 0), 0),
         byStatus: {},
       };
 
-      // Group by status
+      // Group by status (purchases)
       purchases.forEach((purchase) => {
         if (!summary.byStatus[purchase.status]) {
           summary.byStatus[purchase.status] = { count: 0, total: 0 };
@@ -470,7 +545,17 @@ class ReportsController {
         summary.byStatus[purchase.status].total += parseFloat(purchase.total);
       });
 
-      return ApiResponse.success(res, { purchases, summary }, 'Purchases report retrieved successfully');
+      // Group by status (returns) - separate key
+      returns.forEach((ret) => {
+        const key = `return-${ret.status}`;
+        if (!summary.byStatus[key]) {
+          summary.byStatus[key] = { count: 0, total: 0 };
+        }
+        summary.byStatus[key].count++;
+        summary.byStatus[key].total -= parseFloat(ret.total);
+      });
+
+      return ApiResponse.success(res, { purchases: allTransactions, summary }, 'Purchases report retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -522,11 +607,31 @@ class ReportsController {
         order: [['createdAt', 'DESC']],
       });
 
+      // Fetch purchase returns with same filters
+      const returns = await PurchaseReturn.findAll({
+        where: whereClause,
+        include: [
+          {
+            model: Purchase,
+            as: 'purchase',
+            include: [{ model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] }],
+          },
+          { model: User, as: 'user', attributes: ['id', 'name'] },
+          {
+            model: PurchaseReturnItem,
+            as: 'items',
+            include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name'] }],
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+      });
+
       // Build CSV content - one row per item
       const csvHeaders = [
+        'Type',
         'Order Number',
+        'Original Order',
         'Date',
-        'Expected Delivery',
         'Supplier ID',
         'Supplier',
         'Supplier Email',
@@ -534,6 +639,11 @@ class ReportsController {
         'Item SKU',
         'Item Name',
         'Qty',
+        'Unit Price',
+        'Item Discount %',
+        'Item Discount Amount',
+        'Order Discount %',
+        'Order Discount Amount',
         'Subtotal',
         'Tax',
         'Total',
@@ -541,13 +651,16 @@ class ReportsController {
       ];
 
       const csvRows = [];
+
+      // Add purchases
       purchases.forEach((purchase) => {
         if (purchase.items && purchase.items.length > 0) {
           purchase.items.forEach((item) => {
             csvRows.push([
+              'Purchase',
               purchase.orderNumber,
+              '',
               new Date(purchase.createdAt).toISOString().split('T')[0],
-              purchase.expectedDelivery ? new Date(purchase.expectedDelivery).toISOString().split('T')[0] : '',
               purchase.supplier?.id || '',
               purchase.supplier?.name || '',
               purchase.supplier?.email || '',
@@ -555,6 +668,11 @@ class ReportsController {
               item.product?.sku || '',
               item.product?.name || '',
               item.quantity,
+              parseFloat(item.unitPrice || 0).toFixed(2),
+              parseFloat(item.discountPercent || 0).toFixed(2),
+              parseFloat(item.discountAmount || 0).toFixed(2),
+              parseFloat(purchase.discountPercent || 0).toFixed(2),
+              parseFloat(purchase.discountAmount || 0).toFixed(2),
               parseFloat(purchase.subtotal).toFixed(2),
               parseFloat(purchase.tax).toFixed(2),
               parseFloat(purchase.total).toFixed(2),
@@ -563,9 +681,10 @@ class ReportsController {
           });
         } else {
           csvRows.push([
+            'Purchase',
             purchase.orderNumber,
+            '',
             new Date(purchase.createdAt).toISOString().split('T')[0],
-            purchase.expectedDelivery ? new Date(purchase.expectedDelivery).toISOString().split('T')[0] : '',
             purchase.supplier?.id || '',
             purchase.supplier?.name || '',
             purchase.supplier?.email || '',
@@ -573,10 +692,68 @@ class ReportsController {
             '',
             '',
             '',
+            '',
+            '',
+            '',
+            parseFloat(purchase.discountPercent || 0).toFixed(2),
+            parseFloat(purchase.discountAmount || 0).toFixed(2),
             parseFloat(purchase.subtotal).toFixed(2),
             parseFloat(purchase.tax).toFixed(2),
             parseFloat(purchase.total).toFixed(2),
             purchase.user?.name || '',
+          ]);
+        }
+      });
+
+      // Add returns (with negative values)
+      returns.forEach((ret) => {
+        if (ret.items && ret.items.length > 0) {
+          ret.items.forEach((item) => {
+            csvRows.push([
+              'Return',
+              ret.returnNumber,
+              ret.purchase?.orderNumber || '',
+              new Date(ret.createdAt).toISOString().split('T')[0],
+              ret.purchase?.supplier?.id || '',
+              ret.purchase?.supplier?.name || '',
+              ret.purchase?.supplier?.email || '',
+              ret.status,
+              item.product?.sku || '',
+              item.product?.name || '',
+              -item.quantity,
+              parseFloat(item.unitPrice || 0).toFixed(2),
+              parseFloat(item.discountPercent || 0).toFixed(2),
+              (-parseFloat(item.discountAmount || 0)).toFixed(2),
+              parseFloat(ret.discountPercent || 0).toFixed(2),
+              (-parseFloat(ret.discountAmount || 0)).toFixed(2),
+              (-parseFloat(ret.subtotal)).toFixed(2),
+              (-parseFloat(ret.tax)).toFixed(2),
+              (-parseFloat(ret.total)).toFixed(2),
+              ret.user?.name || '',
+            ]);
+          });
+        } else {
+          csvRows.push([
+            'Return',
+            ret.returnNumber,
+            ret.purchase?.orderNumber || '',
+            new Date(ret.createdAt).toISOString().split('T')[0],
+            ret.purchase?.supplier?.id || '',
+            ret.purchase?.supplier?.name || '',
+            ret.purchase?.supplier?.email || '',
+            ret.status,
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            parseFloat(ret.discountPercent || 0).toFixed(2),
+            (-parseFloat(ret.discountAmount || 0)).toFixed(2),
+            (-parseFloat(ret.subtotal)).toFixed(2),
+            (-parseFloat(ret.tax)).toFixed(2),
+            (-parseFloat(ret.total)).toFixed(2),
+            ret.user?.name || '',
           ]);
         }
       });
