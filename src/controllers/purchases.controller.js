@@ -1,5 +1,6 @@
 const { Purchase, PurchaseItem, Customer, User, Product, sequelize } = require('../models');
 const InventoryService = require('../services/inventory.service');
+const PurchasesService = require('../services/purchases.service');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, PURCHASE_STATUS, CUSTOMER_TYPE } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
@@ -62,99 +63,23 @@ class PurchasesController {
    */
   static async create(req, res, next) {
     try {
-      const { supplierId, items, tax = 0, notes, expectedDelivery } = req.body;
-
       // Get company ID for the new purchase
       const companyId = getCompanyIdForCreate(req);
       if (!companyId) {
         return ApiResponse.badRequest(res, 'Company ID is required');
       }
 
-      // Validate supplier exists and belongs to the same company
-      const supplier = await Customer.findOne({
-        where: {
-          id: supplierId,
-          companyId,
-          type: { [Op.in]: [CUSTOMER_TYPE.SUPPLIER, CUSTOMER_TYPE.BOTH] },
-        },
-      });
-      if (!supplier) {
-        return ApiResponse.notFound(res, 'Supplier not found or not authorized');
-      }
-
-      // Validate products exist and belong to the same company
-      const productIds = items.map((item) => item.productId);
-      const products = await Product.findAll({
-        where: { id: productIds, companyId },
-      });
-
-      if (products.length !== productIds.length) {
-        return ApiResponse.notFound(res, 'One or more products not found or not authorized');
-      }
-
-      // Calculate totals
-      let subtotal = 0;
-      const purchaseItems = items.map((item) => {
-        const total = item.quantity * item.unitPrice;
-        subtotal += total;
-        return {
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total,
-          receivedQuantity: 0,
-        };
-      });
-
-      const total = subtotal + parseFloat(tax);
-
-      // Generate order number
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const orderNumber = `PO-${timestamp}-${random}`;
-
-      // Create purchase and items in transaction
-      const result = await sequelize.transaction(async (transaction) => {
-        const purchase = await Purchase.create(
-          {
-            supplierId,
-            userId: req.user.id,
-            orderNumber,
-            subtotal,
-            tax,
-            total,
-            notes,
-            expectedDelivery,
-            status: PURCHASE_STATUS.PENDING,
-            companyId,
-          },
-          { transaction }
-        );
-
-        const itemsWithPurchaseId = purchaseItems.map((item) => ({
-          ...item,
-          purchaseId: purchase.id,
-        }));
-
-        await PurchaseItem.bulkCreate(itemsWithPurchaseId, { transaction });
-
-        return purchase;
-      });
-
-      const purchase = await Purchase.findByPk(result.id, {
-        include: [
-          { model: Customer, as: 'supplier' },
-          { model: User, as: 'user', attributes: { exclude: ['password'] } },
-          {
-            model: PurchaseItem,
-            as: 'items',
-            include: [{ model: Product, as: 'product' }],
-          },
-        ],
-      });
+      const purchase = await PurchasesService.createPurchase(req.user.id, req.body, companyId);
 
       return ApiResponse.created(res, purchase, 'Purchase created successfully');
     } catch (error) {
+      if (error.statusCode) {
+        if (error.statusCode === 404) {
+          return ApiResponse.notFound(res, error.message);
+        } else if (error.statusCode === 400) {
+          return ApiResponse.badRequest(res, error.message, error.details);
+        }
+      }
       next(error);
     }
   }
@@ -194,45 +119,17 @@ class PurchasesController {
    */
   static async update(req, res, next) {
     try {
-      const purchase = await Purchase.findOne({
-        where: { id: req.params.id, ...req.companyFilter },
-      });
-
-      if (!purchase) {
-        return ApiResponse.notFound(res, 'Purchase not found');
-      }
-
-      if (purchase.status !== PURCHASE_STATUS.PENDING) {
-        return ApiResponse.badRequest(res, 'Can only update pending purchases');
-      }
-
-      const { notes, tax, expectedDelivery } = req.body;
-      const updates = {};
-
-      if (notes !== undefined) updates.notes = notes;
-      if (expectedDelivery !== undefined) updates.expectedDelivery = expectedDelivery;
-      if (tax !== undefined) {
-        updates.tax = tax;
-        updates.total = parseFloat(purchase.subtotal) + parseFloat(tax);
-      }
-
-      await purchase.update(updates);
-
-      const updatedPurchase = await Purchase.findOne({
-        where: { id: req.params.id, ...req.companyFilter },
-        include: [
-          { model: Customer, as: 'supplier' },
-          { model: User, as: 'user', attributes: { exclude: ['password'] } },
-          {
-            model: PurchaseItem,
-            as: 'items',
-            include: [{ model: Product, as: 'product' }],
-          },
-        ],
-      });
+      const updatedPurchase = await PurchasesService.updatePurchase(req.params.id, req.body, req.companyFilter);
 
       return ApiResponse.success(res, updatedPurchase, 'Purchase updated successfully');
     } catch (error) {
+      if (error.statusCode) {
+        if (error.statusCode === 404) {
+          return ApiResponse.notFound(res, error.message);
+        } else if (error.statusCode === 400) {
+          return ApiResponse.badRequest(res, error.message);
+        }
+      }
       next(error);
     }
   }
