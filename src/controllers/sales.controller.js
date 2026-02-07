@@ -37,6 +37,20 @@ class SalesController {
         whereClause.orderNumber = { [Op.iLike]: `%${search}%` };
       }
 
+      // Date range filtering
+      const { startDate, endDate } = req.query;
+      if (startDate || endDate) {
+        whereClause.createdAt = {};
+        if (startDate) {
+          whereClause.createdAt[Op.gte] = new Date(startDate);
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          whereClause.createdAt[Op.lte] = end;
+        }
+      }
+
       const { count, rows } = await Sale.findAndCountAll({
         where: whereClause,
         include: [

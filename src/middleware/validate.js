@@ -52,7 +52,7 @@ const userValidation = {
       .optional()
       .isIn(Object.values(ROLES))
       .withMessage('Invalid role'),
-    body('companyId').isInt().withMessage('Valid company ID is required'),
+    body('companyId').optional({ checkFalsy: true }).isInt().withMessage('Valid company ID is required'),
     handleValidation,
   ],
   update: [
