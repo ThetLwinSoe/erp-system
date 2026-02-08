@@ -10,6 +10,8 @@ import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { PURCHASE_RETURN_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const PurchaseReturns = () => {
   const navigate = useNavigate();
@@ -23,7 +25,7 @@ const PurchaseReturns = () => {
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const fetchReturns = async () => {
     try {
@@ -53,7 +55,7 @@ const PurchaseReturns = () => {
       setShowDeleteModal(false);
       fetchReturns();
     } catch (err) {
-      setError(err.response?.data?.message || 'Delete failed');
+      setError(extractApiError(err, 'Delete failed'));
     }
   };
 
@@ -63,12 +65,7 @@ const PurchaseReturns = () => {
         <h2>Purchase Returns</h2>
       </div>
 
-      {error && (
-        <div className="alert alert-danger alert-dismissible fade show" role="alert">
-          {error}
-          <button type="button" className="btn-close" onClick={() => setError('')}></button>
-        </div>
-      )}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       <Card>
         <Card.Header className="d-flex gap-3">

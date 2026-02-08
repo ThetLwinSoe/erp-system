@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
+import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import { customersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,8 @@ import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../utils/constants';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const Customers = () => {
   const { isSaleRep, isSuperAdmin } = useAuth();
@@ -18,7 +20,7 @@ const Customers = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -64,13 +66,13 @@ const Customers = () => {
       setSelectedCustomer(null);
       setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', type: 'customer', status: 'active' });
     }
-    setError('');
+    setError(null);
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
     try {
       if (selectedCustomer) {
@@ -81,7 +83,7 @@ const Customers = () => {
       setShowModal(false);
       fetchCustomers();
     } catch (err) {
-      setError(err.response?.data?.message || 'Operation failed');
+      setError(extractApiError(err, 'Operation failed'));
     }
   };
 
@@ -100,7 +102,7 @@ const Customers = () => {
       setShowDeleteModal(false);
       fetchCustomers();
     } catch (err) {
-      setError(err.response?.data?.message || 'Delete failed');
+      setError(extractApiError(err, 'Delete failed'));
     }
   };
 
@@ -196,7 +198,7 @@ const Customers = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
-            {error && <Alert variant="danger">{error}</Alert>}
+            <ErrorAlert error={error} />
             <div className="row">
               <div className="col-md-6">
                 <Form.Group className="mb-3">

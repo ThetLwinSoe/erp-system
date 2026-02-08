@@ -4,6 +4,8 @@ import { Card, Table, Button, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import { FaArrowLeft } from 'react-icons/fa';
 import { inventoryAdjustmentsAPI } from '../services/api';
 import StatusBadge from '../components/common/StatusBadge';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const InventoryAdjustmentDetails = () => {
   const { id } = useParams();
@@ -11,7 +13,7 @@ const InventoryAdjustmentDetails = () => {
   const [adjustment, setAdjustment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const fetchAdjustment = async () => {
     try {
@@ -37,7 +39,7 @@ const InventoryAdjustmentDetails = () => {
       await inventoryAdjustmentsAPI.updateStatus(id, newStatus);
       fetchAdjustment();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update status');
+      setError(extractApiError(err, 'Failed to update status'));
     } finally {
       setUpdating(false);
     }
@@ -87,7 +89,7 @@ const InventoryAdjustmentDetails = () => {
         Back to Adjustments
       </Button>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       <Row className="g-4">
         <Col md={8}>

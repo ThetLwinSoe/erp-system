@@ -10,6 +10,8 @@ import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { PURCHASE_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const Purchases = () => {
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ const Purchases = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -81,7 +83,7 @@ const Purchases = () => {
       expectedDelivery: '',
       notes: '',
     });
-    setError('');
+    setError(null);
     setShowModal(true);
   };
 
@@ -115,7 +117,7 @@ const Purchases = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
     try {
       const data = {
@@ -136,7 +138,7 @@ const Purchases = () => {
       setShowModal(false);
       fetchPurchases();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create purchase order');
+      setError(extractApiError(err, 'Failed to create purchase order'));
     }
   };
 
@@ -146,7 +148,7 @@ const Purchases = () => {
       setShowDeleteModal(false);
       fetchPurchases();
     } catch (err) {
-      setError(err.response?.data?.message || 'Delete failed');
+      setError(extractApiError(err, 'Delete failed'));
     }
   };
 
@@ -251,7 +253,7 @@ const Purchases = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
-            {error && <Alert variant="danger">{error}</Alert>}
+            <ErrorAlert error={error} />
 
             <Row>
               <Col md={6}>

@@ -10,6 +10,8 @@ import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { ORDER_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const Sales = () => {
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ const Sales = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   // Form data
   const [customers, setCustomers] = useState([]);
@@ -80,7 +82,7 @@ const Sales = () => {
       discountPercent: 0,
       notes: '',
     });
-    setError('');
+    setError(null);
     setShowModal(true);
   };
 
@@ -115,7 +117,7 @@ const Sales = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
     try {
       const data = {
@@ -135,7 +137,7 @@ const Sales = () => {
       setShowModal(false);
       fetchSales();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create sale');
+      setError(extractApiError(err, 'Failed to create sale'));
     }
   };
 
@@ -145,7 +147,7 @@ const Sales = () => {
       setShowDeleteModal(false);
       fetchSales();
     } catch (err) {
-      setError(err.response?.data?.message || 'Delete failed');
+      setError(extractApiError(err, 'Delete failed'));
     }
   };
 
@@ -210,6 +212,7 @@ const Sales = () => {
                   <th>Subtotal</th>
                   <th>Tax</th>
                   <th>Total</th>
+                  <th>Created By</th>
                   <th>Date</th>
                   <th>Actions</th>
                 </tr>
@@ -223,6 +226,7 @@ const Sales = () => {
                     <td>{formatCurrency(sale.subtotal, currency)}</td>
                     <td>{formatCurrency(sale.tax, currency)}</td>
                     <td><strong>{formatCurrency(sale.total, currency)}</strong></td>
+                    <td>{sale.user?.name || '-'}</td>
                     <td>{new Date(sale.createdAt).toLocaleDateString()}</td>
                     <td>
                       <Button variant="outline-info" size="sm" className="me-2" onClick={() => navigate(`/sales/${sale.id}`)}>
@@ -252,7 +256,7 @@ const Sales = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
-            {error && <Alert variant="danger">{error}</Alert>}
+            <ErrorAlert error={error} />
 
             <Form.Group className="mb-3">
               <Form.Label>Customer *</Form.Label>

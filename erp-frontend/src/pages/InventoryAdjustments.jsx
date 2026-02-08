@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Spinner, Alert, Form } from 'react-bootstrap';
+import { Card, Table, Button, Spinner, Form } from 'react-bootstrap';
 import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { inventoryAdjustmentsAPI } from '../services/api';
@@ -9,6 +9,8 @@ import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { INVENTORY_ADJUSTMENT_STATUS } from '../utils/constants';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const InventoryAdjustments = () => {
   const navigate = useNavigate();
@@ -21,7 +23,7 @@ const InventoryAdjustments = () => {
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedAdjustment, setSelectedAdjustment] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const fetchAdjustments = async () => {
     try {
@@ -52,7 +54,7 @@ const InventoryAdjustments = () => {
       setShowDeleteModal(false);
       fetchAdjustments();
     } catch (err) {
-      setError(err.response?.data?.message || 'Delete failed');
+      setError(extractApiError(err, 'Delete failed'));
     }
   };
 
@@ -66,7 +68,7 @@ const InventoryAdjustments = () => {
         </Button>
       </div>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       <Card>
         <Card.Header>

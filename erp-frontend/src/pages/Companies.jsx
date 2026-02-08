@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge, Image } from 'react-bootstrap';
+import { Card, Table, Button, Modal, Form, Spinner, Badge, Image } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaUpload, FaTimesCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { companiesAPI, getStaticUrl } from '../services/api';
@@ -7,6 +7,8 @@ import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { COMPANY_STATUS, COMPANY_STATUS_COLORS, CURRENCIES, CURRENCY_LABELS } from '../utils/constants';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const Companies = () => {
   const navigate = useNavigate();
@@ -20,7 +22,7 @@ const Companies = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -84,7 +86,7 @@ const Companies = () => {
       });
       setLogoPreview(null);
     }
-    setError('');
+    setError(null);
     setShowModal(true);
   };
 
@@ -101,7 +103,7 @@ const Companies = () => {
       setLogoPreview(getStaticUrl(response.data.data.logo));
       fetchCompanies();
     } catch (err) {
-      setError(err.response?.data?.message || 'Logo upload failed');
+      setError(extractApiError(err, 'Logo upload failed'));
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -119,7 +121,7 @@ const Companies = () => {
       setLogoPreview(null);
       fetchCompanies();
     } catch (err) {
-      setError(err.response?.data?.message || 'Logo delete failed');
+      setError(extractApiError(err, 'Logo delete failed'));
     } finally {
       setUploading(false);
     }
@@ -127,7 +129,7 @@ const Companies = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
     try {
       const submitData = {
@@ -155,7 +157,7 @@ const Companies = () => {
       setShowModal(false);
       fetchCompanies();
     } catch (err) {
-      setError(err.response?.data?.message || 'Operation failed');
+      setError(extractApiError(err, 'Operation failed'));
     }
   };
 
@@ -165,7 +167,7 @@ const Companies = () => {
       setShowDeleteModal(false);
       fetchCompanies();
     } catch (err) {
-      setError(err.response?.data?.message || 'Delete failed');
+      setError(extractApiError(err, 'Delete failed'));
     }
   };
 
@@ -283,7 +285,7 @@ const Companies = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
-            {error && <Alert variant="danger">{error}</Alert>}
+            <ErrorAlert error={error} />
             <Form.Group className="mb-3">
               <Form.Label>Company Name *</Form.Label>
               <Form.Control

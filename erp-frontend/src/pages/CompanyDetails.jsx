@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Row, Col, Badge, Button, Table, Spinner, Alert, Modal, Form } from 'react-bootstrap';
+import { Card, Row, Col, Badge, Button, Table, Spinner, Modal, Form } from 'react-bootstrap';
 import { FaArrowLeft, FaBuilding, FaUsers, FaBoxes, FaShoppingCart, FaTruck, FaPlus } from 'react-icons/fa';
 import { companiesAPI, usersAPI } from '../services/api';
 import { COMPANY_STATUS_COLORS, ROLES } from '../utils/constants';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const CompanyDetails = () => {
   const { id } = useParams();
@@ -12,7 +14,7 @@ const CompanyDetails = () => {
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userFormData, setUserFormData] = useState({
     name: '',
@@ -20,7 +22,7 @@ const CompanyDetails = () => {
     password: '',
     role: 'staff',
   });
-  const [userError, setUserError] = useState('');
+  const [userError, setUserError] = useState(null);
 
   const fetchCompanyData = async () => {
     try {
@@ -34,7 +36,7 @@ const CompanyDetails = () => {
       setUsers(usersRes.data.data || []);
       setStats(statsRes.data.data);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load company details');
+      setError(extractApiError(err, 'Failed to load company details'));
     } finally {
       setLoading(false);
     }
@@ -46,7 +48,7 @@ const CompanyDetails = () => {
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    setUserError('');
+    setUserError(null);
 
     try {
       await usersAPI.create({
@@ -57,7 +59,7 @@ const CompanyDetails = () => {
       setUserFormData({ name: '', email: '', password: '', role: 'staff' });
       fetchCompanyData();
     } catch (err) {
-      setUserError(err.response?.data?.message || 'Failed to create user');
+      setUserError(extractApiError(err, 'Failed to create user'));
     }
   };
 
@@ -70,7 +72,7 @@ const CompanyDetails = () => {
   }
 
   if (error) {
-    return <Alert variant="danger">{error}</Alert>;
+    return <ErrorAlert error={error} />;
   }
 
   return (
@@ -199,7 +201,7 @@ const CompanyDetails = () => {
         </Modal.Header>
         <Form onSubmit={handleCreateUser}>
           <Modal.Body>
-            {userError && <Alert variant="danger">{userError}</Alert>}
+            <ErrorAlert error={userError} />
             <Form.Group className="mb-3">
               <Form.Label>Name *</Form.Label>
               <Form.Control

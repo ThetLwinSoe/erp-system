@@ -6,6 +6,8 @@ import { purchaseReturnsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { formatCurrency } from '../utils/currency';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const PurchaseReturnDetails = () => {
   const { id } = useParams();
@@ -14,7 +16,7 @@ const PurchaseReturnDetails = () => {
   const currency = user?.company?.currency || 'USD';
   const [purchaseReturn, setPurchaseReturn] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(false);
 
   const fetchPurchaseReturn = async () => {
@@ -40,7 +42,7 @@ const PurchaseReturnDetails = () => {
       await purchaseReturnsAPI.updateStatus(id, newStatus);
       fetchPurchaseReturn();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update status');
+      setError(extractApiError(err, 'Failed to update status'));
     } finally {
       setUpdating(false);
     }
@@ -75,7 +77,7 @@ const PurchaseReturnDetails = () => {
         Back to Purchase Returns
       </Button>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       <Row className="g-4">
         <Col md={8}>
