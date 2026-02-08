@@ -3,6 +3,7 @@ import { Card, Table, Button, Spinner, Alert, Form } from 'react-bootstrap';
 import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { inventoryAdjustmentsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
@@ -11,6 +12,7 @@ import { INVENTORY_ADJUSTMENT_STATUS } from '../utils/constants';
 
 const InventoryAdjustments = () => {
   const navigate = useNavigate();
+  const { isSuperAdmin } = useAuth();
   const [adjustments, setAdjustments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -129,7 +131,7 @@ const InventoryAdjustments = () => {
                       >
                         <FaEye />
                       </Button>
-                      {adjustment.status === 'pending' && (
+                      {isSuperAdmin() && adjustment.status === 'pending' && (
                         <Button
                           variant="outline-danger"
                           size="sm"

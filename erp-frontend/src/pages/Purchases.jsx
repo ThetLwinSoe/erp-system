@@ -13,7 +13,7 @@ import { formatCurrency } from '../utils/currency';
 
 const Purchases = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -227,7 +227,7 @@ const Purchases = () => {
                       <Button variant="outline-info" size="sm" className="me-2" onClick={() => navigate(`/purchases/${purchase.id}`)}>
                         <FaEye />
                       </Button>
-                      {(purchase.status === 'pending' || purchase.status === 'cancelled') && (
+                      {isSuperAdmin() && (purchase.status === 'pending' || purchase.status === 'cancelled') && (
                         <Button variant="outline-danger" size="sm" onClick={() => { setSelectedPurchase(purchase); setShowDeleteModal(true); }}>
                           <FaTrash />
                         </Button>

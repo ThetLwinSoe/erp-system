@@ -73,7 +73,7 @@ class CustomersController {
         return ApiResponse.badRequest(res, 'Company ID is required');
       }
 
-      const { name, email, phone, address, city, country, type } = req.body;
+      const { name, email, phone, address, city, country, type, status } = req.body;
 
       const customer = await Customer.create({
         name,
@@ -83,6 +83,7 @@ class CustomersController {
         city: city || null,
         country: country || null,
         type: type || CUSTOMER_TYPE.CUSTOMER,
+        status: status || 'active',
         companyId,
       });
 
@@ -124,7 +125,7 @@ class CustomersController {
         return ApiResponse.notFound(res, 'Customer not found');
       }
 
-      const { name, email, phone, address, city, country, type } = req.body;
+      const { name, email, phone, address, city, country, type, status } = req.body;
       const updates = {};
 
       if (name !== undefined) updates.name = name;
@@ -134,10 +135,33 @@ class CustomersController {
       if (city !== undefined) updates.city = city || null;
       if (country !== undefined) updates.country = country || null;
       if (type !== undefined) updates.type = type;
+      if (status !== undefined) updates.status = status;
 
       await customer.update(updates);
 
       return ApiResponse.success(res, customer, 'Customer updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Toggle customer status (active/inactive)
+   * PATCH /api/customers/:id/status
+   */
+  static async toggleStatus(req, res, next) {
+    try {
+      const whereClause = { id: req.params.id, ...req.companyFilter };
+      const customer = await Customer.findOne({ where: whereClause });
+
+      if (!customer) {
+        return ApiResponse.notFound(res, 'Customer not found');
+      }
+
+      const newStatus = customer.status === 'active' ? 'inactive' : 'active';
+      await customer.update({ status: newStatus });
+
+      return ApiResponse.success(res, customer, `Customer ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
     } catch (error) {
       next(error);
     }

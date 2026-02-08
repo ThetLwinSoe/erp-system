@@ -254,9 +254,9 @@ const SalesReport = () => {
               position: 'relative'
             }}>
               <table className="table table-striped table-hover mb-0" style={{
-                width: '1400px',
-                minWidth: '1400px',
-                maxWidth: '1400px',
+                width: '1500px',
+                minWidth: '1500px',
+                maxWidth: '1500px',
                 tableLayout: 'fixed',
                 margin: 0
               }}>
@@ -278,6 +278,7 @@ const SalesReport = () => {
                   <th className="text-end">Subtotal</th>
                   <th className="text-end">Tax</th>
                   <th className="text-end">Total</th>
+                  <th>Created By</th>
                 </tr>
               </thead>
               <tbody>
@@ -317,6 +318,7 @@ const SalesReport = () => {
                           <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
                             {formatAmount(transaction.total)}
                           </td>
+                          <td>{transaction.user?.name || '-'}</td>
                         </tr>
                       ))
                     : [
@@ -349,6 +351,7 @@ const SalesReport = () => {
                           <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
                             {formatAmount(transaction.total)}
                           </td>
+                          <td>{transaction.user?.name || '-'}</td>
                         </tr>
                       ]
                 )}
@@ -356,6 +359,7 @@ const SalesReport = () => {
               <tfoot>
                 <tr className="table-dark">
                   <td colSpan="13" className="text-end fw-bold">Totals:</td>
+
                   <td className="text-end fw-bold">
                     {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.subtotal || 0), 0))}
                   </td>
@@ -365,6 +369,7 @@ const SalesReport = () => {
                   <td className="text-end fw-bold">
                     {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.total || 0), 0))}
                   </td>
+                  <td></td>
                 </tr>
               </tfoot>
             </table>

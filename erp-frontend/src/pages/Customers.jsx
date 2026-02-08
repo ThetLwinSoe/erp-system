@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import { customersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
@@ -9,7 +9,7 @@ import ConfirmModal from '../components/common/ConfirmModal';
 import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../utils/constants';
 
 const Customers = () => {
-  const { isSaleRep } = useAuth();
+  const { isSaleRep, isSuperAdmin } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -27,6 +27,7 @@ const Customers = () => {
     city: '',
     country: '',
     type: 'customer',
+    status: 'active',
   });
 
   const fetchCustomers = async () => {
@@ -57,10 +58,11 @@ const Customers = () => {
         city: customer.city || '',
         country: customer.country || '',
         type: customer.type || 'customer',
+        status: customer.status || 'active',
       });
     } else {
       setSelectedCustomer(null);
-      setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', type: 'customer' });
+      setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', type: 'customer', status: 'active' });
     }
     setError('');
     setShowModal(true);
@@ -80,6 +82,15 @@ const Customers = () => {
       fetchCustomers();
     } catch (err) {
       setError(err.response?.data?.message || 'Operation failed');
+    }
+  };
+
+  const handleToggleStatus = async (customer) => {
+    try {
+      await customersAPI.toggleStatus(customer.id);
+      fetchCustomers();
+    } catch (err) {
+      console.error('Error toggling status:', err);
     }
   };
 
@@ -123,6 +134,7 @@ const Customers = () => {
                   <th>Email</th>
                   <th>Phone</th>
                   <th>City</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -139,14 +151,30 @@ const Customers = () => {
                     <td>{customer.phone || '-'}</td>
                     <td>{customer.city || '-'}</td>
                     <td>
+                      <Badge bg={customer.status === 'active' ? 'success' : 'secondary'}>
+                        {customer.status === 'active' ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                    <td>
                       {!isSaleRep() && (
                         <>
                           <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(customer)}>
                             <FaEdit />
                           </Button>
-                          <Button variant="outline-danger" size="sm" onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}>
-                            <FaTrash />
+                          <Button
+                            variant={customer.status === 'active' ? 'outline-warning' : 'outline-success'}
+                            size="sm"
+                            className="me-2"
+                            onClick={() => handleToggleStatus(customer)}
+                            title={customer.status === 'active' ? 'Deactivate' : 'Activate'}
+                          >
+                            {customer.status === 'active' ? <FaToggleOff /> : <FaToggleOn />}
                           </Button>
+                          {isSuperAdmin() && (
+                            <Button variant="outline-danger" size="sm" onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}>
+                              <FaTrash />
+                            </Button>
+                          )}
                         </>
                       )}
                     </td>
@@ -208,6 +236,20 @@ const Customers = () => {
                     <option value={CUSTOMER_TYPES.SUPPLIER}>Supplier</option>
                     <option value={CUSTOMER_TYPES.BOTH}>Both (Customer & Supplier)</option>
                   </Form.Select>
+                </Form.Group>
+              </div>
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>Status</Form.Label>
+                  <div className="mt-1">
+                    <Button
+                      variant={formData.status === 'active' ? 'success' : 'secondary'}
+                      size="sm"
+                      onClick={() => setFormData({ ...formData, status: formData.status === 'active' ? 'inactive' : 'active' })}
+                    >
+                      {formData.status === 'active' ? <><FaToggleOn className="me-1" /> Active</> : <><FaToggleOff className="me-1" /> Inactive</>}
+                    </Button>
+                  </div>
                 </Form.Group>
               </div>
               <div className="col-12">

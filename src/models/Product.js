@@ -40,6 +40,11 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 0,
       },
+      status: {
+        type: DataTypes.ENUM('active', 'inactive'),
+        defaultValue: 'active',
+        allowNull: false,
+      },
       companyId: {
         type: DataTypes.INTEGER,
         allowNull: false,

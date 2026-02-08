@@ -56,6 +56,7 @@ export const customersAPI = {
   getById: (id) => api.get(`/customers/${id}`),
   create: (data) => api.post('/customers', data),
   update: (id, data) => api.put(`/customers/${id}`, data),
+  toggleStatus: (id) => api.patch(`/customers/${id}/status`),
   delete: (id) => api.delete(`/customers/${id}`),
 };
 
@@ -65,6 +66,7 @@ export const productsAPI = {
   getById: (id) => api.get(`/products/${id}`),
   create: (data) => api.post('/products', data),
   update: (id, data) => api.put(`/products/${id}`, data),
+  toggleStatus: (id) => api.patch(`/products/${id}/status`),
   delete: (id) => api.delete(`/products/${id}`),
 };
 

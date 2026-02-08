@@ -13,7 +13,7 @@ import { formatCurrency } from '../utils/currency';
 
 const Sales = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -228,7 +228,7 @@ const Sales = () => {
                       <Button variant="outline-info" size="sm" className="me-2" onClick={() => navigate(`/sales/${sale.id}`)}>
                         <FaEye />
                       </Button>
-                      {sale.status !== 'delivered' && (
+                      {isSuperAdmin() && sale.status !== 'delivered' && (
                         <Button variant="outline-danger" size="sm" onClick={() => { setSelectedSale(sale); setShowDeleteModal(true); }}>
                           <FaTrash />
                         </Button>

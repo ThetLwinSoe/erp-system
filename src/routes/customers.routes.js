@@ -1,6 +1,6 @@
 const express = require('express');
 const CustomersController = require('../controllers/customers.controller');
-const { authenticate, restrictSaleRep } = require('../middleware/auth');
+const { authenticate, restrictSaleRep, requireSuperAdmin } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { customerValidation, paginationValidation } = require('../middleware/validate');
 
@@ -39,10 +39,17 @@ router.get('/:id', CustomersController.getById);
 router.put('/:id', restrictSaleRep, customerValidation.update, CustomersController.update);
 
 /**
+ * @route PATCH /api/customers/:id/status
+ * @desc Toggle customer active/inactive status
+ * @access Private (Sale Rep cannot toggle)
+ */
+router.patch('/:id/status', restrictSaleRep, CustomersController.toggleStatus);
+
+/**
  * @route DELETE /api/customers/:id
  * @desc Delete customer
- * @access Private (Sale Rep cannot delete)
+ * @access Private (Super Admin only)
  */
-router.delete('/:id', restrictSaleRep, CustomersController.delete);
+router.delete('/:id', requireSuperAdmin, CustomersController.delete);
 
 module.exports = router;
