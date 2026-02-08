@@ -68,7 +68,7 @@ class ProductsController {
         return ApiResponse.badRequest(res, 'Company ID is required');
       }
 
-      const { sku, name, description, category, unit, costPrice, sellingPrice } = req.body;
+      const { sku, name, description, category, unit, costPrice, sellingPrice, status } = req.body;
 
       const product = await Product.create({
         sku,
@@ -78,6 +78,7 @@ class ProductsController {
         unit,
         costPrice,
         sellingPrice,
+        status: status || 'active',
         companyId,
       });
 
@@ -134,7 +135,7 @@ class ProductsController {
         return ApiResponse.notFound(res, 'Product not found');
       }
 
-      const { sku, name, description, category, unit, costPrice, sellingPrice } = req.body;
+      const { sku, name, description, category, unit, costPrice, sellingPrice, status } = req.body;
       const updates = {};
 
       if (sku !== undefined) updates.sku = sku;
@@ -144,6 +145,7 @@ class ProductsController {
       if (unit !== undefined) updates.unit = unit;
       if (costPrice !== undefined) updates.costPrice = costPrice;
       if (sellingPrice !== undefined) updates.sellingPrice = sellingPrice;
+      if (status !== undefined) updates.status = status;
 
       await product.update(updates);
 
@@ -152,6 +154,32 @@ class ProductsController {
       });
 
       return ApiResponse.success(res, updatedProduct, 'Product updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Toggle product status (active/inactive)
+   * PATCH /api/products/:id/status
+   */
+  static async toggleStatus(req, res, next) {
+    try {
+      const whereClause = { id: req.params.id, ...req.companyFilter };
+      const product = await Product.findOne({ where: whereClause });
+
+      if (!product) {
+        return ApiResponse.notFound(res, 'Product not found');
+      }
+
+      const newStatus = product.status === 'active' ? 'inactive' : 'active';
+      await product.update({ status: newStatus });
+
+      const updatedProduct = await Product.findByPk(req.params.id, {
+        include: [{ model: Inventory, as: 'inventory' }],
+      });
+
+      return ApiResponse.success(res, updatedProduct, `Product ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
     } catch (error) {
       next(error);
     }

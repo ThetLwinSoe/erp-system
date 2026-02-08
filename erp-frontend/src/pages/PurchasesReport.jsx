@@ -254,9 +254,9 @@ const PurchasesReport = () => {
               position: 'relative'
             }}>
               <table className="table table-striped table-hover mb-0" style={{
-                width: '1600px',
-                minWidth: '1600px',
-                maxWidth: '1600px',
+                width: '1700px',
+                minWidth: '1700px',
+                maxWidth: '1700px',
                 tableLayout: 'fixed',
                 margin: 0
               }}>
@@ -278,6 +278,7 @@ const PurchasesReport = () => {
                   <th className="text-end">Subtotal</th>
                   <th className="text-end">Tax</th>
                   <th className="text-end">Total</th>
+                  <th>Created By</th>
                 </tr>
               </thead>
               <tbody>
@@ -317,6 +318,7 @@ const PurchasesReport = () => {
                           <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
                             {formatAmount(transaction.total)}
                           </td>
+                          <td>{transaction.user?.name || '-'}</td>
                         </tr>
                       ))
                     : [
@@ -349,6 +351,7 @@ const PurchasesReport = () => {
                           <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
                             {formatAmount(transaction.total)}
                           </td>
+                          <td>{transaction.user?.name || '-'}</td>
                         </tr>
                       ]
                 )}
@@ -365,6 +368,7 @@ const PurchasesReport = () => {
                   <td className="text-end fw-bold">
                     {formatAmount(purchases.reduce((sum, p) => sum + parseFloat(p.total), 0))}
                   </td>
+                  <td></td>
                 </tr>
               </tfoot>
               </table>

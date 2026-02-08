@@ -1,6 +1,6 @@
 const express = require('express');
 const ProductsController = require('../controllers/products.controller');
-const { authenticate, restrictSaleRep } = require('../middleware/auth');
+const { authenticate, restrictSaleRep, requireSuperAdmin } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { productValidation, paginationValidation } = require('../middleware/validate');
 
@@ -39,10 +39,17 @@ router.get('/:id', ProductsController.getById);
 router.put('/:id', restrictSaleRep, productValidation.update, ProductsController.update);
 
 /**
+ * @route PATCH /api/products/:id/status
+ * @desc Toggle product active/inactive status
+ * @access Private (Sale Rep cannot toggle)
+ */
+router.patch('/:id/status', restrictSaleRep, ProductsController.toggleStatus);
+
+/**
  * @route DELETE /api/products/:id
  * @desc Delete product
- * @access Private (Sale Rep cannot delete)
+ * @access Private (Super Admin only)
  */
-router.delete('/:id', restrictSaleRep, ProductsController.delete);
+router.delete('/:id', requireSuperAdmin, ProductsController.delete);
 
 module.exports = router;

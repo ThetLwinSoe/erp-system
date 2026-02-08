@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import { productsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
@@ -9,7 +9,7 @@ import ConfirmModal from '../components/common/ConfirmModal';
 import { formatCurrency } from '../utils/currency';
 
 const Products = () => {
-  const { user, isSaleRep } = useAuth();
+  const { user, isSaleRep, isSuperAdmin } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +28,7 @@ const Products = () => {
     unit: 'piece',
     costPrice: '',
     sellingPrice: '',
+    status: 'active',
   });
 
   const fetchProducts = async () => {
@@ -58,10 +59,11 @@ const Products = () => {
         unit: product.unit || 'piece',
         costPrice: product.costPrice,
         sellingPrice: product.sellingPrice,
+        status: product.status || 'active',
       });
     } else {
       setSelectedProduct(null);
-      setFormData({ sku: '', name: '', description: '', category: '', unit: 'piece', costPrice: '', sellingPrice: '' });
+      setFormData({ sku: '', name: '', description: '', category: '', unit: 'piece', costPrice: '', sellingPrice: '', status: 'active' });
     }
     setError('');
     setShowModal(true);
@@ -87,6 +89,15 @@ const Products = () => {
       fetchProducts();
     } catch (err) {
       setError(err.response?.data?.message || 'Operation failed');
+    }
+  };
+
+  const handleToggleStatus = async (product) => {
+    try {
+      await productsAPI.toggleStatus(product.id);
+      fetchProducts();
+    } catch (err) {
+      console.error('Error toggling status:', err);
     }
   };
 
@@ -141,6 +152,7 @@ const Products = () => {
                   <th>Cost Price</th>
                   <th>Selling Price</th>
                   <th>Stock</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -154,14 +166,30 @@ const Products = () => {
                     <td>{formatCurrency(product.sellingPrice, currency)}</td>
                     <td>{getStockBadge(product)}</td>
                     <td>
+                      <Badge bg={product.status === 'active' ? 'success' : 'secondary'}>
+                        {product.status === 'active' ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                    <td>
                       {!isSaleRep() && (
                         <>
                           <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(product)}>
                             <FaEdit />
                           </Button>
-                          <Button variant="outline-danger" size="sm" onClick={() => { setSelectedProduct(product); setShowDeleteModal(true); }}>
-                            <FaTrash />
+                          <Button
+                            variant={product.status === 'active' ? 'outline-warning' : 'outline-success'}
+                            size="sm"
+                            className="me-2"
+                            onClick={() => handleToggleStatus(product)}
+                            title={product.status === 'active' ? 'Deactivate' : 'Activate'}
+                          >
+                            {product.status === 'active' ? <FaToggleOff /> : <FaToggleOn />}
                           </Button>
+                          {isSuperAdmin() && (
+                            <Button variant="outline-danger" size="sm" onClick={() => { setSelectedProduct(product); setShowDeleteModal(true); }}>
+                              <FaTrash />
+                            </Button>
+                          )}
                         </>
                       )}
                     </td>
@@ -219,6 +247,20 @@ const Products = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Selling Price *</Form.Label>
                   <Form.Control type="number" step="0.01" min="0" value={formData.sellingPrice} onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })} required />
+                </Form.Group>
+              </div>
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>Status</Form.Label>
+                  <div className="mt-1">
+                    <Button
+                      variant={formData.status === 'active' ? 'success' : 'secondary'}
+                      size="sm"
+                      onClick={() => setFormData({ ...formData, status: formData.status === 'active' ? 'inactive' : 'active' })}
+                    >
+                      {formData.status === 'active' ? <><FaToggleOn className="me-1" /> Active</> : <><FaToggleOff className="me-1" /> Inactive</>}
+                    </Button>
+                  </div>
                 </Form.Group>
               </div>
               <div className="col-12">

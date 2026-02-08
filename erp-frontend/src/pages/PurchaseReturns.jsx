@@ -13,7 +13,7 @@ import { formatCurrency } from '../utils/currency';
 
 const PurchaseReturns = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [returns, setReturns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +115,7 @@ const PurchaseReturns = () => {
                       <Button variant="outline-info" size="sm" className="me-2" onClick={() => navigate(`/purchase-returns/${ret.id}`)}>
                         <FaEye />
                       </Button>
-                      {ret.status === 'pending' && (
+                      {isSuperAdmin() && ret.status === 'pending' && (
                         <Button variant="outline-danger" size="sm" onClick={() => { setSelectedReturn(ret); setShowDeleteModal(true); }}>
                           <FaTrash />
                         </Button>
