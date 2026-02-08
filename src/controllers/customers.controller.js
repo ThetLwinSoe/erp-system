@@ -24,6 +24,12 @@ class CustomersController {
       // Add company filter
       const whereClause = { ...req.companyFilter };
 
+      // Filter by status
+      const status = req.query.status || '';
+      if (status) {
+        whereClause.status = status;
+      }
+
       // Filter by type
       if (type === 'customer') {
         whereClause.type = { [Op.in]: ['customer', 'both'] };

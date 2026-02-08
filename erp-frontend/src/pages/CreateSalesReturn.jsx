@@ -5,6 +5,8 @@ import { FaArrowLeft } from 'react-icons/fa';
 import { salesReturnsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/currency';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const CreateSalesReturn = () => {
   const { saleId } = useParams();
@@ -13,7 +15,7 @@ const CreateSalesReturn = () => {
   const currency = user?.company?.currency || 'USD';
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [sale, setSale] = useState(null);
   const [returnableItems, setReturnableItems] = useState([]);
   const [returnItems, setReturnItems] = useState({});
@@ -34,7 +36,7 @@ const CreateSalesReturn = () => {
       });
       setReturnItems(initialReturnItems);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load sale details');
+      setError(extractApiError(err, 'Failed to load sale details'));
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,7 @@ const CreateSalesReturn = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
     if (!hasItemsToReturn()) {
       setError('Please select at least one item to return');
@@ -113,7 +115,7 @@ const CreateSalesReturn = () => {
 
       navigate('/sales-returns');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create sales return');
+      setError(extractApiError(err, 'Failed to create sales return'));
     } finally {
       setSubmitting(false);
     }
@@ -140,7 +142,7 @@ const CreateSalesReturn = () => {
 
       <h2 className="mb-4">Create Sales Return</h2>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       <Form onSubmit={handleSubmit}>
         <Row className="g-4">

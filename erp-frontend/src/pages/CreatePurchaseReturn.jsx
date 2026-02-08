@@ -5,6 +5,8 @@ import { FaArrowLeft } from 'react-icons/fa';
 import { purchaseReturnsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/currency';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const CreatePurchaseReturn = () => {
   const { purchaseId } = useParams();
@@ -13,7 +15,7 @@ const CreatePurchaseReturn = () => {
   const currency = user?.company?.currency || 'USD';
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [purchase, setPurchase] = useState(null);
   const [returnableItems, setReturnableItems] = useState([]);
   const [returnItems, setReturnItems] = useState({});
@@ -34,7 +36,7 @@ const CreatePurchaseReturn = () => {
       });
       setReturnItems(initialReturnItems);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load purchase details');
+      setError(extractApiError(err, 'Failed to load purchase details'));
     } finally {
       setLoading(false);
     }
@@ -65,7 +67,7 @@ const CreatePurchaseReturn = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
     if (!hasItemsToReturn()) {
       setError('Please select at least one item to return');
@@ -91,7 +93,7 @@ const CreatePurchaseReturn = () => {
 
       navigate('/purchase-returns');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create purchase return');
+      setError(extractApiError(err, 'Failed to create purchase return'));
     } finally {
       setSubmitting(false);
     }
@@ -118,7 +120,7 @@ const CreatePurchaseReturn = () => {
 
       <h2 className="mb-4">Create Purchase Return</h2>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       <Form onSubmit={handleSubmit}>
         <Row className="g-4">

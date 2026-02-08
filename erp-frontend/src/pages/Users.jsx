@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Alert, Badge } from 'react-bootstrap';
+import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { usersAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,8 @@ import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { ROLES, ROLE_LABELS } from '../utils/constants';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const Users = () => {
   const { isSuperAdmin } = useAuth();
@@ -19,7 +21,7 @@ const Users = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -86,13 +88,13 @@ const Users = () => {
         companyId: companies.length > 0 ? String(companies[0].id) : '',
       });
     }
-    setError('');
+    setError(null);
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
     try {
       // Get companyId - use formData value, fallback to first company if empty
@@ -115,7 +117,7 @@ const Users = () => {
       setShowModal(false);
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.message || 'Operation failed');
+      setError(extractApiError(err, 'Operation failed'));
     }
   };
 
@@ -125,7 +127,7 @@ const Users = () => {
       setShowDeleteModal(false);
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.message || 'Delete failed');
+      setError(extractApiError(err, 'Delete failed'));
     }
   };
 
@@ -202,7 +204,7 @@ const Users = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
-            {error && <Alert variant="danger">{error}</Alert>}
+            <ErrorAlert error={error} />
             <Form.Group className="mb-3">
               <Form.Label>Name *</Form.Label>
               <Form.Control type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />

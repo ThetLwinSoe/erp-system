@@ -23,6 +23,12 @@ class ProductsController {
       // Add company filter
       const whereClause = { ...req.companyFilter };
 
+      // Filter by status
+      const status = req.query.status || '';
+      if (status) {
+        whereClause.status = status;
+      }
+
       if (search) {
         whereClause[Op.or] = [
           { name: { [Op.iLike]: `%${search}%` } },

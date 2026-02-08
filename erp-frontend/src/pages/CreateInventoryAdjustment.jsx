@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Button, Spinner, Alert, Row, Col, Form } from 'react-bootstrap';
+import { Card, Table, Button, Spinner, Row, Col, Form } from 'react-bootstrap';
 import { FaArrowLeft, FaTimes, FaPlus } from 'react-icons/fa';
 import { inventoryAdjustmentsAPI } from '../services/api';
 import { INVENTORY_ADJUSTMENT_REASONS } from '../utils/constants';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const CreateInventoryAdjustment = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState({});
   const [reason, setReason] = useState('');
@@ -118,7 +120,7 @@ const CreateInventoryAdjustment = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
     if (!reason) {
       setError('Please select a reason for the adjustment');
@@ -140,14 +142,7 @@ const CreateInventoryAdjustment = () => {
       });
       navigate('/inventory-adjustments');
     } catch (err) {
-      // Show detailed validation errors if available
-      const errorData = err.response?.data;
-      let errorMessage = errorData?.message || 'Failed to create adjustment';
-      if (errorData?.errors && Array.isArray(errorData.errors)) {
-        const details = errorData.errors.map(e => `${e.field}: ${e.message}`).join(', ');
-        errorMessage = `${errorMessage} - ${details}`;
-      }
-      setError(errorMessage);
+      setError(extractApiError(err, 'Failed to create adjustment'));
     } finally {
       setSubmitting(false);
     }
@@ -190,7 +185,7 @@ const CreateInventoryAdjustment = () => {
 
       <h2 className="mb-4">Create Inventory Adjustment</h2>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       <Form onSubmit={handleSubmit}>
         <Row className="g-4">

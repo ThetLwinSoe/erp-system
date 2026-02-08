@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
 import { formatCurrency } from '../utils/currency';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const PurchaseDetails = () => {
   const { id } = useParams();
@@ -15,7 +17,7 @@ const PurchaseDetails = () => {
   const currency = user?.company?.currency || 'USD';
   const [purchase, setPurchase] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
@@ -44,7 +46,7 @@ const PurchaseDetails = () => {
       await purchasesAPI.updateStatus(id, newStatus);
       fetchPurchase();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update status');
+      setError(extractApiError(err, 'Failed to update status'));
     } finally {
       setUpdating(false);
     }
@@ -88,7 +90,7 @@ const PurchaseDetails = () => {
       setShowReceiveModal(false);
       fetchPurchase();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to receive goods');
+      setError(extractApiError(err, 'Failed to receive goods'));
     } finally {
       setUpdating(false);
     }
@@ -162,7 +164,7 @@ const PurchaseDetails = () => {
         Back to Purchases
       </Button>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       <Row className="g-4">
         <Col md={8}>
@@ -317,7 +319,7 @@ const PurchaseDetails = () => {
           <Modal.Title>Receive Goods</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && <Alert variant="danger">{error}</Alert>}
+          <ErrorAlert error={error} />
           <Table>
             <thead>
               <tr>

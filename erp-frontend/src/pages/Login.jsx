@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Card, Form, Button, Alert } from 'react-bootstrap';
+import { Container, Card, Form, Button } from 'react-bootstrap';
 import { useAuth } from '../context/AuthContext';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
@@ -14,14 +16,14 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
     setLoading(true);
 
     try {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      setError(extractApiError(err, 'Login failed. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -34,7 +36,7 @@ const Login = () => {
           <h2 className="text-center mb-4">ERP System</h2>
           <h5 className="text-center text-muted mb-4">Sign In</h5>
 
-          {error && <Alert variant="danger">{error}</Alert>}
+          <ErrorAlert error={error} />
 
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">

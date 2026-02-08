@@ -6,13 +6,15 @@ import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { ORDER_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
+import { extractApiError } from '../utils/errorUtils';
+import ErrorAlert from '../components/common/ErrorAlert';
 
 const SalesReport = () => {
   const { user } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [sales, setSales] = useState([]);
   const [summary, setSummary] = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -41,7 +43,7 @@ const SalesReport = () => {
   const fetchReport = async () => {
     try {
       setLoading(true);
-      setError('');
+      setError(null);
 
       const params = {};
       if (filters.startDate) params.startDate = filters.startDate;
@@ -53,7 +55,7 @@ const SalesReport = () => {
       setSales(response.data.data.sales || []);
       setSummary(response.data.data.summary || null);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch report');
+      setError(extractApiError(err, 'Failed to fetch report'));
     } finally {
       setLoading(false);
     }
@@ -116,7 +118,7 @@ const SalesReport = () => {
         )}
       </div>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
 
       {/* Filters */}
       <Card className="mb-4" style={{ width: '100%', maxWidth: '100%' }}>
