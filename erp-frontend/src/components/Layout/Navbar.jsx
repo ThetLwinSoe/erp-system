@@ -19,7 +19,8 @@ const Navbar = () => {
     <BsNavbar bg="dark" variant="dark" className="px-3">
       <Container fluid>
         <BsNavbar.Brand className="d-flex align-items-center">
-          {!isSuperAdmin() && companyLogo && (
+          {/* {!isSuperAdmin() && companyLogo && ( */}
+          {companyLogo && (
             <Image
               src={companyLogo}
               alt={getCompanyName()}
@@ -30,7 +31,7 @@ const Navbar = () => {
               style={{ objectFit: 'cover', border: '2px solid #495057' }}
             />
           )}
-          ERP System
+          CoreFlow ERP
         </BsNavbar.Brand>
         {!isSuperAdmin() && getCompanyName() && (
           <div className="d-flex align-items-center text-light me-auto ms-3">
