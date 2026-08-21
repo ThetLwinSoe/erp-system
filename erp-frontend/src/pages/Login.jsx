@@ -4,6 +4,7 @@ import { Container, Card, Form, Button } from 'react-bootstrap';
 import { useAuth } from '../context/AuthContext';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import logo from '../assets/logo-horizontal-light@2x-center.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -33,7 +34,11 @@ const Login = () => {
     <Container className="d-flex justify-content-center align-items-center min-vh-100">
       <Card style={{ width: '400px' }}>
         <Card.Body className="p-4">
-          <h2 className="text-center mb-4">ERP System</h2>
+          {/* <h2 className="text-center mb-4">ERP System</h2> */}
+          <div className="d-flex justify-content-center align-items-center mb-4">
+            <img src={logo} alt="CoreFlow ERP" style={{ height: 80 }} className="mb-2" />
+            {/* <h2 className="text-center mb-4">CoreFlow ERP</h2> */}
+          </div>
           <h5 className="text-center text-muted mb-4">Sign In</h5>
 
           <ErrorAlert error={error} />
