@@ -2,6 +2,7 @@ const { Customer } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, CUSTOMER_TYPE } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
+const { toCSV, parseCSV } = require('../utils/csv');
 const { Op } = require('sequelize');
 
 class CustomersController {
@@ -168,6 +169,171 @@ class CustomersController {
       await customer.update({ status: newStatus });
 
       return ApiResponse.success(res, customer, `Customer ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Bulk import customers from CSV
+   * POST /api/customers/import
+   */
+  static async importCSV(req, res, next) {
+    try {
+      if (!req.file) {
+        return ApiResponse.badRequest(res, 'CSV file is required');
+      }
+
+      const companyId = getCompanyIdForCreate(req);
+      if (!companyId) {
+        return ApiResponse.badRequest(res, 'Company ID is required');
+      }
+
+      const rows = parseCSV(req.file.buffer.toString('utf-8'));
+      if (rows.length === 0) {
+        return ApiResponse.badRequest(res, 'CSV file is empty');
+      }
+
+      const headerRow = rows[0].map((h) => h.trim().toLowerCase());
+      const dataRows = rows.slice(1);
+
+      if (dataRows.length === 0) {
+        return ApiResponse.badRequest(res, 'CSV file has no data rows');
+      }
+
+      const MAX_ROWS = 1000;
+      if (dataRows.length > MAX_ROWS) {
+        return ApiResponse.badRequest(res, `CSV file exceeds the maximum of ${MAX_ROWS} rows`);
+      }
+
+      const indexes = {
+        name: headerRow.indexOf('name'),
+        email: headerRow.indexOf('email'),
+        phone: headerRow.indexOf('phone'),
+        address: headerRow.indexOf('address'),
+        city: headerRow.indexOf('city'),
+        country: headerRow.indexOf('country'),
+        type: headerRow.indexOf('type'),
+      };
+
+      if (indexes.name === -1) {
+        return ApiResponse.badRequest(res, 'CSV must include a "Name" column');
+      }
+
+      const getValue = (row, key) => {
+        const idx = indexes[key];
+        if (idx === -1 || idx >= row.length) return '';
+        return (row[idx] || '').trim();
+      };
+
+      let created = 0;
+      const errors = [];
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const rowNumber = i + 2; // +1 for header row, +1 for 1-based numbering
+        const row = dataRows[i];
+
+        const name = getValue(row, 'name');
+        if (!name) {
+          errors.push({ row: rowNumber, message: 'Name is required' });
+          continue;
+        }
+
+        const email = getValue(row, 'email');
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          errors.push({ row: rowNumber, message: 'Invalid email format' });
+          continue;
+        }
+
+        const type = getValue(row, 'type').toLowerCase() || CUSTOMER_TYPE.CUSTOMER;
+        if (!Object.values(CUSTOMER_TYPE).includes(type)) {
+          errors.push({ row: rowNumber, message: `Invalid type "${type}" (expected customer, supplier, or both)` });
+          continue;
+        }
+
+        try {
+          await Customer.create({
+            name,
+            email: email || null,
+            phone: getValue(row, 'phone') || null,
+            address: getValue(row, 'address') || null,
+            city: getValue(row, 'city') || null,
+            country: getValue(row, 'country') || null,
+            type,
+            status: 'active',
+            companyId,
+          });
+          created++;
+        } catch (err) {
+          errors.push({ row: rowNumber, message: err.errors?.[0]?.message || err.message || 'Failed to create customer' });
+        }
+      }
+
+      return ApiResponse.success(
+        res,
+        { total: dataRows.length, created, failed: errors.length, errors },
+        `Import completed: ${created} created, ${errors.length} failed`
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export customers to CSV
+   * GET /api/customers/export
+   */
+  static async exportCSV(req, res, next) {
+    try {
+      const search = req.query.search || '';
+      const type = req.query.type || '';
+      const status = req.query.status || '';
+
+      const whereClause = { ...req.companyFilter };
+
+      if (status) {
+        whereClause.status = status;
+      }
+
+      if (type === 'customer') {
+        whereClause.type = { [Op.in]: ['customer', 'both'] };
+      } else if (type === 'supplier') {
+        whereClause.type = { [Op.in]: ['supplier', 'both'] };
+      }
+
+      if (search) {
+        whereClause[Op.or] = [
+          { name: { [Op.iLike]: `%${search}%` } },
+          { email: { [Op.iLike]: `%${search}%` } },
+          { phone: { [Op.iLike]: `%${search}%` } },
+          { city: { [Op.iLike]: `%${search}%` } },
+        ];
+      }
+
+      const customers = await Customer.findAll({
+        where: whereClause,
+        order: [['name', 'ASC']],
+      });
+
+      const headers = ['ID', 'Name', 'Email', 'Phone', 'Address', 'City', 'Country', 'Type', 'Status', 'Created At'];
+      const rows = customers.map((customer) => [
+        customer.id,
+        customer.name,
+        customer.email || '',
+        customer.phone || '',
+        customer.address || '',
+        customer.city || '',
+        customer.country || '',
+        customer.type,
+        customer.status,
+        new Date(customer.createdAt).toLocaleDateString(),
+      ]);
+
+      const csvContent = toCSV(headers, rows);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=customers-${new Date().toISOString().split('T')[0]}.csv`);
+      return res.send(csvContent);
     } catch (error) {
       next(error);
     }

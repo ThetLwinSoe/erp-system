@@ -39,6 +39,26 @@ const upload = multer({
   },
 });
 
+// CSV import - kept in memory, never written to disk
+const csvFileFilter = (req, file, cb) => {
+  const allowedMimes = ['text/csv', 'application/vnd.ms-excel', 'application/csv', 'text/plain'];
+  const hasCsvExtension = file.originalname.toLowerCase().endsWith('.csv');
+  if (hasCsvExtension || allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only CSV files are allowed.'), false);
+  }
+};
+
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: csvFileFilter,
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB max
+  },
+});
+
 module.exports = {
   uploadLogo: upload.single('logo'),
+  uploadCSV: csvUpload.single('file'),
 };

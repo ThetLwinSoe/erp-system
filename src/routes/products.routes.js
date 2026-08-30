@@ -3,6 +3,7 @@ const ProductsController = require('../controllers/products.controller');
 const { authenticate, restrictSaleRep, requireSuperAdmin } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { productValidation, paginationValidation } = require('../middleware/validate');
+const { uploadCSV } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -23,6 +24,20 @@ router.get('/', paginationValidation, ProductsController.getAll);
  * @access Private (Sale Rep cannot create)
  */
 router.post('/', restrictSaleRep, productValidation.create, ProductsController.create);
+
+/**
+ * @route GET /api/products/export
+ * @desc Export products to CSV
+ * @access Private
+ */
+router.get('/export', ProductsController.exportCSV);
+
+/**
+ * @route POST /api/products/import
+ * @desc Bulk import products from CSV
+ * @access Private (Sale Rep cannot import)
+ */
+router.post('/import', restrictSaleRep, uploadCSV, ProductsController.importCSV);
 
 /**
  * @route GET /api/products/:id
