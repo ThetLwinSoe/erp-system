@@ -11,7 +11,7 @@ import Dashboard from './pages/Dashboard'
 import Companies from './pages/Companies'
 import CompanyDetails from './pages/CompanyDetails'
 import Users from './pages/Users'
-import Customers from './pages/Customers'
+import ContactsPage from './pages/ContactsPage'
 import Products from './pages/Products'
 import Inventory from './pages/Inventory'
 import Sales from './pages/Sales'
@@ -48,7 +48,8 @@ function App() {
           <Route path="/companies" element={<Companies />} />
           <Route path="/companies/:id" element={<CompanyDetails />} />
           <Route path="/users" element={<Users />} />
-          <Route path="/customers" element={<Customers />} />
+          <Route path="/customers" element={<ContactsPage type="customer" label="Customer" labelPlural="Customers" />} />
+          <Route path="/suppliers" element={<ContactsPage type="supplier" label="Supplier" labelPlural="Suppliers" />} />
           <Route path="/products" element={<Products />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />

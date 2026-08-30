@@ -8,13 +8,22 @@ import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ImportCsvModal from '../components/common/ImportCsvModal';
 import SortableHeader from '../components/common/SortableHeader';
-import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 
-const Customers = () => {
+const TEMPLATE_EXAMPLES = {
+  customer: ['Acme Corp', 'contact@acme.com', '+1 555 0100', '123 Main St', 'New York', 'USA'],
+  supplier: ['Global Supplies Inc.', 'sales@globalsupplies.com', '+1 555 0200', '456 Industrial Ave', 'Chicago', 'USA'],
+};
+
+/**
+ * Shared list/CRUD page for Customer-table contacts, scoped to a single type
+ * (Customers page passes type="customer", Suppliers page passes type="supplier").
+ */
+const ContactsPage = ({ type, label, labelPlural }) => {
   const { isSaleRep, isSuperAdmin } = useAuth();
-  const [customers, setCustomers] = useState([]);
+  const labelLower = labelPlural.toLowerCase();
+  const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -23,7 +32,7 @@ const Customers = () => {
   const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
   const [error, setError] = useState(null);
   const [listError, setListError] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -35,27 +44,27 @@ const Customers = () => {
     address: '',
     city: '',
     country: '',
-    type: 'customer',
     status: 'active',
   });
 
-  const fetchCustomers = async () => {
+  const fetchContacts = async () => {
     try {
       setLoading(true);
       setListError(null);
-      const response = await customersAPI.getAll({ page, limit: 20, search, sortBy, sortOrder });
-      setCustomers(response.data.data || []);
+      const response = await customersAPI.getAll({ page, limit: 20, search, sortBy, sortOrder, type });
+      setContacts(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
     } catch (err) {
-      setListError(extractApiError(err, 'Failed to load customers'));
+      setListError(extractApiError(err, `Failed to load ${labelLower}`));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCustomers();
-  }, [page, search, sortBy, sortOrder]);
+    fetchContacts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search, sortBy, sortOrder, type]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -66,22 +75,21 @@ const Customers = () => {
     }
   };
 
-  const handleOpenModal = (customer = null) => {
-    if (customer) {
-      setSelectedCustomer(customer);
+  const handleOpenModal = (contact = null) => {
+    if (contact) {
+      setSelectedContact(contact);
       setFormData({
-        name: customer.name,
-        email: customer.email || '',
-        phone: customer.phone || '',
-        address: customer.address || '',
-        city: customer.city || '',
-        country: customer.country || '',
-        type: customer.type || 'customer',
-        status: customer.status || 'active',
+        name: contact.name,
+        email: contact.email || '',
+        phone: contact.phone || '',
+        address: contact.address || '',
+        city: contact.city || '',
+        country: contact.country || '',
+        status: contact.status || 'active',
       });
     } else {
-      setSelectedCustomer(null);
-      setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', type: 'customer', status: 'active' });
+      setSelectedContact(null);
+      setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', status: 'active' });
     }
     setError(null);
     setShowModal(true);
@@ -92,32 +100,34 @@ const Customers = () => {
     setError(null);
 
     try {
-      if (selectedCustomer) {
-        await customersAPI.update(selectedCustomer.id, formData);
+      if (selectedContact) {
+        // type is intentionally omitted on update so editing never changes an
+        // existing record's type (e.g. downgrades a legacy "Both" record)
+        await customersAPI.update(selectedContact.id, formData);
       } else {
-        await customersAPI.create(formData);
+        await customersAPI.create({ ...formData, type });
       }
       setShowModal(false);
-      fetchCustomers();
+      fetchContacts();
     } catch (err) {
       setError(extractApiError(err, 'Operation failed'));
     }
   };
 
-  const handleToggleStatus = async (customer) => {
+  const handleToggleStatus = async (contact) => {
     try {
-      await customersAPI.toggleStatus(customer.id);
-      fetchCustomers();
+      await customersAPI.toggleStatus(contact.id);
+      fetchContacts();
     } catch (err) {
-      console.error('Error toggling status:', err);
+      console.error(`Error toggling ${label.toLowerCase()} status:`, err);
     }
   };
 
   const handleDelete = async () => {
     try {
-      await customersAPI.delete(selectedCustomer.id);
+      await customersAPI.delete(selectedContact.id);
       setShowDeleteModal(false);
-      fetchCustomers();
+      fetchContacts();
     } catch (err) {
       setError(extractApiError(err, 'Delete failed'));
     }
@@ -126,19 +136,19 @@ const Customers = () => {
   const handleExport = async () => {
     try {
       setExporting(true);
-      const response = await customersAPI.exportCSV({ search });
+      const response = await customersAPI.exportCSV({ search, type });
 
       const blob = new Blob([response.data], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `customers-${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `${labelLower}-${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error exporting customers:', error);
+    } catch (err) {
+      console.error(`Error exporting ${labelLower}:`, err);
     } finally {
       setExporting(false);
     }
@@ -147,9 +157,9 @@ const Customers = () => {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Customers</h2>
+        <h2>{labelPlural}</h2>
         <div className="d-flex gap-2">
-          {customers.length > 0 && (
+          {contacts.length > 0 && (
             <Button variant="success" onClick={handleExport} disabled={exporting}>
               <FaFileExport className="me-2" />
               {exporting ? 'Exporting...' : 'Export to CSV'}
@@ -163,7 +173,7 @@ const Customers = () => {
               </Button>
               <Button variant="primary" onClick={() => handleOpenModal()}>
                 <FaPlus className="me-2" />
-                Add Customer
+                Add {label}
               </Button>
             </>
           )}
@@ -172,7 +182,7 @@ const Customers = () => {
 
       <Card>
         <Card.Header>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search customers..." />
+          <SearchBar value={search} onChange={setSearch} placeholder={`Search ${labelLower}...`} />
         </Card.Header>
         <Card.Body>
           <ErrorAlert error={listError} />
@@ -185,7 +195,6 @@ const Customers = () => {
               <thead>
                 <tr>
                   <SortableHeader label="Name" field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                  <SortableHeader label="Type" field="type" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Email" field="email" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Phone" field="phone" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="City" field="city" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -194,39 +203,34 @@ const Customers = () => {
                 </tr>
               </thead>
               <tbody>
-                {customers.map((customer) => (
-                  <tr key={customer.id}>
-                    <td>{customer.name}</td>
+                {contacts.map((contact) => (
+                  <tr key={contact.id}>
+                    <td>{contact.name}</td>
+                    <td>{contact.email || '-'}</td>
+                    <td>{contact.phone || '-'}</td>
+                    <td>{contact.city || '-'}</td>
                     <td>
-                      <Badge bg={customer.type === 'supplier' ? 'info' : customer.type === 'both' ? 'primary' : 'success'}>
-                        {CUSTOMER_TYPE_LABELS[customer.type] || 'Customer'}
-                      </Badge>
-                    </td>
-                    <td>{customer.email || '-'}</td>
-                    <td>{customer.phone || '-'}</td>
-                    <td>{customer.city || '-'}</td>
-                    <td>
-                      <Badge bg={customer.status === 'active' ? 'success' : 'secondary'}>
-                        {customer.status === 'active' ? 'Active' : 'Inactive'}
+                      <Badge bg={contact.status === 'active' ? 'success' : 'secondary'}>
+                        {contact.status === 'active' ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
                     <td>
                       {!isSaleRep() && (
                         <>
-                          <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(customer)}>
+                          <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(contact)}>
                             <FaEdit />
                           </Button>
                           <Button
-                            variant={customer.status === 'active' ? 'outline-warning' : 'outline-success'}
+                            variant={contact.status === 'active' ? 'outline-warning' : 'outline-success'}
                             size="sm"
                             className="me-2"
-                            onClick={() => handleToggleStatus(customer)}
-                            title={customer.status === 'active' ? 'Deactivate' : 'Activate'}
+                            onClick={() => handleToggleStatus(contact)}
+                            title={contact.status === 'active' ? 'Deactivate' : 'Activate'}
                           >
-                            {customer.status === 'active' ? <FaToggleOff /> : <FaToggleOn />}
+                            {contact.status === 'active' ? <FaToggleOff /> : <FaToggleOn />}
                           </Button>
                           {isSuperAdmin() && (
-                            <Button variant="outline-danger" size="sm" onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}>
+                            <Button variant="outline-danger" size="sm" onClick={() => { setSelectedContact(contact); setShowDeleteModal(true); }}>
                               <FaTrash />
                             </Button>
                           )}
@@ -240,14 +244,14 @@ const Customers = () => {
           )}
         </Card.Body>
         <Card.Footer className="d-flex justify-content-between align-items-center">
-          <span className="text-muted">Total: {pagination.total} customers</span>
+          <span className="text-muted">Total: {pagination.total} {labelLower}</span>
           <Pagination currentPage={page} totalPages={pagination.totalPages} onPageChange={setPage} />
         </Card.Footer>
       </Card>
 
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>{selectedCustomer ? 'Edit Customer' : 'Add Customer'}</Modal.Title>
+          <Modal.Title>{selectedContact ? `Edit ${label}` : `Add ${label}`}</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
@@ -285,16 +289,6 @@ const Customers = () => {
               </div>
               <div className="col-md-6">
                 <Form.Group className="mb-3">
-                  <Form.Label>Type *</Form.Label>
-                  <Form.Select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
-                    <option value={CUSTOMER_TYPES.CUSTOMER}>Customer</option>
-                    <option value={CUSTOMER_TYPES.SUPPLIER}>Supplier</option>
-                    <option value={CUSTOMER_TYPES.BOTH}>Both (Customer & Supplier)</option>
-                  </Form.Select>
-                </Form.Group>
-              </div>
-              <div className="col-md-6">
-                <Form.Group className="mb-3">
                   <Form.Label>Status</Form.Label>
                   <div className="mt-1">
                     <Button
@@ -317,7 +311,7 @@ const Customers = () => {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit">{selectedCustomer ? 'Update' : 'Create'}</Button>
+            <Button variant="primary" type="submit">{selectedContact ? 'Update' : 'Create'}</Button>
           </Modal.Footer>
         </Form>
       </Modal>
@@ -326,22 +320,22 @@ const Customers = () => {
         show={showDeleteModal}
         onHide={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
-        title="Delete Customer"
-        message={`Are you sure you want to delete ${selectedCustomer?.name}?`}
+        title={`Delete ${label}`}
+        message={`Are you sure you want to delete ${selectedContact?.name}?`}
       />
 
       <ImportCsvModal
         show={showImportModal}
         onHide={() => setShowImportModal(false)}
-        title="Import Customers"
-        templateHeaders={['Name', 'Email', 'Phone', 'Address', 'City', 'Country', 'Type']}
-        templateRow={['Acme Corp', 'contact@acme.com', '+1 555 0100', '123 Main St', 'New York', 'USA', 'customer']}
-        templateFilename="customers-template.csv"
-        onImport={(file) => customersAPI.importCSV(file)}
-        onImported={fetchCustomers}
+        title={`Import ${labelPlural}`}
+        templateHeaders={['Name', 'Email', 'Phone', 'Address', 'City', 'Country']}
+        templateRow={TEMPLATE_EXAMPLES[type]}
+        templateFilename={`${labelLower}-template.csv`}
+        onImport={(file) => customersAPI.importCSV(file, type)}
+        onImported={fetchContacts}
       />
     </div>
   );
 };
 
-export default Customers;
+export default ContactsPage;

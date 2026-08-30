@@ -59,9 +59,10 @@ export const customersAPI = {
   toggleStatus: (id) => api.patch(`/customers/${id}/status`),
   delete: (id) => api.delete(`/customers/${id}`),
   exportCSV: (params) => api.get('/customers/export', { params, responseType: 'blob' }),
-  importCSV: (file) => {
+  importCSV: (file, type) => {
     const formData = new FormData();
     formData.append('file', file);
+    if (type) formData.append('type', type);
     return api.post('/customers/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

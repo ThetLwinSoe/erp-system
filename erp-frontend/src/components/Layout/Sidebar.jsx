@@ -21,22 +21,19 @@ import { useAuth } from '../../context/AuthContext';
 const Sidebar = () => {
   const { isAdmin, isSuperAdmin, canAccessInventory, canAccessPurchases, canAccessSalesReturns } = useAuth();
   const location = useLocation();
+  const isSalesSection = location.pathname.startsWith('/sales') || location.pathname.startsWith('/customers');
+  const isPurchasesSection = location.pathname.startsWith('/purchase') || location.pathname.startsWith('/suppliers');
   const [adjustmentOpen, setAdjustmentOpen] = useState(
     location.pathname.startsWith('/inventory')
   );
-  const [salesOpen, setSalesOpen] = useState(
-    location.pathname.startsWith('/sales')
-  );
-  const [purchasesOpen, setPurchasesOpen] = useState(
-    location.pathname.startsWith('/purchase')
-  );
+  const [salesOpen, setSalesOpen] = useState(isSalesSection);
+  const [purchasesOpen, setPurchasesOpen] = useState(isPurchasesSection);
   const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith('/reports'));
 
   const menuItems = [
     { path: '/', icon: FaTachometerAlt, label: 'Dashboard' },
     { path: '/companies', icon: FaBuilding, label: 'Companies', superAdminOnly: true },
     { path: '/users', icon: FaUsers, label: 'Users', adminOnly: true },
-    { path: '/customers', icon: FaAddressBook, label: 'Customers' },
     { path: '/products', icon: FaBoxes, label: 'Products' },
   ];
 
@@ -46,11 +43,13 @@ const Sidebar = () => {
   ];
 
   const salesItems = [
+    { path: '/customers', label: 'Customers', icon: FaAddressBook },
     { path: '/sales', label: 'Sales Orders', icon: FaShoppingCart },
     { path: '/sales-returns', label: 'Sales Returns', icon: FaUndo, requiresSalesReturns: true },
   ];
 
   const purchasesItems = [
+    { path: '/suppliers', label: 'Suppliers', icon: FaAddressBook },
     { path: '/purchases', label: 'Purchase Orders', icon: FaTruck },
     { path: '/purchase-returns', label: 'Purchase Returns', icon: FaUndo },
   ];
@@ -142,7 +141,7 @@ const Sidebar = () => {
           className="d-flex align-items-center justify-content-between py-2 text-dark"
           onClick={() => setSalesOpen(!salesOpen)}
           style={{
-            backgroundColor: location.pathname.startsWith('/sales') ? '#e9ecef' : 'transparent',
+            backgroundColor: isSalesSection ? '#e9ecef' : 'transparent',
             borderRadius: '5px',
             cursor: 'pointer',
           }}
@@ -181,7 +180,7 @@ const Sidebar = () => {
               className="d-flex align-items-center justify-content-between py-2 text-dark"
               onClick={() => setPurchasesOpen(!purchasesOpen)}
               style={{
-                backgroundColor: location.pathname.startsWith('/purchase') ? '#e9ecef' : 'transparent',
+                backgroundColor: isPurchasesSection ? '#e9ecef' : 'transparent',
                 borderRadius: '5px',
                 cursor: 'pointer',
               }}
