@@ -20,6 +20,7 @@ const StatCard = ({ title, value, icon: Icon, color }) => (
 const Dashboard = () => {
   const [stats, setStats] = useState({
     customers: 0,
+    suppliers: 0,
     products: 0,
     sales: 0,
     lowStock: [],
@@ -29,8 +30,9 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [customersRes, productsRes, salesRes, lowStockRes] = await Promise.all([
-          customersAPI.getAll({ limit: 1 }),
+        const [customersRes, suppliersRes, productsRes, salesRes, lowStockRes] = await Promise.all([
+          customersAPI.getAll({ limit: 1, type: 'customer' }),
+          customersAPI.getAll({ limit: 1, type: 'supplier' }),
           productsAPI.getAll({ limit: 1 }),
           salesAPI.getAll({ limit: 1 }),
           inventoryAPI.getLowStock(),
@@ -38,6 +40,7 @@ const Dashboard = () => {
 
         setStats({
           customers: customersRes.data.pagination?.total || 0,
+          suppliers: suppliersRes.data.pagination?.total || 0,
           products: productsRes.data.pagination?.total || 0,
           sales: salesRes.data.pagination?.total || 0,
           lowStock: lowStockRes.data.data || [],
@@ -65,16 +68,19 @@ const Dashboard = () => {
       <h2 className="mb-4">Dashboard</h2>
 
       <Row className="g-4 mb-4">
-        <Col md={3}>
+        <Col md={2}>
           <StatCard title="Customers" value={stats.customers} icon={FaUsers} color="primary" />
         </Col>
-        <Col md={3}>
+        <Col md={2}>
+          <StatCard title="Suppliers" value={stats.suppliers} icon={FaUsers} color="secondary" />
+        </Col>
+        <Col md={2}>
           <StatCard title="Products" value={stats.products} icon={FaBoxes} color="success" />
         </Col>
-        <Col md={3}>
+        <Col md={2}>
           <StatCard title="Total Sales" value={stats.sales} icon={FaShoppingCart} color="info" />
         </Col>
-        <Col md={3}>
+        <Col md={2}>
           <StatCard
             title="Low Stock Items"
             value={stats.lowStock.length}

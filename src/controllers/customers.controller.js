@@ -216,7 +216,6 @@ class CustomersController {
         address: headerRow.indexOf('address'),
         city: headerRow.indexOf('city'),
         country: headerRow.indexOf('country'),
-        type: headerRow.indexOf('type'),
       };
 
       if (indexes.name === -1) {
@@ -228,6 +227,9 @@ class CustomersController {
         if (idx === -1 || idx >= row.length) return '';
         return (row[idx] || '').trim();
       };
+
+      // Type is fixed for the whole import batch (Customers vs Suppliers module), not per-row
+      const type = Object.values(CUSTOMER_TYPE).includes(req.body.type) ? req.body.type : CUSTOMER_TYPE.CUSTOMER;
 
       let created = 0;
       const errors = [];
@@ -245,12 +247,6 @@ class CustomersController {
         const email = getValue(row, 'email');
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           errors.push({ row: rowNumber, message: 'Invalid email format' });
-          continue;
-        }
-
-        const type = getValue(row, 'type').toLowerCase() || CUSTOMER_TYPE.CUSTOMER;
-        if (!Object.values(CUSTOMER_TYPE).includes(type)) {
-          errors.push({ row: rowNumber, message: `Invalid type "${type}" (expected customer, supplier, or both)` });
           continue;
         }
 
