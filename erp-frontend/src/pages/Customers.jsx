@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFileExport, FaFileImport } from 'react-icons/fa';
 import { customersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
+import ImportCsvModal from '../components/common/ImportCsvModal';
 import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
@@ -21,6 +22,8 @@ const Customers = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [error, setError] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -106,16 +109,51 @@ const Customers = () => {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const response = await customersAPI.exportCSV({ search });
+
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `customers-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting customers:', error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Customers</h2>
-        {!isSaleRep() && (
-          <Button variant="primary" onClick={() => handleOpenModal()}>
-            <FaPlus className="me-2" />
-            Add Customer
-          </Button>
-        )}
+        <div className="d-flex gap-2">
+          {customers.length > 0 && (
+            <Button variant="success" onClick={handleExport} disabled={exporting}>
+              <FaFileExport className="me-2" />
+              {exporting ? 'Exporting...' : 'Export to CSV'}
+            </Button>
+          )}
+          {!isSaleRep() && (
+            <>
+              <Button variant="outline-primary" onClick={() => setShowImportModal(true)}>
+                <FaFileImport className="me-2" />
+                Import CSV
+              </Button>
+              <Button variant="primary" onClick={() => handleOpenModal()}>
+                <FaPlus className="me-2" />
+                Add Customer
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -275,6 +313,17 @@ const Customers = () => {
         onConfirm={handleDelete}
         title="Delete Customer"
         message={`Are you sure you want to delete ${selectedCustomer?.name}?`}
+      />
+
+      <ImportCsvModal
+        show={showImportModal}
+        onHide={() => setShowImportModal(false)}
+        title="Import Customers"
+        templateHeaders={['Name', 'Email', 'Phone', 'Address', 'City', 'Country', 'Type']}
+        templateRow={['Acme Corp', 'contact@acme.com', '+1 555 0100', '123 Main St', 'New York', 'USA', 'customer']}
+        templateFilename="customers-template.csv"
+        onImport={(file) => customersAPI.importCSV(file)}
+        onImported={fetchCustomers}
       />
     </div>
   );

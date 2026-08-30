@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFileExport, FaFileImport } from 'react-icons/fa';
 import { productsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
+import ImportCsvModal from '../components/common/ImportCsvModal';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
@@ -22,6 +23,8 @@ const Products = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [error, setError] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [formData, setFormData] = useState({
     sku: '',
     name: '',
@@ -113,6 +116,27 @@ const Products = () => {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const response = await productsAPI.exportCSV({ search });
+
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `products-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting products:', error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const getStockBadge = (product) => {
     const inventory = product.inventory;
     if (!inventory) return <Badge bg="secondary">N/A</Badge>;
@@ -127,12 +151,26 @@ const Products = () => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Products</h2>
-        {!isSaleRep() && (
-          <Button variant="primary" onClick={() => handleOpenModal()}>
-            <FaPlus className="me-2" />
-            Add Product
-          </Button>
-        )}
+        <div className="d-flex gap-2">
+          {products.length > 0 && (
+            <Button variant="success" onClick={handleExport} disabled={exporting}>
+              <FaFileExport className="me-2" />
+              {exporting ? 'Exporting...' : 'Export to CSV'}
+            </Button>
+          )}
+          {!isSaleRep() && (
+            <>
+              <Button variant="outline-primary" onClick={() => setShowImportModal(true)}>
+                <FaFileImport className="me-2" />
+                Import CSV
+              </Button>
+              <Button variant="primary" onClick={() => handleOpenModal()}>
+                <FaPlus className="me-2" />
+                Add Product
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -286,6 +324,17 @@ const Products = () => {
         onConfirm={handleDelete}
         title="Delete Product"
         message={`Are you sure you want to delete ${selectedProduct?.name}?`}
+      />
+
+      <ImportCsvModal
+        show={showImportModal}
+        onHide={() => setShowImportModal(false)}
+        title="Import Products"
+        templateHeaders={['SKU', 'Name', 'Description', 'Category', 'Unit', 'Cost Price', 'Selling Price']}
+        templateRow={['SKU-001', 'Sample Product', 'Product description', 'General', 'piece', '10.00', '15.00']}
+        templateFilename="products-template.csv"
+        onImport={(file) => productsAPI.importCSV(file)}
+        onImported={fetchProducts}
       />
     </div>
   );

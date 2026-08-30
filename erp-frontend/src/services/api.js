@@ -58,6 +58,14 @@ export const customersAPI = {
   update: (id, data) => api.put(`/customers/${id}`, data),
   toggleStatus: (id) => api.patch(`/customers/${id}/status`),
   delete: (id) => api.delete(`/customers/${id}`),
+  exportCSV: (params) => api.get('/customers/export', { params, responseType: 'blob' }),
+  importCSV: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/customers/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Products API
@@ -68,6 +76,14 @@ export const productsAPI = {
   update: (id, data) => api.put(`/products/${id}`, data),
   toggleStatus: (id) => api.patch(`/products/${id}/status`),
   delete: (id) => api.delete(`/products/${id}`),
+  exportCSV: (params) => api.get('/products/export', { params, responseType: 'blob' }),
+  importCSV: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/products/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Inventory API
