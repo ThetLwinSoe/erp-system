@@ -2,7 +2,9 @@ const express = require('express');
 const SalesController = require('../controllers/sales.controller');
 const { authenticate, checkSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
-const { salesValidation, paginationValidation } = require('../middleware/validate');
+const { salesValidation, paginationValidation, sortValidation } = require('../middleware/validate');
+
+const SALES_SORT_FIELDS = ['orderNumber', 'status', 'subtotal', 'tax', 'total', 'createdAt', 'customer', 'user'];
 
 const router = express.Router();
 
@@ -17,7 +19,7 @@ router.use(checkSaleRep);
  * @desc Get all sales orders
  * @access Private
  */
-router.get('/', paginationValidation, SalesController.getAll);
+router.get('/', paginationValidation, sortValidation(SALES_SORT_FIELDS), SalesController.getAll);
 
 /**
  * @route POST /api/sales

@@ -30,6 +30,16 @@ class SalesReturnsController {
         whereClause.returnNumber = { [Op.iLike]: `%${search}%` };
       }
 
+      const sortBy = req.query.sortBy || 'createdAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+      const JOIN_SORT_MAP = {
+        orderNumber: [{ model: Sale, as: 'sale' }, 'orderNumber'],
+        customer: [{ model: Sale, as: 'sale' }, { model: Customer, as: 'customer' }, 'name'],
+      };
+      const order = JOIN_SORT_MAP[sortBy]
+        ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
+        : [[sortBy, sortOrder]];
+
       const { count, rows } = await SalesReturn.findAndCountAll({
         where: whereClause,
         include: [
@@ -40,7 +50,7 @@ class SalesReturnsController {
           },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
         ],
-        order: [['createdAt', 'DESC']],
+        order,
         limit,
         offset,
       });

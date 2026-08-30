@@ -9,6 +9,7 @@ import ConfirmModal from '../components/common/ConfirmModal';
 import { COMPANY_STATUS, COMPANY_STATUS_COLORS, CURRENCIES, CURRENCY_LABELS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import SortableHeader from '../components/common/SortableHeader';
 
 const LOGO_MAX_SIZE = 2 * 1024 * 1024; // 2MB, must match backend's uploadLogo limit
 
@@ -21,6 +22,8 @@ const Companies = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -43,7 +46,7 @@ const Companies = () => {
   const fetchCompanies = async () => {
     try {
       setLoading(true);
-      const response = await companiesAPI.getAll({ page, limit: 20, search });
+      const response = await companiesAPI.getAll({ page, limit: 20, search, sortBy, sortOrder });
       setCompanies(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
     } catch (error) {
@@ -55,7 +58,16 @@ const Companies = () => {
 
   useEffect(() => {
     fetchCompanies();
-  }, [page, search]);
+  }, [page, search, sortBy, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder('ASC');
+    }
+  };
 
   const handleOpenModal = (company = null) => {
     if (company) {
@@ -209,12 +221,12 @@ const Companies = () => {
               <thead>
                 <tr>
                   <th style={{ width: '60px' }}>Logo</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Currency</th>
-                  <th>Status</th>
-                  <th>Created At</th>
+                  <SortableHeader label="Name" field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Email" field="email" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Phone" field="phone" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Currency" field="currency" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Created At" field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
               </thead>

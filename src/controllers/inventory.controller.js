@@ -20,10 +20,17 @@ class InventoryController {
       // Add company filter
       const whereClause = { ...req.companyFilter };
 
+      const sortBy = req.query.sortBy || 'updatedAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+      const PRODUCT_FIELDS = ['sku', 'name', 'category'];
+      const order = PRODUCT_FIELDS.includes(sortBy)
+        ? [[{ model: Product, as: 'product' }, sortBy, sortOrder]]
+        : [[sortBy, sortOrder]];
+
       const { count, rows } = await Inventory.findAndCountAll({
         where: whereClause,
         include: [{ model: Product, as: 'product' }],
-        order: [['updatedAt', 'DESC']],
+        order,
         limit,
         offset,
       });

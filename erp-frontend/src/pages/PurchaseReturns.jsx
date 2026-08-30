@@ -12,6 +12,7 @@ import { PURCHASE_RETURN_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import SortableHeader from '../components/common/SortableHeader';
 
 const PurchaseReturns = () => {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ const PurchaseReturns = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [error, setError] = useState(null);
@@ -30,7 +33,7 @@ const PurchaseReturns = () => {
   const fetchReturns = async () => {
     try {
       setLoading(true);
-      const params = { page, limit: 20 };
+      const params = { page, limit: 20, sortBy, sortOrder };
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
 
@@ -47,7 +50,16 @@ const PurchaseReturns = () => {
   useEffect(() => {
     fetchReturns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, sortBy, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder('ASC');
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -90,12 +102,12 @@ const PurchaseReturns = () => {
             <Table striped hover responsive>
               <thead>
                 <tr>
-                  <th>Return #</th>
-                  <th>PO #</th>
-                  <th>Supplier</th>
-                  <th>Status</th>
-                  <th>Total</th>
-                  <th>Date</th>
+                  <SortableHeader label="Return #" field="returnNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="PO #" field="orderNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Supplier" field="supplier" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Total" field="total" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Date" field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
               </thead>

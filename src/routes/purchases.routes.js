@@ -2,7 +2,9 @@ const express = require('express');
 const PurchasesController = require('../controllers/purchases.controller');
 const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
-const { purchaseValidation, paginationValidation } = require('../middleware/validate');
+const { purchaseValidation, paginationValidation, sortValidation } = require('../middleware/validate');
+
+const PURCHASE_SORT_FIELDS = ['orderNumber', 'status', 'total', 'expectedDelivery', 'createdAt', 'supplier'];
 
 const router = express.Router();
 
@@ -17,7 +19,7 @@ router.use(restrictSaleRep);
  * @desc Get all purchase orders
  * @access Private
  */
-router.get('/', paginationValidation, PurchasesController.getAll);
+router.get('/', paginationValidation, sortValidation(PURCHASE_SORT_FIELDS), PurchasesController.getAll);
 
 /**
  * @route POST /api/purchases

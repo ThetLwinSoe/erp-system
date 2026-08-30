@@ -34,11 +34,17 @@ class UsersController {
         ];
       }
 
+      const sortBy = req.query.sortBy || 'createdAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+      const order = sortBy === 'company'
+        ? [[{ model: Company, as: 'company' }, 'name', sortOrder]]
+        : [[sortBy, sortOrder]];
+
       const { count, rows } = await User.findAndCountAll({
         where: whereClause,
         attributes: { exclude: ['password'] },
         include: [{ model: Company, as: 'company' }],
-        order: [['createdAt', 'DESC']],
+        order,
         limit,
         offset,
       });
