@@ -42,10 +42,16 @@ class ProductsController {
         whereClause.category = { [Op.iLike]: `%${category}%` };
       }
 
+      const sortBy = req.query.sortBy || 'createdAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+      const order = sortBy === 'stock'
+        ? [[{ model: Inventory, as: 'inventory' }, 'quantity', sortOrder]]
+        : [[sortBy, sortOrder]];
+
       const { count, rows } = await Product.findAndCountAll({
         where: whereClause,
         include: [{ model: Inventory, as: 'inventory' }],
-        order: [['createdAt', 'DESC']],
+        order,
         limit,
         offset,
       });

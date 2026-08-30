@@ -7,6 +7,7 @@ import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ImportCsvModal from '../components/common/ImportCsvModal';
+import SortableHeader from '../components/common/SortableHeader';
 import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
@@ -18,10 +19,13 @@ const Customers = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [error, setError] = useState(null);
+  const [listError, setListError] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -38,11 +42,12 @@ const Customers = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const response = await customersAPI.getAll({ page, limit: 10, search });
+      setListError(null);
+      const response = await customersAPI.getAll({ page, limit: 20, search, sortBy, sortOrder });
       setCustomers(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
-    } catch (error) {
-      console.error('Error fetching customers:', error);
+    } catch (err) {
+      setListError(extractApiError(err, 'Failed to load customers'));
     } finally {
       setLoading(false);
     }
@@ -50,7 +55,16 @@ const Customers = () => {
 
   useEffect(() => {
     fetchCustomers();
-  }, [page, search]);
+  }, [page, search, sortBy, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder('ASC');
+    }
+  };
 
   const handleOpenModal = (customer = null) => {
     if (customer) {
@@ -161,6 +175,7 @@ const Customers = () => {
           <SearchBar value={search} onChange={setSearch} placeholder="Search customers..." />
         </Card.Header>
         <Card.Body>
+          <ErrorAlert error={listError} />
           {loading ? (
             <div className="text-center py-4">
               <Spinner animation="border" variant="primary" />
@@ -169,12 +184,12 @@ const Customers = () => {
             <Table striped hover responsive>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>City</th>
-                  <th>Status</th>
+                  <SortableHeader label="Name" field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Type" field="type" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Email" field="email" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Phone" field="phone" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="City" field="city" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
               </thead>

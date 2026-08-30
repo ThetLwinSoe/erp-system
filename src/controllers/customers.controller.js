@@ -48,9 +48,12 @@ class CustomersController {
         ];
       }
 
+      const sortBy = req.query.sortBy || 'createdAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+
       const { count, rows } = await Customer.findAndCountAll({
         where: whereClause,
-        order: [['createdAt', 'DESC']],
+        order: [[sortBy, sortOrder]],
         limit,
         offset,
       });

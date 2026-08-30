@@ -243,6 +243,23 @@ const companyValidation = {
 };
 
 /**
+ * Sort validation factory - validates sortBy against a resource-specific
+ * whitelist of columns and sortOrder against ASC/DESC
+ */
+const sortValidation = (allowedFields) => [
+  query('sortBy')
+    .optional()
+    .isIn(allowedFields)
+    .withMessage(`Sort field must be one of: ${allowedFields.join(', ')}`),
+  query('sortOrder')
+    .optional()
+    .toUpperCase()
+    .isIn(['ASC', 'DESC'])
+    .withMessage('Sort order must be ASC or DESC'),
+  handleValidation,
+];
+
+/**
  * Pagination validation
  */
 const paginationValidation = [
@@ -269,4 +286,5 @@ module.exports = {
   purchaseValidation,
   companyValidation,
   paginationValidation,
+  sortValidation,
 };

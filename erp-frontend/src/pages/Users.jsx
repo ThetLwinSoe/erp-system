@@ -33,7 +33,7 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await usersAPI.getAll({ page, limit: 10, search });
+      const response = await usersAPI.getAll({ page, limit: 20, search });
       setUsers(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
     } catch (error) {

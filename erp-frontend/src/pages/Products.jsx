@@ -7,6 +7,7 @@ import SearchBar from '../components/common/SearchBar';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ImportCsvModal from '../components/common/ImportCsvModal';
+import SortableHeader from '../components/common/SortableHeader';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
@@ -19,10 +20,13 @@ const Products = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [error, setError] = useState(null);
+  const [listError, setListError] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -39,11 +43,12 @@ const Products = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await productsAPI.getAll({ page, limit: 10, search });
+      setListError(null);
+      const response = await productsAPI.getAll({ page, limit: 20, search, sortBy, sortOrder });
       setProducts(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
-    } catch (error) {
-      console.error('Error fetching products:', error);
+    } catch (err) {
+      setListError(extractApiError(err, 'Failed to load products'));
     } finally {
       setLoading(false);
     }
@@ -51,7 +56,16 @@ const Products = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [page, search]);
+  }, [page, search, sortBy, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder('ASC');
+    }
+  };
 
   const handleOpenModal = (product = null) => {
     if (product) {
@@ -178,6 +192,7 @@ const Products = () => {
           <SearchBar value={search} onChange={setSearch} placeholder="Search products..." />
         </Card.Header>
         <Card.Body>
+          <ErrorAlert error={listError} />
           {loading ? (
             <div className="text-center py-4">
               <Spinner animation="border" variant="primary" />
@@ -186,13 +201,13 @@ const Products = () => {
             <Table striped hover responsive>
               <thead>
                 <tr>
-                  <th>SKU</th>
-                  <th>Name</th>
-                  <th>Category</th>
-                  <th>Cost Price</th>
-                  <th>Selling Price</th>
-                  <th>Stock</th>
-                  <th>Status</th>
+                  <SortableHeader label="SKU" field="sku" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Name" field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Category" field="category" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Cost Price" field="costPrice" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Selling Price" field="sellingPrice" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Stock" field="stock" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
               </thead>
