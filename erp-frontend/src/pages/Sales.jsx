@@ -42,7 +42,7 @@ const Sales = () => {
   const fetchSales = async () => {
     try {
       setLoading(true);
-      const params = { page, limit: 10 };
+      const params = { page, limit: 20 };
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
 

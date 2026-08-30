@@ -2,8 +2,10 @@ const express = require('express');
 const ProductsController = require('../controllers/products.controller');
 const { authenticate, restrictSaleRep, requireSuperAdmin } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
-const { productValidation, paginationValidation } = require('../middleware/validate');
+const { productValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { uploadCSV } = require('../middleware/upload');
+
+const PRODUCT_SORT_FIELDS = ['sku', 'name', 'category', 'costPrice', 'sellingPrice', 'stock', 'status', 'createdAt'];
 
 const router = express.Router();
 
@@ -16,7 +18,7 @@ router.use(companyScope);
  * @desc Get all products
  * @access Private
  */
-router.get('/', paginationValidation, ProductsController.getAll);
+router.get('/', paginationValidation, sortValidation(PRODUCT_SORT_FIELDS), ProductsController.getAll);
 
 /**
  * @route POST /api/products

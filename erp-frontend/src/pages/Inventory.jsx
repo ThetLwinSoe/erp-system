@@ -17,7 +17,7 @@ const Inventory = () => {
     try {
       setLoading(true);
       const [inventoryRes, lowStockRes] = await Promise.all([
-        inventoryAPI.getAll({ page, limit: 10 }),
+        inventoryAPI.getAll({ page, limit: 20 }),
         inventoryAPI.getLowStock(),
       ]);
       setInventory(inventoryRes.data.data || []);

@@ -40,7 +40,7 @@ const Companies = () => {
   const fetchCompanies = async () => {
     try {
       setLoading(true);
-      const response = await companiesAPI.getAll({ page, limit: 10, search });
+      const response = await companiesAPI.getAll({ page, limit: 20, search });
       setCompanies(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
     } catch (error) {

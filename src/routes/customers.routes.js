@@ -2,8 +2,10 @@ const express = require('express');
 const CustomersController = require('../controllers/customers.controller');
 const { authenticate, restrictSaleRep, requireSuperAdmin } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
-const { customerValidation, paginationValidation } = require('../middleware/validate');
+const { customerValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { uploadCSV } = require('../middleware/upload');
+
+const CUSTOMER_SORT_FIELDS = ['name', 'email', 'phone', 'city', 'type', 'status', 'createdAt'];
 
 const router = express.Router();
 
@@ -16,7 +18,7 @@ router.use(companyScope);
  * @desc Get all customers
  * @access Private
  */
-router.get('/', paginationValidation, CustomersController.getAll);
+router.get('/', paginationValidation, sortValidation(CUSTOMER_SORT_FIELDS), CustomersController.getAll);
 
 /**
  * @route POST /api/customers
