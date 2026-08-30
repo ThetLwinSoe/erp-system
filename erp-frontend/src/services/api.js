@@ -174,6 +174,7 @@ export const companiesAPI = {
 // Get base URL for static files
 export const getStaticUrl = (path) => {
   if (!path) return null;
+  if (path.startsWith('http')) return path; // already an absolute URL (e.g. R2)
   const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
   return `${baseUrl}${path}`;
 };

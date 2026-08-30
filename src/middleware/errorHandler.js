@@ -46,6 +46,17 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
+  // Multer upload errors (e.g. oversized file)
+  if (err.name === 'MulterError') {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'File is too large. Maximum allowed size is 2MB.'
+      : err.message;
+    return res.status(400).json({
+      success: false,
+      message,
+    });
+  }
+
   // JWT errors
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({

@@ -5,6 +5,46 @@ const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
+const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const r2Client = require('../config/r2');
+
+/**
+ * Delete a stored company logo, whichever backend it lives on:
+ * an R2 object (new uploads: company.logo is a full URL) or a
+ * legacy local-disk file (old uploads: company.logo is a relative path).
+ */
+const deleteStoredLogo = async (logoValue) => {
+  if (!logoValue) return;
+
+  if (logoValue.startsWith('http')) {
+    const key = logoValue.replace(`${process.env.R2_PUBLIC_URL}/`, '');
+    await r2Client.send(new DeleteObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+    }));
+    return;
+  }
+
+  const diskPath = path.join(__dirname, '../../', logoValue);
+  if (fs.existsSync(diskPath)) {
+    fs.unlinkSync(diskPath);
+  }
+};
+
+/**
+ * Delete a file multer-s3 just uploaded (used to clean up after a failed request).
+ */
+const deleteUploadedFile = async (file) => {
+  if (!file) return;
+  try {
+    await r2Client.send(new DeleteObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: file.key,
+    }));
+  } catch (cleanupError) {
+    console.error('Failed to clean up uploaded logo after error:', cleanupError);
+  }
+};
 
 class CompaniesController {
   /**
@@ -279,9 +319,7 @@ class CompaniesController {
 
       if (!company) {
         // Delete uploaded file if company not found
-        if (req.file) {
-          fs.unlinkSync(req.file.path);
-        }
+        await deleteUploadedFile(req.file);
         return ApiResponse.notFound(res, 'Company not found');
       }
 
@@ -291,22 +329,17 @@ class CompaniesController {
 
       // Delete old logo if exists
       if (company.logo) {
-        const oldLogoPath = path.join(__dirname, '../../', company.logo);
-        if (fs.existsSync(oldLogoPath)) {
-          fs.unlinkSync(oldLogoPath);
-        }
+        await deleteStoredLogo(company.logo);
       }
 
-      // Update company with new logo path
-      const logoPath = `/uploads/logos/${req.file.filename}`;
+      // Update company with new logo URL
+      const logoPath = `${process.env.R2_PUBLIC_URL}/${req.file.key}`;
       await company.update({ logo: logoPath });
 
       return ApiResponse.success(res, { logo: logoPath }, 'Logo uploaded successfully');
     } catch (error) {
       // Clean up uploaded file on error
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
-      }
+      await deleteUploadedFile(req.file);
       next(error);
     }
   }
@@ -328,10 +361,7 @@ class CompaniesController {
       }
 
       // Delete logo file
-      const logoPath = path.join(__dirname, '../../', company.logo);
-      if (fs.existsSync(logoPath)) {
-        fs.unlinkSync(logoPath);
-      }
+      await deleteStoredLogo(company.logo);
 
       // Update company to remove logo
       await company.update({ logo: null });

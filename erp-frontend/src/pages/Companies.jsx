@@ -10,6 +10,8 @@ import { COMPANY_STATUS, COMPANY_STATUS_COLORS, CURRENCIES, CURRENCY_LABELS } fr
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 
+const LOGO_MAX_SIZE = 2 * 1024 * 1024; // 2MB, must match backend's uploadLogo limit
+
 const Companies = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -23,6 +25,7 @@ const Companies = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [error, setError] = useState(null);
+  const [logoError, setLogoError] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -87,6 +90,7 @@ const Companies = () => {
       setLogoPreview(null);
     }
     setError(null);
+    setLogoError(null);
     setShowModal(true);
   };
 
@@ -94,16 +98,25 @@ const Companies = () => {
     const file = e.target.files[0];
     if (!file || !selectedCompany) return;
 
+    if (file.size > LOGO_MAX_SIZE) {
+      setLogoError('File is too large. Maximum allowed size is 2MB.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
     const formData = new FormData();
     formData.append('logo', file);
 
     try {
       setUploading(true);
+      setLogoError(null);
       const response = await companiesAPI.uploadLogo(selectedCompany.id, formData);
       setLogoPreview(getStaticUrl(response.data.data.logo));
       fetchCompanies();
     } catch (err) {
-      setError(extractApiError(err, 'Logo upload failed'));
+      setLogoError(extractApiError(err, 'Logo upload failed').message);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -117,11 +130,12 @@ const Companies = () => {
 
     try {
       setUploading(true);
+      setLogoError(null);
       await companiesAPI.deleteLogo(selectedCompany.id);
       setLogoPreview(null);
       fetchCompanies();
     } catch (err) {
-      setError(extractApiError(err, 'Logo delete failed'));
+      setLogoError(extractApiError(err, 'Logo delete failed').message);
     } finally {
       setUploading(false);
     }
@@ -402,8 +416,11 @@ const Companies = () => {
                       )}
                     </Button>
                     <Form.Text className="d-block text-muted mt-1">
-                      Max 5MB. JPEG, PNG, GIF, WebP
+                      Max 2MB. JPEG, PNG, GIF, WebP
                     </Form.Text>
+                    {logoError && (
+                      <div className="text-danger small mt-1">{logoError}</div>
+                    )}
                   </div>
                 </div>
               </Form.Group>
