@@ -9,6 +9,7 @@ import ConfirmModal from '../components/common/ConfirmModal';
 import { ROLES, ROLE_LABELS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import SortableHeader from '../components/common/SortableHeader';
 
 const Users = () => {
   const { isSuperAdmin } = useAuth();
@@ -18,6 +19,8 @@ const Users = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -33,7 +36,7 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await usersAPI.getAll({ page, limit: 20, search });
+      const response = await usersAPI.getAll({ page, limit: 20, search, sortBy, sortOrder });
       setUsers(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
     } catch (error) {
@@ -55,11 +58,20 @@ const Users = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, search]);
+  }, [page, search, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchCompanies();
   }, []);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder('ASC');
+    }
+  };
 
   // Update companyId when companies load and modal is open for new user
   useEffect(() => {
@@ -154,11 +166,13 @@ const Users = () => {
             <Table striped hover responsive>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  {isSuperAdmin() && <th>Company</th>}
-                  <th>Role</th>
-                  <th>Created At</th>
+                  <SortableHeader label="Name" field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Email" field="email" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {isSuperAdmin() && (
+                    <SortableHeader label="Company" field="company" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
+                  <SortableHeader label="Role" field="role" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Created At" field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
               </thead>

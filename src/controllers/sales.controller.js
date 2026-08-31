@@ -51,13 +51,23 @@ class SalesController {
         }
       }
 
+      const sortBy = req.query.sortBy || 'createdAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+      const JOIN_SORT_MAP = {
+        customer: [{ model: Customer, as: 'customer' }, 'name'],
+        user: [{ model: User, as: 'user' }, 'name'],
+      };
+      const order = JOIN_SORT_MAP[sortBy]
+        ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
+        : [[sortBy, sortOrder]];
+
       const { count, rows } = await Sale.findAndCountAll({
         where: whereClause,
         include: [
           { model: Customer, as: 'customer' },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
         ],
-        order: [['createdAt', 'DESC']],
+        order,
         limit,
         offset,
       });

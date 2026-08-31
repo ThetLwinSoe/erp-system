@@ -2,8 +2,10 @@ const express = require('express');
 const UsersController = require('../controllers/users.controller');
 const { authenticate, authorize } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
-const { userValidation, paginationValidation } = require('../middleware/validate');
+const { userValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { ROLES } = require('../utils/constants');
+
+const USER_SORT_FIELDS = ['name', 'email', 'role', 'createdAt', 'company'];
 
 const router = express.Router();
 
@@ -17,7 +19,7 @@ router.use(companyScope);
  * @desc Get all users
  * @access Private (Admin only)
  */
-router.get('/', paginationValidation, UsersController.getAll);
+router.get('/', paginationValidation, sortValidation(USER_SORT_FIELDS), UsersController.getAll);
 
 /**
  * @route POST /api/users

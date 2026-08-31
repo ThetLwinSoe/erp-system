@@ -1,8 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, Table, Button, Spinner, Alert, Badge, Tab, Tabs } from 'react-bootstrap';
 import { FaExclamationTriangle, FaFileExport } from 'react-icons/fa';
 import { inventoryAPI } from '../services/api';
 import Pagination from '../components/common/Pagination';
+import SortableHeader from '../components/common/SortableHeader';
+
+// Low Stock data is fetched in full (no pagination), so it's sorted client-side
+// using the same sortBy/sortOrder state that drives the server-sorted "All Inventory" tab.
+const getSortValue = (item, field) => {
+  switch (field) {
+    case 'sku': return item.product?.sku ?? null;
+    case 'name': return item.product?.name ?? null;
+    case 'category': return item.product?.category ?? null;
+    case 'location': return item.location ?? null;
+    case 'lastRestocked': return item.lastRestocked ? new Date(item.lastRestocked).getTime() : null;
+    default: return item[field];
+  }
+};
+
+const sortItems = (items, sortBy, sortOrder) => {
+  return [...items].sort((a, b) => {
+    const aVal = getSortValue(a, sortBy);
+    const bVal = getSortValue(b, sortBy);
+
+    // Nulls (e.g. never-restocked items) always sort last, regardless of direction
+    if (aVal == null && bVal == null) return 0;
+    if (aVal == null) return 1;
+    if (bVal == null) return -1;
+
+    const comparison = typeof aVal === 'string'
+      ? aVal.localeCompare(bVal, undefined, { sensitivity: 'base' })
+      : aVal - bVal;
+
+    return sortOrder === 'ASC' ? comparison : -comparison;
+  });
+};
 
 const Inventory = () => {
   const [inventory, setInventory] = useState([]);
@@ -10,6 +42,8 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [sortBy, setSortBy] = useState('updatedAt');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [activeTab, setActiveTab] = useState('all');
   const [exporting, setExporting] = useState(false);
 
@@ -17,7 +51,7 @@ const Inventory = () => {
     try {
       setLoading(true);
       const [inventoryRes, lowStockRes] = await Promise.all([
-        inventoryAPI.getAll({ page, limit: 20 }),
+        inventoryAPI.getAll({ page, limit: 20, sortBy, sortOrder }),
         inventoryAPI.getLowStock(),
       ]);
       setInventory(inventoryRes.data.data || []);
@@ -32,7 +66,21 @@ const Inventory = () => {
 
   useEffect(() => {
     fetchInventory();
-  }, [page]);
+  }, [page, sortBy, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder('ASC');
+    }
+  };
+
+  const sortedLowStock = useMemo(
+    () => sortItems(lowStock, sortBy, sortOrder),
+    [lowStock, sortBy, sortOrder]
+  );
 
   const getStockBadge = (item) => {
     const { quantity, minStockLevel } = item;
@@ -63,17 +111,31 @@ const Inventory = () => {
     }
   };
 
-  const renderTable = (data) => (
+  const renderTable = (data, sortable = false) => (
     <Table striped hover responsive>
       <thead>
         <tr>
-          <th>SKU</th>
-          <th>Product Name</th>
-          <th>Category</th>
-          <th>Stock</th>
-          <th>Min Level</th>
-          <th>Location</th>
-          <th>Last Restocked</th>
+          {sortable ? (
+            <>
+              <SortableHeader label="SKU" field="sku" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+              <SortableHeader label="Product Name" field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+              <SortableHeader label="Category" field="category" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+              <SortableHeader label="Stock" field="quantity" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+              <SortableHeader label="Min Level" field="minStockLevel" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+              <SortableHeader label="Location" field="location" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+              <SortableHeader label="Last Restocked" field="lastRestocked" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+            </>
+          ) : (
+            <>
+              <th>SKU</th>
+              <th>Product Name</th>
+              <th>Category</th>
+              <th>Stock</th>
+              <th>Min Level</th>
+              <th>Location</th>
+              <th>Last Restocked</th>
+            </>
+          )}
         </tr>
       </thead>
       <tbody>
@@ -126,9 +188,9 @@ const Inventory = () => {
             </div>
           ) : (
             <>
-              {activeTab === 'all' && renderTable(inventory)}
+              {activeTab === 'all' && renderTable(inventory, true)}
               {activeTab === 'low' && (
-                lowStock.length > 0 ? renderTable(lowStock) : (
+                lowStock.length > 0 ? renderTable(sortedLowStock, true) : (
                   <Alert variant="success">No low stock items. All inventory levels are healthy.</Alert>
                 )
               )}

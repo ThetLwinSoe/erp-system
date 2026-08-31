@@ -12,6 +12,7 @@ import { ORDER_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import SortableHeader from '../components/common/SortableHeader';
 
 const Sales = () => {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ const Sales = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
@@ -42,7 +45,7 @@ const Sales = () => {
   const fetchSales = async () => {
     try {
       setLoading(true);
-      const params = { page, limit: 20 };
+      const params = { page, limit: 20, sortBy, sortOrder };
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
 
@@ -71,7 +74,16 @@ const Sales = () => {
 
   useEffect(() => {
     fetchSales();
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, sortBy, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder('ASC');
+    }
+  };
 
   const handleOpenModal = () => {
     fetchFormData();
@@ -206,14 +218,14 @@ const Sales = () => {
             <Table striped hover responsive>
               <thead>
                 <tr>
-                  <th>Order #</th>
-                  <th>Customer</th>
-                  <th>Status</th>
-                  <th>Subtotal</th>
-                  <th>Tax</th>
-                  <th>Total</th>
-                  <th>Created By</th>
-                  <th>Date</th>
+                  <SortableHeader label="Order #" field="orderNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Customer" field="customer" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Subtotal" field="subtotal" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Tax" field="tax" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Total" field="total" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Created By" field="user" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Date" field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
               </thead>

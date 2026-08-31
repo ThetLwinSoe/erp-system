@@ -2,7 +2,9 @@ const express = require('express');
 const SalesReturnsController = require('../controllers/salesReturns.controller');
 const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
-const { paginationValidation } = require('../middleware/validate');
+const { paginationValidation, sortValidation } = require('../middleware/validate');
+
+const SALES_RETURN_SORT_FIELDS = ['returnNumber', 'status', 'total', 'createdAt', 'orderNumber', 'customer'];
 
 const router = express.Router();
 
@@ -17,7 +19,7 @@ router.use(restrictSaleRep);
  * @desc Get all sales returns
  * @access Private
  */
-router.get('/', paginationValidation, SalesReturnsController.getAll);
+router.get('/', paginationValidation, sortValidation(SALES_RETURN_SORT_FIELDS), SalesReturnsController.getAll);
 
 /**
  * @route GET /api/sales-returns/sale/:saleId/returnable-items

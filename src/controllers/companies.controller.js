@@ -75,9 +75,12 @@ class CompaniesController {
         whereClause.status = status;
       }
 
+      const sortBy = req.query.sortBy || 'createdAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+
       const { count, rows } = await Company.findAndCountAll({
         where: whereClause,
-        order: [['createdAt', 'DESC']],
+        order: [[sortBy, sortOrder]],
         limit,
         offset,
       });

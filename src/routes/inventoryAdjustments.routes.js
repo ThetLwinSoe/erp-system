@@ -2,7 +2,9 @@ const express = require('express');
 const InventoryAdjustmentsController = require('../controllers/inventoryAdjustments.controller');
 const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
-const { paginationValidation } = require('../middleware/validate');
+const { paginationValidation, sortValidation } = require('../middleware/validate');
+
+const INVENTORY_ADJUSTMENT_SORT_FIELDS = ['adjustmentNumber', 'reason', 'status', 'createdAt', 'user'];
 
 const router = express.Router();
 
@@ -13,7 +15,7 @@ router.use(companyScope);
 router.use(restrictSaleRep);
 
 // GET /api/inventory-adjustments - Get all inventory adjustments
-router.get('/', paginationValidation, InventoryAdjustmentsController.getAll);
+router.get('/', paginationValidation, sortValidation(INVENTORY_ADJUSTMENT_SORT_FIELDS), InventoryAdjustmentsController.getAll);
 
 // GET /api/inventory-adjustments/products - Get products with current stock
 router.get('/products', InventoryAdjustmentsController.getProductsWithStock);

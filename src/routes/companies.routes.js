@@ -2,15 +2,17 @@ const express = require('express');
 const router = express.Router();
 const CompaniesController = require('../controllers/companies.controller');
 const { authenticate, requireSuperAdmin } = require('../middleware/auth');
-const { companyValidation, paginationValidation } = require('../middleware/validate');
+const { companyValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { uploadLogo } = require('../middleware/upload');
+
+const COMPANY_SORT_FIELDS = ['name', 'email', 'phone', 'currency', 'status', 'createdAt'];
 
 // All routes require authentication and superadmin role
 router.use(authenticate);
 router.use(requireSuperAdmin);
 
 // GET /api/companies - List all companies (with pagination)
-router.get('/', paginationValidation, CompaniesController.getAll);
+router.get('/', paginationValidation, sortValidation(COMPANY_SORT_FIELDS), CompaniesController.getAll);
 
 // POST /api/companies - Create a new company
 router.post('/', companyValidation.create, CompaniesController.create);

@@ -33,13 +33,19 @@ class PurchasesController {
         whereClause.orderNumber = { [Op.iLike]: `%${search}%` };
       }
 
+      const sortBy = req.query.sortBy || 'createdAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+      const order = sortBy === 'supplier'
+        ? [[{ model: Customer, as: 'supplier' }, 'name', sortOrder]]
+        : [[sortBy, sortOrder]];
+
       const { count, rows } = await Purchase.findAndCountAll({
         where: whereClause,
         include: [
           { model: Customer, as: 'supplier' },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
         ],
-        order: [['createdAt', 'DESC']],
+        order,
         limit,
         offset,
       });

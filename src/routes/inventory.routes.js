@@ -2,7 +2,9 @@ const express = require('express');
 const InventoryController = require('../controllers/inventory.controller');
 const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
-const { inventoryValidation, paginationValidation } = require('../middleware/validate');
+const { inventoryValidation, paginationValidation, sortValidation } = require('../middleware/validate');
+
+const INVENTORY_SORT_FIELDS = ['sku', 'name', 'category', 'quantity', 'minStockLevel', 'location', 'lastRestocked', 'updatedAt'];
 
 const router = express.Router();
 
@@ -17,7 +19,7 @@ router.use(restrictSaleRep);
  * @desc Get all inventory items
  * @access Private
  */
-router.get('/', paginationValidation, InventoryController.getAll);
+router.get('/', paginationValidation, sortValidation(INVENTORY_SORT_FIELDS), InventoryController.getAll);
 
 /**
  * @route GET /api/inventory/low-stock

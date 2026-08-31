@@ -30,12 +30,18 @@ class InventoryAdjustmentsController {
         whereClause.adjustmentNumber = { [Op.iLike]: `%${search}%` };
       }
 
+      const sortBy = req.query.sortBy || 'createdAt';
+      const sortOrder = req.query.sortOrder || 'DESC';
+      const order = sortBy === 'user'
+        ? [[{ model: User, as: 'user' }, 'name', sortOrder]]
+        : [[sortBy, sortOrder]];
+
       const { count, rows } = await InventoryAdjustment.findAndCountAll({
         where: whereClause,
         include: [
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
         ],
-        order: [['createdAt', 'DESC']],
+        order,
         limit,
         offset,
       });
