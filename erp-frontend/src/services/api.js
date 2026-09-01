@@ -154,6 +154,8 @@ export const reportsAPI = {
   exportSalesCSV: (params) => api.get('/reports/sales/export', { params, responseType: 'text' }),
   getPurchasesReport: (params) => api.get('/reports/purchases', { params }),
   exportPurchasesCSV: (params) => api.get('/reports/purchases/export', { params, responseType: 'text' }),
+  getProfitLossReport: (params) => api.get('/reports/profit-loss', { params }),
+  exportProfitLossCSV: (params) => api.get('/reports/profit-loss/export', { params, responseType: 'text' }),
 };
 
 // Companies API (Super Admin only)

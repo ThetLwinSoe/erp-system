@@ -17,4 +17,8 @@ router.get('/sales/export', checkSaleRep, ReportsController.exportSalesReport);
 router.get('/purchases', restrictSaleRep, ReportsController.getPurchasesReport);
 router.get('/purchases/export', restrictSaleRep, ReportsController.exportPurchasesReport);
 
+// Profit & Loss report - exposes cost/margin data, Sale Rep cannot access
+router.get('/profit-loss', restrictSaleRep, ReportsController.getProfitLossReport);
+router.get('/profit-loss/export', restrictSaleRep, ReportsController.exportProfitLossReport);
+
 module.exports = router;

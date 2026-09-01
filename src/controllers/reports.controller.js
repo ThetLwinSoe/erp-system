@@ -1,5 +1,6 @@
-const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem, Customer, User, Product, sequelize } = require('../models');
+const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem, Customer, User, Product, InventoryAdjustment, InventoryAdjustmentItem, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
+const { toCSV } = require('../utils/csv');
 const { Op } = require('sequelize');
 
 class ReportsController {
@@ -789,6 +790,240 @@ class ReportsController {
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=purchases-report-${Date.now()}.csv`);
 
+      return res.send(csvContent);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Compute Profit & Loss figures for a date range.
+   *
+   * Revenue/COGS use paid quantity only - FOC quantity is deliberately excluded from
+   * both, per product decision. Product.costPrice is used for all COGS/adjustment
+   * calculations since costs aren't tracked historically per sale - this reflects each
+   * product's CURRENT cost, not necessarily what it cost at the time of a past sale.
+   */
+  static async _computeProfitLoss(companyFilter, startDate, endDate) {
+    const dateWhere = {};
+    if (startDate || endDate) {
+      dateWhere.createdAt = {};
+      if (startDate) {
+        dateWhere.createdAt[Op.gte] = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        dateWhere.createdAt[Op.lte] = end;
+      }
+    }
+
+    const sales = await Sale.findAll({
+      where: {
+        ...companyFilter,
+        ...dateWhere,
+        status: { [Op.notIn]: ['pending', 'cancelled'] },
+      },
+      include: [
+        {
+          model: SaleItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name', 'costPrice'] }],
+        },
+      ],
+    });
+
+    const salesReturns = await SalesReturn.findAll({
+      where: {
+        ...companyFilter,
+        ...dateWhere,
+        status: { [Op.ne]: 'cancelled' },
+      },
+      include: [
+        {
+          model: SalesReturnItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name', 'costPrice'] }],
+        },
+      ],
+    });
+
+    const inventoryAdjustments = await InventoryAdjustment.findAll({
+      where: {
+        ...companyFilter,
+        ...dateWhere,
+        status: 'completed',
+      },
+      include: [
+        {
+          model: InventoryAdjustmentItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name', 'costPrice'] }],
+        },
+      ],
+    });
+
+    const purchases = await Purchase.findAll({
+      where: {
+        ...companyFilter,
+        ...dateWhere,
+        status: { [Op.ne]: 'cancelled' },
+      },
+      attributes: ['id', 'tax'],
+    });
+
+    const purchaseReturns = await PurchaseReturn.findAll({
+      where: {
+        ...companyFilter,
+        ...dateWhere,
+        status: { [Op.ne]: 'cancelled' },
+      },
+      attributes: ['id', 'tax'],
+    });
+
+    const productMap = new Map();
+    const getEntry = (product, productId) => {
+      if (!productMap.has(productId)) {
+        productMap.set(productId, { product, qtySold: 0, revenue: 0, cogs: 0 });
+      }
+      return productMap.get(productId);
+    };
+
+    let netRevenue = 0;
+    let cogs = 0;
+
+    sales.forEach((sale) => {
+      netRevenue += parseFloat(sale.subtotal);
+      (sale.items || []).forEach((item) => {
+        const cost = item.quantity * parseFloat(item.product?.costPrice || 0);
+        cogs += cost;
+        const entry = getEntry(item.product, item.productId);
+        entry.qtySold += item.quantity;
+        entry.revenue += parseFloat(item.total);
+        entry.cogs += cost;
+      });
+    });
+
+    salesReturns.forEach((ret) => {
+      netRevenue -= parseFloat(ret.subtotal);
+      (ret.items || []).forEach((item) => {
+        const cost = item.quantity * parseFloat(item.product?.costPrice || 0);
+        cogs -= cost;
+        const entry = getEntry(item.product, item.productId);
+        entry.qtySold -= item.quantity;
+        entry.revenue -= parseFloat(item.total);
+        entry.cogs -= cost;
+      });
+    });
+
+    const grossProfit = netRevenue - cogs;
+    const grossMarginPercent = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+
+    let inventoryAdjustmentGainLoss = 0;
+    inventoryAdjustments.forEach((adjustment) => {
+      (adjustment.items || []).forEach((item) => {
+        const diffQty = item.quantityAfter - item.quantityBefore;
+        inventoryAdjustmentGainLoss += diffQty * parseFloat(item.product?.costPrice || 0);
+      });
+    });
+
+    const netProfit = grossProfit + inventoryAdjustmentGainLoss;
+
+    let taxCollected = 0;
+    sales.forEach((sale) => { taxCollected += parseFloat(sale.tax); });
+    salesReturns.forEach((ret) => { taxCollected -= parseFloat(ret.tax); });
+
+    let taxPaid = 0;
+    purchases.forEach((purchase) => { taxPaid += parseFloat(purchase.tax); });
+    purchaseReturns.forEach((ret) => { taxPaid -= parseFloat(ret.tax); });
+
+    const products = Array.from(productMap.values())
+      .map(({ product, qtySold, revenue, cogs: productCogs }) => ({
+        productId: product?.id,
+        sku: product?.sku || '',
+        name: product?.name || '',
+        qtySold,
+        revenue,
+        cogs: productCogs,
+        grossProfit: revenue - productCogs,
+        marginPercent: revenue > 0 ? ((revenue - productCogs) / revenue) * 100 : 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    return {
+      summary: {
+        netRevenue,
+        cogs,
+        grossProfit,
+        grossMarginPercent,
+        inventoryAdjustmentGainLoss,
+        netProfit,
+        taxCollected,
+        taxPaid,
+      },
+      products,
+    };
+  }
+
+  /**
+   * Get Profit & Loss report
+   * GET /api/reports/profit-loss
+   * Query params: startDate, endDate
+   */
+  static async getProfitLossReport(req, res, next) {
+    try {
+      const { startDate, endDate } = req.query;
+      const result = await ReportsController._computeProfitLoss(req.companyFilter, startDate, endDate);
+      return ApiResponse.success(res, { ...result, startDate, endDate }, 'Profit & Loss report retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export Profit & Loss report to CSV
+   * GET /api/reports/profit-loss/export
+   * Query params: startDate, endDate
+   */
+  static async exportProfitLossReport(req, res, next) {
+    try {
+      const { startDate, endDate } = req.query;
+      const { summary, products } = await ReportsController._computeProfitLoss(req.companyFilter, startDate, endDate);
+
+      const fmt = (n) => parseFloat(n || 0).toFixed(2);
+
+      const summaryLines = [
+        'Profit & Loss Report',
+        `Period,${startDate || 'All time'} to ${endDate || 'All time'}`,
+        `Generated,${new Date().toISOString().split('T')[0]}`,
+        '',
+        `Net Revenue,${fmt(summary.netRevenue)}`,
+        `Cost of Goods Sold,${fmt(summary.cogs)}`,
+        `Gross Profit,${fmt(summary.grossProfit)}`,
+        `Gross Margin %,${fmt(summary.grossMarginPercent)}`,
+        `Inventory Adjustment Gain/(Loss),${fmt(summary.inventoryAdjustmentGainLoss)}`,
+        `Net Profit,${fmt(summary.netProfit)}`,
+        `Tax Collected on Sales,${fmt(summary.taxCollected)}`,
+        `Tax Paid on Purchases,${fmt(summary.taxPaid)}`,
+        '',
+        'Product Breakdown',
+      ].join('\n');
+
+      const productHeaders = ['SKU', 'Product', 'Qty Sold', 'Revenue', 'COGS', 'Gross Profit', 'Margin %'];
+      const productRows = products.map((p) => [
+        p.sku,
+        p.name,
+        p.qtySold,
+        fmt(p.revenue),
+        fmt(p.cogs),
+        fmt(p.grossProfit),
+        fmt(p.marginPercent),
+      ]);
+
+      const csvContent = `${summaryLines}\n${toCSV(productHeaders, productRows)}`;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=profit-loss-report-${Date.now()}.csv`);
       return res.send(csvContent);
     } catch (error) {
       next(error);
