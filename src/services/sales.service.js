@@ -31,8 +31,12 @@ class SalesService {
       throw error;
     }
 
-    // Check stock availability
-    const unavailable = await InventoryService.checkStockAvailability(items);
+    // Check stock availability - FOC quantity moves stock too, so it counts toward the check
+    const stockMovements = items.map((item) => ({
+      productId: item.productId,
+      quantity: (parseInt(item.quantity) || 0) + (parseInt(item.focQuantity) || 0),
+    }));
+    const unavailable = await InventoryService.checkStockAvailability(stockMovements);
     if (unavailable.length > 0) {
       const error = new Error('Insufficient stock for some items');
       error.statusCode = 400;
@@ -49,7 +53,7 @@ class SalesService {
       const unitPrice = item.unitPrice !== undefined ? item.unitPrice : product.sellingPrice;
       const itemDiscountPercent = parseFloat(item.discountPercent || 0);
 
-      // Calculate item subtotal and discount
+      // Calculate item subtotal and discount - FOC quantity is free, it never enters pricing
       const itemSubtotal = item.quantity * unitPrice;
       const itemDiscountAmount = itemSubtotal * (itemDiscountPercent / 100);
       const itemTotal = itemSubtotal - itemDiscountAmount;
@@ -59,6 +63,7 @@ class SalesService {
       return {
         productId: item.productId,
         quantity: item.quantity,
+        focQuantity: parseInt(item.focQuantity) || 0,
         unitPrice,
         discountPercent: itemDiscountPercent,
         // discountAmount and total will be auto-calculated by model hook
@@ -102,8 +107,8 @@ class SalesService {
 
       await SaleItem.bulkCreate(itemsWithSaleId, { transaction, individualHooks: true });
 
-      // Deduct inventory
-      await InventoryService.deductStock(items, transaction);
+      // Deduct inventory (paid + FOC quantity together)
+      await InventoryService.deductStock(stockMovements, transaction);
 
       return sale;
     });
@@ -174,7 +179,11 @@ class SalesService {
           transaction,
         });
 
-        await InventoryService.addStock(items, transaction);
+        const stockMovements = items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity + item.focQuantity,
+        }));
+        await InventoryService.addStock(stockMovements, transaction);
         await sale.update({ status }, { transaction });
       });
     } else {
@@ -255,7 +264,11 @@ class SalesService {
     await sequelize.transaction(async (transaction) => {
       // Restore inventory if not already cancelled
       if (sale.status !== ORDER_STATUS.CANCELLED) {
-        await InventoryService.addStock(sale.items, transaction);
+        const stockMovements = sale.items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity + item.focQuantity,
+        }));
+        await InventoryService.addStock(stockMovements, transaction);
       }
 
       await SaleItem.destroy({ where: { saleId: id }, transaction });

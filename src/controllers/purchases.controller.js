@@ -217,13 +217,16 @@ class PurchasesController {
         const inventoryUpdates = [];
 
         for (const item of purchase.items) {
-          let quantityToReceive = item.quantity - item.receivedQuantity;
+          // FOC quantity is free but still physically arrives with the shipment,
+          // so it's part of the total expected quantity for receiving purposes.
+          const totalExpected = item.quantity + item.focQuantity;
+          let quantityToReceive = totalExpected - item.receivedQuantity;
 
           // If specific items are provided, use those quantities
           if (receivedItems && receivedItems.length > 0) {
             const receivedItem = receivedItems.find((ri) => ri.productId === item.productId);
             if (receivedItem) {
-              quantityToReceive = Math.min(receivedItem.quantity, item.quantity - item.receivedQuantity);
+              quantityToReceive = Math.min(receivedItem.quantity, totalExpected - item.receivedQuantity);
             } else {
               quantityToReceive = 0;
             }
@@ -238,10 +241,10 @@ class PurchasesController {
               quantity: quantityToReceive,
             });
 
-            if (newReceivedQuantity < item.quantity) {
+            if (newReceivedQuantity < totalExpected) {
               allReceived = false;
             }
-          } else if (item.receivedQuantity < item.quantity) {
+          } else if (item.receivedQuantity < totalExpected) {
             allReceived = false;
           }
         }

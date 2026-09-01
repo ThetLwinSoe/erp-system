@@ -60,6 +60,7 @@ class PurchasesService {
       return {
         productId: item.productId,
         quantity: item.quantity,
+        focQuantity: parseInt(item.focQuantity) || 0,
         unitPrice,
         receivedQuantity: 0,
         discountPercent: itemDiscountPercent,

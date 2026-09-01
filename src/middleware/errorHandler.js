@@ -42,7 +42,7 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'SequelizeDatabaseError') {
     return res.status(500).json({
       success: false,
-      message: 'Database error occurred',
+      message: process.env.NODE_ENV === 'production' ? 'Database error occurred' : err.message,
     });
   }
 

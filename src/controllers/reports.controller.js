@@ -105,6 +105,7 @@ class ReportsController {
           productId: item.productId,
           product: item.product,
           quantity: -item.quantity, // Negative quantity
+          focQuantity: -(item.focQuantity || 0), // Negative FOC quantity
           unitPrice: parseFloat(item.unitPrice), // Price stays positive
           discountPercent: parseFloat(item.discountPercent || 0),
           discountAmount: -parseFloat(item.discountAmount || 0), // Negative discount amount
@@ -260,6 +261,7 @@ class ReportsController {
         'Item SKU',
         'Item Name',
         'Qty',
+        'FOC Qty',
         'Unit Price',
         'Item Discount %',
         'Item Discount Amount',
@@ -289,6 +291,7 @@ class ReportsController {
               item.product?.sku || '',
               item.product?.name || '',
               item.quantity,
+              item.focQuantity || 0,
               parseFloat(item.unitPrice || 0).toFixed(2),
               parseFloat(item.discountPercent || 0).toFixed(2),
               parseFloat(item.discountAmount || 0).toFixed(2),
@@ -310,6 +313,7 @@ class ReportsController {
             sale.customer?.name || '',
             sale.customer?.email || '',
             sale.status,
+            '',
             '',
             '',
             '',
@@ -342,6 +346,7 @@ class ReportsController {
               item.product?.sku || '',
               item.product?.name || '',
               -item.quantity, // Negative
+              -(item.focQuantity || 0), // Negative
               parseFloat(item.unitPrice || 0).toFixed(2), // Positive
               parseFloat(item.discountPercent || 0).toFixed(2),
               (-parseFloat(item.discountAmount || 0)).toFixed(2), // Negative
@@ -363,6 +368,7 @@ class ReportsController {
             ret.sale?.customer?.name || '',
             ret.sale?.customer?.email || '',
             ret.status,
+            '',
             '',
             '',
             '',
@@ -495,6 +501,7 @@ class ReportsController {
           productId: item.productId,
           product: item.product,
           quantity: -item.quantity,
+          focQuantity: -(item.focQuantity || 0),
           unitPrice: parseFloat(item.unitPrice),
           discountPercent: parseFloat(item.discountPercent || 0),
           discountAmount: -parseFloat(item.discountAmount || 0),
@@ -639,6 +646,7 @@ class ReportsController {
         'Item SKU',
         'Item Name',
         'Qty',
+        'FOC Qty',
         'Unit Price',
         'Item Discount %',
         'Item Discount Amount',
@@ -668,6 +676,7 @@ class ReportsController {
               item.product?.sku || '',
               item.product?.name || '',
               item.quantity,
+              item.focQuantity || 0,
               parseFloat(item.unitPrice || 0).toFixed(2),
               parseFloat(item.discountPercent || 0).toFixed(2),
               parseFloat(item.discountAmount || 0).toFixed(2),
@@ -689,6 +698,7 @@ class ReportsController {
             purchase.supplier?.name || '',
             purchase.supplier?.email || '',
             purchase.status,
+            '',
             '',
             '',
             '',
@@ -721,6 +731,7 @@ class ReportsController {
               item.product?.sku || '',
               item.product?.name || '',
               -item.quantity,
+              -(item.focQuantity || 0), // Negative
               parseFloat(item.unitPrice || 0).toFixed(2),
               parseFloat(item.discountPercent || 0).toFixed(2),
               (-parseFloat(item.discountAmount || 0)).toFixed(2),
@@ -742,6 +753,7 @@ class ReportsController {
             ret.purchase?.supplier?.name || '',
             ret.purchase?.supplier?.email || '',
             ret.status,
+            '',
             '',
             '',
             '',

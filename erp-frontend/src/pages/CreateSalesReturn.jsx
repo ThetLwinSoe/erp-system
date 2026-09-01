@@ -32,7 +32,7 @@ const CreateSalesReturn = () => {
       // Initialize return quantities to 0
       const initialReturnItems = {};
       response.data.data.returnableItems.forEach((item) => {
-        initialReturnItems[item.saleItemId] = 0;
+        initialReturnItems[item.saleItemId] = { quantity: 0, focQuantity: 0 };
       });
       setReturnItems(initialReturnItems);
     } catch (err) {
@@ -47,9 +47,12 @@ const CreateSalesReturn = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId]);
 
-  const handleQuantityChange = (saleItemId, value, maxQty) => {
+  const handleChange = (saleItemId, field, value, maxQty) => {
     const qty = Math.min(Math.max(0, parseInt(value) || 0), maxQty);
-    setReturnItems({ ...returnItems, [saleItemId]: qty });
+    setReturnItems({
+      ...returnItems,
+      [saleItemId]: { ...returnItems[saleItemId], [field]: qty },
+    });
   };
 
   const calculateItemTotal = (item, returnQty) => {
@@ -63,7 +66,7 @@ const CreateSalesReturn = () => {
   const calculateSubtotal = () => {
     let subtotal = 0;
     returnableItems.forEach((item) => {
-      const returnQty = returnItems[item.saleItemId] || 0;
+      const returnQty = returnItems[item.saleItemId]?.quantity || 0;
       if (returnQty > 0) {
         subtotal += calculateItemTotal(item, returnQty);
       }
@@ -84,7 +87,7 @@ const CreateSalesReturn = () => {
   };
 
   const hasItemsToReturn = () => {
-    return Object.values(returnItems).some((qty) => qty > 0);
+    return Object.values(returnItems).some((item) => item.quantity > 0 || item.focQuantity > 0);
   };
 
   const handleSubmit = async (e) => {
@@ -100,10 +103,11 @@ const CreateSalesReturn = () => {
       setSubmitting(true);
 
       const items = Object.entries(returnItems)
-        .filter(([, qty]) => qty > 0)
-        .map(([saleItemId, quantity]) => ({
+        .filter(([, item]) => item.quantity > 0 || item.focQuantity > 0)
+        .map(([saleItemId, item]) => ({
           saleItemId: parseInt(saleItemId),
-          quantity,
+          quantity: item.quantity,
+          focQuantity: item.focQuantity,
         }));
 
       await salesReturnsAPI.create({
@@ -164,6 +168,7 @@ const CreateSalesReturn = () => {
                       <th>Returned</th>
                       <th>Available</th>
                       <th>Return Qty</th>
+                      <th>Return FOC Qty</th>
                       <th>Unit Price</th>
                       <th>Discount %</th>
                     </tr>
@@ -173,20 +178,44 @@ const CreateSalesReturn = () => {
                       <tr key={item.saleItemId} className={!item.canReturn ? 'table-secondary' : ''}>
                         <td>{item.product?.name}</td>
                         <td><code>{item.product?.sku}</code></td>
-                        <td>{item.orderedQuantity}</td>
-                        <td>{item.returnedQuantity}</td>
+                        <td>
+                          {item.orderedQuantity}
+                          {item.orderedFocQuantity > 0 && (
+                            <div className="text-muted small">+{item.orderedFocQuantity} FOC</div>
+                          )}
+                        </td>
+                        <td>
+                          {item.returnedQuantity}
+                          {item.returnedFocQuantity > 0 && (
+                            <div className="text-muted small">+{item.returnedFocQuantity} FOC</div>
+                          )}
+                        </td>
                         <td>
                           <strong className={item.remainingQuantity > 0 ? 'text-success' : 'text-muted'}>
                             {item.remainingQuantity}
                           </strong>
+                          {item.remainingFocQuantity > 0 && (
+                            <div className="text-success small">+{item.remainingFocQuantity} FOC</div>
+                          )}
                         </td>
-                        <td style={{ width: '120px' }}>
+                        <td style={{ width: '110px' }}>
                           <Form.Control
                             type="number"
                             min="0"
                             max={item.remainingQuantity}
-                            value={returnItems[item.saleItemId] || 0}
-                            onChange={(e) => handleQuantityChange(item.saleItemId, e.target.value, item.remainingQuantity)}
+                            value={returnItems[item.saleItemId]?.quantity || 0}
+                            onChange={(e) => handleChange(item.saleItemId, 'quantity', e.target.value, item.remainingQuantity)}
+                            disabled={!item.canReturn}
+                            size="sm"
+                          />
+                        </td>
+                        <td style={{ width: '110px' }}>
+                          <Form.Control
+                            type="number"
+                            min="0"
+                            max={item.remainingFocQuantity}
+                            value={returnItems[item.saleItemId]?.focQuantity || 0}
+                            onChange={(e) => handleChange(item.saleItemId, 'focQuantity', e.target.value, item.remainingFocQuantity)}
                             disabled={!item.canReturn}
                             size="sm"
                           />
@@ -241,13 +270,13 @@ const CreateSalesReturn = () => {
                 <div className="d-flex justify-content-between mb-2">
                   <span>Items to Return:</span>
                   <strong>
-                    {Object.values(returnItems).filter((qty) => qty > 0).length}
+                    {Object.values(returnItems).filter((item) => item.quantity > 0 || item.focQuantity > 0).length}
                   </strong>
                 </div>
                 <div className="d-flex justify-content-between mb-2">
                   <span>Total Quantity:</span>
                   <strong>
-                    {Object.values(returnItems).reduce((sum, qty) => sum + qty, 0)}
+                    {Object.values(returnItems).reduce((sum, item) => sum + item.quantity + item.focQuantity, 0)}
                   </strong>
                 </div>
                 <hr />

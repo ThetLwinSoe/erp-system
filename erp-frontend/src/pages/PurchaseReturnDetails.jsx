@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Table, Button, Spinner, Alert, Row, Col } from 'react-bootstrap';
+import { Card, Table, Button, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaArrowLeft } from 'react-icons/fa';
 import { purchaseReturnsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -104,6 +104,7 @@ const PurchaseReturnDetails = () => {
                     <th>Product</th>
                     <th>SKU</th>
                     <th>Return Qty</th>
+                    <th>Return FOC Qty</th>
                     <th>Unit Price</th>
                     <th>Discount %</th>
                     <th>Total</th>
@@ -115,6 +116,7 @@ const PurchaseReturnDetails = () => {
                       <td>{item.product?.name}</td>
                       <td><code>{item.product?.sku}</code></td>
                       <td>{item.quantity}</td>
+                      <td>{item.focQuantity > 0 ? <Badge bg="info">{item.focQuantity}</Badge> : '-'}</td>
                       <td>{formatCurrency(item.unitPrice, currency)}</td>
                       <td>
                         {item.discountPercent > 0
@@ -127,21 +129,21 @@ const PurchaseReturnDetails = () => {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="5" className="text-end">Subtotal (after item discounts):</td>
+                    <td colSpan="6" className="text-end">Subtotal (after item discounts):</td>
                     <td>{formatCurrency(purchaseReturn.subtotal, currency)}</td>
                   </tr>
                   {purchaseReturn.discountPercent > 0 && (
                     <tr>
-                      <td colSpan="5" className="text-end">Order Discount % ({purchaseReturn.discountPercent}):</td>
+                      <td colSpan="6" className="text-end">Order Discount % ({purchaseReturn.discountPercent}):</td>
                       <td className="text-danger">-{formatCurrency(purchaseReturn.discountAmount, currency)}</td>
                     </tr>
                   )}
                   <tr>
-                    <td colSpan="5" className="text-end">Tax:</td>
+                    <td colSpan="6" className="text-end">Tax:</td>
                     <td>{formatCurrency(purchaseReturn.tax, currency)}</td>
                   </tr>
                   <tr>
-                    <td colSpan="5" className="text-end"><strong>Total:</strong></td>
+                    <td colSpan="6" className="text-end"><strong>Total:</strong></td>
                     <td><strong>{formatCurrency(purchaseReturn.total, currency)}</strong></td>
                   </tr>
                 </tfoot>

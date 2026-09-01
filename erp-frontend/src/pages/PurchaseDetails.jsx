@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Table, Button, Spinner, Alert, Row, Col, Modal, Form, ProgressBar } from 'react-bootstrap';
+import { Card, Table, Button, Spinner, Alert, Row, Col, Modal, Form, ProgressBar, Badge } from 'react-bootstrap';
 import { FaArrowLeft, FaCheck, FaPrint, FaUndo } from 'react-icons/fa';
 import { purchasesAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -53,13 +53,16 @@ const PurchaseDetails = () => {
   };
 
   const handleOpenReceiveModal = () => {
-    const items = purchase.items.map((item) => ({
-      productId: item.productId,
-      productName: item.product?.name,
-      ordered: item.quantity,
-      received: item.receivedQuantity || 0,
-      toReceive: item.quantity - (item.receivedQuantity || 0),
-    }));
+    const items = purchase.items.map((item) => {
+      const totalExpected = item.quantity + (item.focQuantity || 0);
+      return {
+        productId: item.productId,
+        productName: item.product?.name,
+        ordered: totalExpected,
+        received: item.receivedQuantity || 0,
+        toReceive: totalExpected - (item.receivedQuantity || 0),
+      };
+    });
     setReceiveItems(items);
     setShowReceiveModal(true);
   };
@@ -203,6 +206,7 @@ const PurchaseDetails = () => {
                     <th>Product</th>
                     <th>SKU</th>
                     <th>Ordered</th>
+                    <th>FOC Qty</th>
                     <th>Received</th>
                     <th>Unit Price</th>
                     <th>Discount %</th>
@@ -210,16 +214,19 @@ const PurchaseDetails = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {purchase.items?.map((item) => (
+                  {purchase.items?.map((item) => {
+                    const totalExpected = item.quantity + (item.focQuantity || 0);
+                    return (
                     <tr key={item.id}>
                       <td>{item.product?.name}</td>
                       <td><code>{item.product?.sku}</code></td>
                       <td>{item.quantity}</td>
+                      <td>{item.focQuantity > 0 ? <Badge bg="info">{item.focQuantity}</Badge> : '-'}</td>
                       <td>
                         {item.receivedQuantity || 0}
-                        {item.receivedQuantity < item.quantity && (
+                        {item.receivedQuantity < totalExpected && (
                           <ProgressBar
-                            now={(item.receivedQuantity / item.quantity) * 100}
+                            now={(item.receivedQuantity / totalExpected) * 100}
                             style={{ height: '5px', marginTop: '4px' }}
                           />
                         )}
@@ -232,25 +239,26 @@ const PurchaseDetails = () => {
                       </td>
                       <td>{formatCurrency(item.total, currency)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="6" className="text-end">Subtotal (after item discounts):</td>
+                    <td colSpan="7" className="text-end">Subtotal (after item discounts):</td>
                     <td>{formatCurrency(purchase.subtotal, currency)}</td>
                   </tr>
                   {purchase.discountPercent > 0 && (
                     <tr>
-                      <td colSpan="6" className="text-end">Order Discount % ({purchase.discountPercent}):</td>
+                      <td colSpan="7" className="text-end">Order Discount % ({purchase.discountPercent}):</td>
                       <td className="text-danger">-{formatCurrency(purchase.discountAmount, currency)}</td>
                     </tr>
                   )}
                   <tr>
-                    <td colSpan="6" className="text-end">Tax:</td>
+                    <td colSpan="7" className="text-end">Tax:</td>
                     <td>{formatCurrency(purchase.tax, currency)}</td>
                   </tr>
                   <tr>
-                    <td colSpan="6" className="text-end"><strong>Total:</strong></td>
+                    <td colSpan="7" className="text-end"><strong>Total:</strong></td>
                     <td><strong>{formatCurrency(purchase.total, currency)}</strong></td>
                   </tr>
                 </tfoot>

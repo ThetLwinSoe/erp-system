@@ -89,7 +89,7 @@ const Purchases = () => {
     fetchFormData();
     setFormData({
       supplierId: '',
-      items: [{ productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
+      items: [{ productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
       tax: 0,
       discountPercent: 0,
       expectedDelivery: '',
@@ -102,7 +102,7 @@ const Purchases = () => {
   const handleAddItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
+      items: [...formData.items, { productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
     });
   };
 
@@ -131,12 +131,21 @@ const Purchases = () => {
     e.preventDefault();
     setError(null);
 
+    const hasEmptyItem = formData.items.some(
+      (item) => (parseInt(item.quantity) || 0) + (parseInt(item.focQuantity) || 0) < 1
+    );
+    if (hasEmptyItem) {
+      setError('Each item must have a quantity or FOC quantity of at least 1');
+      return;
+    }
+
     try {
       const data = {
         supplierId: parseInt(formData.supplierId),
         items: formData.items.map((item) => ({
           productId: parseInt(item.productId),
-          quantity: parseInt(item.quantity),
+          quantity: parseInt(item.quantity) || 0,
+          focQuantity: parseInt(item.focQuantity) || 0,
           unitPrice: parseFloat(item.unitPrice),
           discountPercent: parseFloat(item.discountPercent) || 0,
         })),
@@ -295,11 +304,14 @@ const Purchases = () => {
 
               {/* Item Headers */}
               <Row className="mb-2">
-                <Col md={4}>
+                <Col md={3}>
                   <small className="text-muted fw-semibold">Product</small>
                 </Col>
                 <Col md={2}>
                   <small className="text-muted fw-semibold">Quantity</small>
+                </Col>
+                <Col md={2}>
+                  <small className="text-muted fw-semibold">FOC Qty</small>
                 </Col>
                 <Col md={2}>
                   <small className="text-muted fw-semibold">Unit Price</small>
@@ -307,14 +319,14 @@ const Purchases = () => {
                 <Col md={2}>
                   <small className="text-muted fw-semibold">Disc %</small>
                 </Col>
-                <Col md={2}>
+                <Col md={1}>
                   <small className="text-muted fw-semibold">Actions</small>
                 </Col>
               </Row>
 
               {formData.items.map((item, index) => (
                 <Row key={index} className="mb-2 align-items-end">
-                  <Col md={4}>
+                  <Col md={3}>
                     <Form.Select value={item.productId} onChange={(e) => handleItemChange(index, 'productId', e.target.value)} required>
                       <option value="">Select Product</option>
                       {products.map((p) => (
@@ -323,7 +335,10 @@ const Purchases = () => {
                     </Form.Select>
                   </Col>
                   <Col md={2}>
-                    <Form.Control type="number" min="1" placeholder="Qty" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} required />
+                    <Form.Control type="number" min="0" placeholder="Qty" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} required />
+                  </Col>
+                  <Col md={2}>
+                    <Form.Control type="number" min="0" placeholder="FOC Qty" value={item.focQuantity || 0} onChange={(e) => handleItemChange(index, 'focQuantity', e.target.value)} />
                   </Col>
                   <Col md={2}>
                     <Form.Control type="number" step="0.01" min="0" placeholder="Price" value={item.unitPrice} onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)} required />
@@ -331,7 +346,7 @@ const Purchases = () => {
                   <Col md={2}>
                     <Form.Control type="number" step="0.01" min="0" max="100" placeholder="Disc %" value={item.discountPercent || 0} onChange={(e) => handleItemChange(index, 'discountPercent', e.target.value)} />
                   </Col>
-                  <Col md={2}>
+                  <Col md={1}>
                     <Button variant="outline-danger" size="sm" onClick={() => handleRemoveItem(index)} disabled={formData.items.length === 1}>
                       <FaTrash />
                     </Button>
