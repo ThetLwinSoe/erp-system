@@ -9,7 +9,11 @@ import { CURRENCY_SYMBOLS } from './constants';
 export const formatCurrency = (amount, currency = 'USD') => {
   const numAmount = parseFloat(amount || 0);
   const symbol = CURRENCY_SYMBOLS[currency] || '$';
-  return `${symbol}${numAmount.toFixed(2)}`;
+  const formatted = numAmount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${symbol}${formatted}`;
 };
 
 /**
