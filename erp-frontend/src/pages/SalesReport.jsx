@@ -315,14 +315,14 @@ const SalesReport = () => {
                             {transaction.discountPercent > 0 ? `${transaction.discountPercent}` : '-'}
                           </td>
                           <td><StatusBadge status={transaction.status} /></td>
-                          <td className={`text-end ${transaction.subtotal < 0 ? 'text-danger' : ''}`}>
-                            {formatAmount(transaction.subtotal)}
+                          <td className={`text-end ${item.itemSubtotal < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(item.itemSubtotal)}
                           </td>
-                          <td className={`text-end ${transaction.tax < 0 ? 'text-danger' : ''}`}>
-                            {formatAmount(transaction.tax)}
+                          <td className={`text-end ${item.itemTax < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(item.itemTax)}
                           </td>
-                          <td className={`text-end fw-bold ${transaction.total < 0 ? 'text-danger' : ''}`}>
-                            {formatAmount(transaction.total)}
+                          <td className={`text-end fw-bold ${item.itemTotal < 0 ? 'text-danger' : ''}`}>
+                            {formatAmount(item.itemTotal)}
                           </td>
                           <td>{transaction.user?.name || '-'}</td>
                         </tr>

@@ -5,6 +5,22 @@ const { Op } = require('sequelize');
 
 class ReportsController {
   /**
+   * Prorate an order-level discount amount and tax down to one line item, by that
+   * item's share of the order subtotal (itemTotal / orderSubtotal). Sign-agnostic -
+   * works identically whether given raw (sale/purchase) or already-negated (return)
+   * values, since proration is just multiplication by a ratio.
+   */
+  static _prorateItemAmounts(itemTotal, orderSubtotal, orderDiscountAmount, orderTax) {
+    const subtotal = parseFloat(itemTotal) || 0;
+    const parsedOrderSubtotal = parseFloat(orderSubtotal) || 0;
+    const shareOfOrder = parsedOrderSubtotal !== 0 ? subtotal / parsedOrderSubtotal : 0;
+    const itemOrderDiscountAmount = (parseFloat(orderDiscountAmount) || 0) * shareOfOrder;
+    const itemTax = (parseFloat(orderTax) || 0) * shareOfOrder;
+    const total = subtotal - itemOrderDiscountAmount + itemTax;
+    return { itemSubtotal: subtotal, itemOrderDiscountAmount, itemTax, itemTotal: total };
+  }
+
+  /**
    * Get sales report with filters
    * GET /api/reports/sales
    * Query params: startDate, endDate, customerId, status
@@ -101,24 +117,49 @@ class ReportsController {
         total: -parseFloat(ret.total),
         notes: ret.notes,
         reason: ret.reason,
-        items: (ret.items || []).map((item) => ({
-          id: item.id,
-          productId: item.productId,
-          product: item.product,
-          quantity: -item.quantity, // Negative quantity
-          focQuantity: -(item.focQuantity || 0), // Negative FOC quantity
-          unitPrice: parseFloat(item.unitPrice), // Price stays positive
-          discountPercent: parseFloat(item.discountPercent || 0),
-          discountAmount: -parseFloat(item.discountAmount || 0), // Negative discount amount
-          total: -parseFloat(item.total), // Negative total
-        })),
+        items: (ret.items || []).map((item) => {
+          const { itemOrderDiscountAmount, itemTax, itemTotal } = ReportsController._prorateItemAmounts(
+            item.total, ret.subtotal, ret.discountAmount, ret.tax
+          );
+          return {
+            id: item.id,
+            productId: item.productId,
+            product: item.product,
+            quantity: -item.quantity, // Negative quantity
+            focQuantity: -(item.focQuantity || 0), // Negative FOC quantity
+            unitPrice: parseFloat(item.unitPrice), // Price stays positive
+            discountPercent: parseFloat(item.discountPercent || 0),
+            discountAmount: -parseFloat(item.discountAmount || 0), // Negative discount amount
+            total: -parseFloat(item.total), // Negative total
+            // Per-line share of the order-level discount/tax/total (negated, matching returns convention)
+            itemSubtotal: -parseFloat(item.total),
+            itemOrderDiscountAmount: -itemOrderDiscountAmount,
+            itemTax: -itemTax,
+            itemTotal: -itemTotal,
+          };
+        }),
       }));
 
-      // Add type flag to sales
-      const transformedSales = sales.map((sale) => ({
-        ...sale.toJSON(),
-        type: 'sale',
-      }));
+      // Add type flag to sales, with each item's prorated share of the order-level discount/tax
+      const transformedSales = sales.map((sale) => {
+        const saleJson = sale.toJSON();
+        return {
+          ...saleJson,
+          type: 'sale',
+          items: (saleJson.items || []).map((item) => {
+            const { itemOrderDiscountAmount, itemTax, itemTotal } = ReportsController._prorateItemAmounts(
+              item.total, saleJson.subtotal, saleJson.discountAmount, saleJson.tax
+            );
+            return {
+              ...item,
+              itemSubtotal: parseFloat(item.total),
+              itemOrderDiscountAmount,
+              itemTax,
+              itemTotal,
+            };
+          }),
+        };
+      });
 
       // Combine sales and returns
       const allTransactions = [...transformedSales, ...transformedReturns].sort(
@@ -280,6 +321,9 @@ class ReportsController {
       sales.forEach((sale) => {
         if (sale.items && sale.items.length > 0) {
           sale.items.forEach((item) => {
+            const { itemSubtotal, itemOrderDiscountAmount, itemTax, itemTotal } = ReportsController._prorateItemAmounts(
+              item.total, sale.subtotal, sale.discountAmount, sale.tax
+            );
             csvRows.push([
               'Sale',
               sale.orderNumber,
@@ -297,10 +341,10 @@ class ReportsController {
               parseFloat(item.discountPercent || 0).toFixed(2),
               parseFloat(item.discountAmount || 0).toFixed(2),
               parseFloat(sale.discountPercent || 0).toFixed(2),
-              parseFloat(sale.discountAmount || 0).toFixed(2),
-              parseFloat(sale.subtotal).toFixed(2),
-              parseFloat(sale.tax).toFixed(2),
-              parseFloat(sale.total).toFixed(2),
+              itemOrderDiscountAmount.toFixed(2),
+              itemSubtotal.toFixed(2),
+              itemTax.toFixed(2),
+              itemTotal.toFixed(2),
               sale.user?.name || '',
             ]);
           });
@@ -335,6 +379,9 @@ class ReportsController {
       returns.forEach((ret) => {
         if (ret.items && ret.items.length > 0) {
           ret.items.forEach((item) => {
+            const { itemSubtotal, itemOrderDiscountAmount, itemTax, itemTotal } = ReportsController._prorateItemAmounts(
+              item.total, ret.subtotal, ret.discountAmount, ret.tax
+            );
             csvRows.push([
               'Return',
               ret.returnNumber,
@@ -352,10 +399,10 @@ class ReportsController {
               parseFloat(item.discountPercent || 0).toFixed(2),
               (-parseFloat(item.discountAmount || 0)).toFixed(2), // Negative
               parseFloat(ret.discountPercent || 0).toFixed(2),
-              (-parseFloat(ret.discountAmount || 0)).toFixed(2), // Negative
-              (-parseFloat(ret.subtotal)).toFixed(2), // Negative
-              (-parseFloat(ret.tax)).toFixed(2), // Negative
-              (-parseFloat(ret.total)).toFixed(2), // Negative
+              (-itemOrderDiscountAmount).toFixed(2), // Negative
+              (-itemSubtotal).toFixed(2), // Negative
+              (-itemTax).toFixed(2), // Negative
+              (-itemTotal).toFixed(2), // Negative
               ret.user?.name || '',
             ]);
           });
@@ -497,24 +544,48 @@ class ReportsController {
         total: -parseFloat(ret.total),
         notes: ret.notes,
         reason: ret.reason,
-        items: (ret.items || []).map((item) => ({
-          id: item.id,
-          productId: item.productId,
-          product: item.product,
-          quantity: -item.quantity,
-          focQuantity: -(item.focQuantity || 0),
-          unitPrice: parseFloat(item.unitPrice),
-          discountPercent: parseFloat(item.discountPercent || 0),
-          discountAmount: -parseFloat(item.discountAmount || 0),
-          total: -parseFloat(item.total),
-        })),
+        items: (ret.items || []).map((item) => {
+          const { itemOrderDiscountAmount, itemTax, itemTotal } = ReportsController._prorateItemAmounts(
+            item.total, ret.subtotal, ret.discountAmount, ret.tax
+          );
+          return {
+            id: item.id,
+            productId: item.productId,
+            product: item.product,
+            quantity: -item.quantity,
+            focQuantity: -(item.focQuantity || 0),
+            unitPrice: parseFloat(item.unitPrice),
+            discountPercent: parseFloat(item.discountPercent || 0),
+            discountAmount: -parseFloat(item.discountAmount || 0),
+            total: -parseFloat(item.total),
+            itemSubtotal: -parseFloat(item.total),
+            itemOrderDiscountAmount: -itemOrderDiscountAmount,
+            itemTax: -itemTax,
+            itemTotal: -itemTotal,
+          };
+        }),
       }));
 
-      // Add type flag to purchases
-      const transformedPurchases = purchases.map((purchase) => ({
-        ...purchase.toJSON(),
-        type: 'purchase',
-      }));
+      // Add type flag to purchases, with each item's prorated share of the order-level discount/tax
+      const transformedPurchases = purchases.map((purchase) => {
+        const purchaseJson = purchase.toJSON();
+        return {
+          ...purchaseJson,
+          type: 'purchase',
+          items: (purchaseJson.items || []).map((item) => {
+            const { itemOrderDiscountAmount, itemTax, itemTotal } = ReportsController._prorateItemAmounts(
+              item.total, purchaseJson.subtotal, purchaseJson.discountAmount, purchaseJson.tax
+            );
+            return {
+              ...item,
+              itemSubtotal: parseFloat(item.total),
+              itemOrderDiscountAmount,
+              itemTax,
+              itemTotal,
+            };
+          }),
+        };
+      });
 
       // Combine purchases and returns
       const allTransactions = [...transformedPurchases, ...transformedReturns].sort(
@@ -665,6 +736,9 @@ class ReportsController {
       purchases.forEach((purchase) => {
         if (purchase.items && purchase.items.length > 0) {
           purchase.items.forEach((item) => {
+            const { itemSubtotal, itemOrderDiscountAmount, itemTax, itemTotal } = ReportsController._prorateItemAmounts(
+              item.total, purchase.subtotal, purchase.discountAmount, purchase.tax
+            );
             csvRows.push([
               'Purchase',
               purchase.orderNumber,
@@ -682,10 +756,10 @@ class ReportsController {
               parseFloat(item.discountPercent || 0).toFixed(2),
               parseFloat(item.discountAmount || 0).toFixed(2),
               parseFloat(purchase.discountPercent || 0).toFixed(2),
-              parseFloat(purchase.discountAmount || 0).toFixed(2),
-              parseFloat(purchase.subtotal).toFixed(2),
-              parseFloat(purchase.tax).toFixed(2),
-              parseFloat(purchase.total).toFixed(2),
+              itemOrderDiscountAmount.toFixed(2),
+              itemSubtotal.toFixed(2),
+              itemTax.toFixed(2),
+              itemTotal.toFixed(2),
               purchase.user?.name || '',
             ]);
           });
@@ -720,6 +794,9 @@ class ReportsController {
       returns.forEach((ret) => {
         if (ret.items && ret.items.length > 0) {
           ret.items.forEach((item) => {
+            const { itemSubtotal, itemOrderDiscountAmount, itemTax, itemTotal } = ReportsController._prorateItemAmounts(
+              item.total, ret.subtotal, ret.discountAmount, ret.tax
+            );
             csvRows.push([
               'Return',
               ret.returnNumber,
@@ -737,10 +814,10 @@ class ReportsController {
               parseFloat(item.discountPercent || 0).toFixed(2),
               (-parseFloat(item.discountAmount || 0)).toFixed(2),
               parseFloat(ret.discountPercent || 0).toFixed(2),
-              (-parseFloat(ret.discountAmount || 0)).toFixed(2),
-              (-parseFloat(ret.subtotal)).toFixed(2),
-              (-parseFloat(ret.tax)).toFixed(2),
-              (-parseFloat(ret.total)).toFixed(2),
+              (-itemOrderDiscountAmount).toFixed(2),
+              (-itemSubtotal).toFixed(2),
+              (-itemTax).toFixed(2),
+              (-itemTotal).toFixed(2),
               ret.user?.name || '',
             ]);
           });
