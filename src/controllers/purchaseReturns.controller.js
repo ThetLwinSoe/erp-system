@@ -151,31 +151,45 @@ class PurchaseReturnsController {
         include: [{ model: PurchaseReturnItem, as: 'items' }],
       });
 
-      // Calculate returned quantities per purchase item
+      // Calculate returned quantities (paid + FOC) per purchase item
       const returnedQuantities = {};
+      const returnedFocQuantities = {};
       existingReturns.forEach((purchaseReturn) => {
         purchaseReturn.items.forEach((item) => {
           returnedQuantities[item.purchaseItemId] =
             (returnedQuantities[item.purchaseItemId] || 0) + item.quantity;
+          returnedFocQuantities[item.purchaseItemId] =
+            (returnedFocQuantities[item.purchaseItemId] || 0) + item.focQuantity;
         });
       });
 
       // Build returnable items with remaining quantities
       const returnableItems = purchase.items.map((item) => {
         const returnedQty = returnedQuantities[item.id] || 0;
-        // Use receivedQuantity for purchase returns (only received items can be returned)
+        const returnedFocQty = returnedFocQuantities[item.id] || 0;
+        // Use receivedQuantity for purchase returns (only received items can be returned).
+        // receivedQuantity is a single combined counter (paid + FOC together), so split it:
+        // paid units are considered received first (up to the paid quantity), anything
+        // beyond that is the FOC portion. This keeps the paid ceiling from exceeding what
+        // was actually paid for, even once more (paid + FOC) has been received.
         const receivedQty = item.receivedQuantity || 0;
-        const remainingQty = receivedQty - returnedQty;
+        const paidReceived = Math.min(receivedQty, item.quantity);
+        const focReceived = Math.max(0, receivedQty - item.quantity);
+        const remainingQty = paidReceived - returnedQty;
+        const remainingFocQty = Math.min(focReceived, item.focQuantity) - returnedFocQty;
         return {
           purchaseItemId: item.id,
           productId: item.productId,
           product: item.product,
           orderedQuantity: item.quantity,
+          orderedFocQuantity: item.focQuantity,
           receivedQuantity: receivedQty,
           returnedQuantity: returnedQty,
+          returnedFocQuantity: returnedFocQty,
           remainingQuantity: remainingQty,
+          remainingFocQuantity: remainingFocQty,
           unitPrice: item.unitPrice,
-          canReturn: remainingQty > 0,
+          canReturn: remainingQty > 0 || remainingFocQty > 0,
         };
       });
 
@@ -243,12 +257,15 @@ class PurchaseReturnsController {
         transaction,
       });
 
-      // Calculate already returned quantities
+      // Calculate already returned quantities (paid + FOC)
       const returnedQuantities = {};
+      const returnedFocQuantities = {};
       existingReturns.forEach((purchaseReturn) => {
         purchaseReturn.items.forEach((item) => {
           returnedQuantities[item.purchaseItemId] =
             (returnedQuantities[item.purchaseItemId] || 0) + item.quantity;
+          returnedFocQuantities[item.purchaseItemId] =
+            (returnedFocQuantities[item.purchaseItemId] || 0) + item.focQuantity;
         });
       });
 
@@ -263,7 +280,9 @@ class PurchaseReturnsController {
       let subtotal = 0;
 
       for (const item of items) {
-        const { purchaseItemId, quantity } = item;
+        const { purchaseItemId, quantity: rawQuantity, focQuantity: rawFocQuantity } = item;
+        const quantity = parseInt(rawQuantity) || 0;
+        const focQuantity = parseInt(rawFocQuantity) || 0;
 
         // Check if purchase item exists in the original purchase
         const purchaseItem = purchaseItemsMap[purchaseItemId];
@@ -275,26 +294,42 @@ class PurchaseReturnsController {
           );
         }
 
-        // Check quantity is valid
-        if (!quantity || quantity < 1) {
+        // Check quantity is valid - at least one of paid/FOC must be returned
+        if (quantity + focQuantity < 1) {
           await transaction.rollback();
-          return ApiResponse.badRequest(res, 'Return quantity must be at least 1');
+          return ApiResponse.badRequest(res, 'Return quantity or FOC quantity must be at least 1');
         }
 
-        // Check if return quantity doesn't exceed remaining quantity (based on received qty)
+        // Check if return quantity doesn't exceed remaining quantity (based on received qty).
+        // receivedQuantity is a single combined counter (paid + FOC together), so split it
+        // the same way getReturnableItems does: paid units received first, FOC after.
         const alreadyReturned = returnedQuantities[purchaseItemId] || 0;
         const receivedQty = purchaseItem.receivedQuantity || 0;
-        const remainingQty = receivedQty - alreadyReturned;
+        const paidReceived = Math.min(receivedQty, purchaseItem.quantity);
+        const focReceived = Math.max(0, receivedQty - purchaseItem.quantity);
+        const remainingQty = paidReceived - alreadyReturned;
 
         if (quantity > remainingQty) {
           await transaction.rollback();
           return ApiResponse.badRequest(
             res,
-            `Cannot return ${quantity} units of product. Only ${remainingQty} remaining (received: ${receivedQty}, already returned: ${alreadyReturned})`
+            `Cannot return ${quantity} units of product. Only ${remainingQty} remaining (received: ${paidReceived}, already returned: ${alreadyReturned})`
           );
         }
 
-        // Inherit item-level discount from original purchase item
+        // Check if return FOC quantity doesn't exceed remaining FOC quantity
+        const alreadyReturnedFoc = returnedFocQuantities[purchaseItemId] || 0;
+        const remainingFocQty = Math.min(focReceived, purchaseItem.focQuantity) - alreadyReturnedFoc;
+
+        if (focQuantity > remainingFocQty) {
+          await transaction.rollback();
+          return ApiResponse.badRequest(
+            res,
+            `Cannot return ${focQuantity} FOC units of product. Only ${remainingFocQty} remaining (ordered: ${purchaseItem.focQuantity}, already returned: ${alreadyReturnedFoc})`
+          );
+        }
+
+        // Inherit item-level discount from original purchase item - FOC quantity never enters pricing
         const itemDiscountPercent = parseFloat(purchaseItem.discountPercent || 0);
         const itemSubtotal = parseFloat(purchaseItem.unitPrice) * quantity;
         const itemDiscountAmount = itemSubtotal * (itemDiscountPercent / 100);
@@ -306,6 +341,7 @@ class PurchaseReturnsController {
           purchaseItemId,
           productId: purchaseItem.productId,
           quantity,
+          focQuantity,
           unitPrice: purchaseItem.unitPrice,
           discountPercent: itemDiscountPercent,
           // discountAmount and total will be auto-calculated by model hook
@@ -435,12 +471,13 @@ class PurchaseReturnsController {
           });
 
           if (inventory) {
-            const newQuantity = inventory.quantity - item.quantity;
+            const requiredQuantity = item.quantity + item.focQuantity;
+            const newQuantity = inventory.quantity - requiredQuantity;
             if (newQuantity < 0) {
               await transaction.rollback();
               return ApiResponse.badRequest(
                 res,
-                `Insufficient inventory for product ID ${item.productId}. Available: ${inventory.quantity}, Required: ${item.quantity}`
+                `Insufficient inventory for product ID ${item.productId}. Available: ${inventory.quantity}, Required: ${requiredQuantity}`
               );
             }
             await inventory.update(

@@ -151,30 +151,38 @@ class SalesReturnsController {
         include: [{ model: SalesReturnItem, as: 'items' }],
       });
 
-      // Calculate returned quantities per sale item
+      // Calculate returned quantities (paid + FOC) per sale item
       const returnedQuantities = {};
+      const returnedFocQuantities = {};
       existingReturns.forEach((salesReturn) => {
         salesReturn.items.forEach((item) => {
           returnedQuantities[item.saleItemId] =
             (returnedQuantities[item.saleItemId] || 0) + item.quantity;
+          returnedFocQuantities[item.saleItemId] =
+            (returnedFocQuantities[item.saleItemId] || 0) + item.focQuantity;
         });
       });
 
       // Build returnable items with remaining quantities
       const returnableItems = sale.items.map((item) => {
         const returnedQty = returnedQuantities[item.id] || 0;
+        const returnedFocQty = returnedFocQuantities[item.id] || 0;
         const remainingQty = item.quantity - returnedQty;
+        const remainingFocQty = item.focQuantity - returnedFocQty;
         return {
           saleItemId: item.id,
           productId: item.productId,
           product: item.product,
           orderedQuantity: item.quantity,
+          orderedFocQuantity: item.focQuantity,
           returnedQuantity: returnedQty,
+          returnedFocQuantity: returnedFocQty,
           remainingQuantity: remainingQty,
+          remainingFocQuantity: remainingFocQty,
           unitPrice: item.unitPrice,
           discountPercent: item.discountPercent,
           discountAmount: item.discountAmount,
-          canReturn: remainingQty > 0,
+          canReturn: remainingQty > 0 || remainingFocQty > 0,
         };
       });
 
@@ -242,12 +250,15 @@ class SalesReturnsController {
         transaction,
       });
 
-      // Calculate already returned quantities
+      // Calculate already returned quantities (paid + FOC)
       const returnedQuantities = {};
+      const returnedFocQuantities = {};
       existingReturns.forEach((salesReturn) => {
         salesReturn.items.forEach((item) => {
           returnedQuantities[item.saleItemId] =
             (returnedQuantities[item.saleItemId] || 0) + item.quantity;
+          returnedFocQuantities[item.saleItemId] =
+            (returnedFocQuantities[item.saleItemId] || 0) + item.focQuantity;
         });
       });
 
@@ -262,7 +273,9 @@ class SalesReturnsController {
       let subtotal = 0;
 
       for (const item of items) {
-        const { saleItemId, quantity } = item;
+        const { saleItemId, quantity: rawQuantity, focQuantity: rawFocQuantity } = item;
+        const quantity = parseInt(rawQuantity) || 0;
+        const focQuantity = parseInt(rawFocQuantity) || 0;
 
         // Check if sale item exists in the original sale
         const saleItem = saleItemsMap[saleItemId];
@@ -274,10 +287,10 @@ class SalesReturnsController {
           );
         }
 
-        // Check quantity is valid
-        if (!quantity || quantity < 1) {
+        // Check quantity is valid - at least one of paid/FOC must be returned
+        if (quantity + focQuantity < 1) {
           await transaction.rollback();
-          return ApiResponse.badRequest(res, 'Return quantity must be at least 1');
+          return ApiResponse.badRequest(res, 'Return quantity or FOC quantity must be at least 1');
         }
 
         // Check if return quantity doesn't exceed remaining quantity
@@ -292,7 +305,19 @@ class SalesReturnsController {
           );
         }
 
-        // Inherit item-level discount from original sale item
+        // Check if return FOC quantity doesn't exceed remaining FOC quantity
+        const alreadyReturnedFoc = returnedFocQuantities[saleItemId] || 0;
+        const remainingFocQty = saleItem.focQuantity - alreadyReturnedFoc;
+
+        if (focQuantity > remainingFocQty) {
+          await transaction.rollback();
+          return ApiResponse.badRequest(
+            res,
+            `Cannot return ${focQuantity} FOC units of product. Only ${remainingFocQty} remaining (ordered: ${saleItem.focQuantity}, already returned: ${alreadyReturnedFoc})`
+          );
+        }
+
+        // Inherit item-level discount from original sale item - FOC quantity never enters pricing
         const itemDiscountPercent = parseFloat(saleItem.discountPercent || 0);
         const itemSubtotal = parseFloat(saleItem.unitPrice) * quantity;
         const itemDiscountAmount = itemSubtotal * (itemDiscountPercent / 100);
@@ -304,6 +329,7 @@ class SalesReturnsController {
           saleItemId,
           productId: saleItem.productId,
           quantity,
+          focQuantity,
           unitPrice: saleItem.unitPrice,
           discountPercent: itemDiscountPercent,
           // discountAmount and total will be auto-calculated by model hook
@@ -435,7 +461,7 @@ class SalesReturnsController {
           if (inventory) {
             await inventory.update(
               {
-                quantity: inventory.quantity + item.quantity,
+                quantity: inventory.quantity + item.quantity + item.focQuantity,
                 lastRestocked: new Date(),
               },
               { transaction }

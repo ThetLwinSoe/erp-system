@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Table, Button, Spinner, Alert, Row, Col, Form } from 'react-bootstrap';
+import { Card, Table, Button, Spinner, Alert, Row, Col, Form, Badge } from 'react-bootstrap';
 import { FaArrowLeft, FaPrint, FaUndo } from 'react-icons/fa';
 import { salesAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -153,6 +153,7 @@ const SaleDetails = () => {
                     <th>Product</th>
                     <th>SKU</th>
                     <th>Quantity</th>
+                    <th>FOC Qty</th>
                     <th>Unit Price</th>
                     <th>Discount %</th>
                     <th>Total</th>
@@ -164,6 +165,7 @@ const SaleDetails = () => {
                       <td>{item.product?.name}</td>
                       <td><code>{item.product?.sku}</code></td>
                       <td>{item.quantity}</td>
+                      <td>{item.focQuantity > 0 ? <Badge bg="info">{item.focQuantity}</Badge> : '-'}</td>
                       <td>{formatCurrency(item.unitPrice, currency)}</td>
                       <td>
                         {item.discountPercent > 0
@@ -176,21 +178,21 @@ const SaleDetails = () => {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="5" className="text-end">Subtotal (after item discounts):</td>
+                    <td colSpan="6" className="text-end">Subtotal (after item discounts):</td>
                     <td>{formatCurrency(sale.subtotal, currency)}</td>
                   </tr>
                   {sale.discountPercent > 0 && (
                     <tr>
-                      <td colSpan="5" className="text-end">Order Discount % ({sale.discountPercent}):</td>
+                      <td colSpan="6" className="text-end">Order Discount % ({sale.discountPercent}):</td>
                       <td className="text-danger">-{formatCurrency(sale.discountAmount, currency)}</td>
                     </tr>
                   )}
                   <tr>
-                    <td colSpan="5" className="text-end">Tax:</td>
+                    <td colSpan="6" className="text-end">Tax:</td>
                     <td>{formatCurrency(sale.tax, currency)}</td>
                   </tr>
                   <tr>
-                    <td colSpan="5" className="text-end"><strong>Total:</strong></td>
+                    <td colSpan="6" className="text-end"><strong>Total:</strong></td>
                     <td><strong>{formatCurrency(sale.total, currency)}</strong></td>
                   </tr>
                 </tfoot>

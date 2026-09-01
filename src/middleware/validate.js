@@ -162,12 +162,25 @@ const salesValidation = {
     body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
     body('items.*.productId').isInt().withMessage('Valid product ID is required'),
     body('items.*.quantity')
-      .isInt({ min: 1 })
-      .withMessage('Quantity must be at least 1'),
+      .isInt({ min: 0 })
+      .withMessage('Quantity must be a non-negative integer'),
+    body('items.*.focQuantity')
+      .optional()
+      .isInt({ min: 0 })
+      .withMessage('FOC quantity must be a non-negative integer'),
     body('items.*.unitPrice')
       .optional()
       .isFloat({ min: 0 })
       .withMessage('Unit price must be a positive number'),
+    body('items').custom((items) => {
+      const invalid = (items || []).some(
+        (item) => (parseInt(item.quantity) || 0) + (parseInt(item.focQuantity) || 0) < 1
+      );
+      if (invalid) {
+        throw new Error('Each item must have a quantity or FOC quantity of at least 1');
+      }
+      return true;
+    }),
     body('tax').optional().isFloat({ min: 0 }).withMessage('Tax must be a positive number'),
     body('notes').optional().trim(),
     handleValidation,
@@ -190,11 +203,24 @@ const purchaseValidation = {
     body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
     body('items.*.productId').isInt().withMessage('Valid product ID is required'),
     body('items.*.quantity')
-      .isInt({ min: 1 })
-      .withMessage('Quantity must be at least 1'),
+      .isInt({ min: 0 })
+      .withMessage('Quantity must be a non-negative integer'),
+    body('items.*.focQuantity')
+      .optional()
+      .isInt({ min: 0 })
+      .withMessage('FOC quantity must be a non-negative integer'),
     body('items.*.unitPrice')
       .isFloat({ min: 0 })
       .withMessage('Unit price must be a positive number'),
+    body('items').custom((items) => {
+      const invalid = (items || []).some(
+        (item) => (parseInt(item.quantity) || 0) + (parseInt(item.focQuantity) || 0) < 1
+      );
+      if (invalid) {
+        throw new Error('Each item must have a quantity or FOC quantity of at least 1');
+      }
+      return true;
+    }),
     body('tax').optional().isFloat({ min: 0 }).withMessage('Tax must be a positive number'),
     body('expectedDelivery').optional({ checkFalsy: true }).isDate().withMessage('Invalid date format'),
     body('notes').optional().trim(),

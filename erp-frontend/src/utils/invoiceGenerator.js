@@ -72,9 +72,20 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
 
         doc.addImage(img.data, 'PNG', margin, yPos - 2, logoWidth, logoHeight);
         hasLogo = true;
+      } else {
+        // Logo failed to load (e.g. CORS misconfiguration on the image host) -
+        // fall back to a placeholder badge instead of silently leaving a gap.
+        drawLogoPlaceholder(doc, company.name, margin, yPos - 2, logoSize);
+        logoWidth = logoSize;
+        logoHeight = logoSize;
+        hasLogo = true;
       }
     } catch (error) {
       console.error('Failed to load company logo:', error);
+      drawLogoPlaceholder(doc, company.name, margin, yPos - 2, logoSize);
+      logoWidth = logoSize;
+      logoHeight = logoSize;
+      hasLogo = true;
     }
   }
 
@@ -146,15 +157,14 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
 
   yPos += 10;
 
-  // Check if any item has a discount for sales type
+  // Check if any item has a discount for sales type, or a FOC quantity (either type)
   const hasItemDiscounts = type === 'sale' && (order.items || []).some(item => item.discountPercent > 0);
+  const hasFocQty = (order.items || []).some(item => item.focQuantity > 0);
 
   // Items table
   const tableColumns = type === 'sale'
-    ? hasItemDiscounts
-      ? ['#', 'SKU', 'Product', 'Qty', 'Price', 'Disc %', 'Total']
-      : ['#', 'SKU', 'Product', 'Qty', 'Price', 'Total']
-    : ['#', 'SKU', 'Product', 'Qty', 'Recv', 'Price', 'Total'];
+    ? ['#', 'SKU', 'Product', 'Qty', ...(hasFocQty ? ['FOC'] : []), 'Price', ...(hasItemDiscounts ? ['Disc %'] : []), 'Total']
+    : ['#', 'SKU', 'Product', 'Qty', ...(hasFocQty ? ['FOC'] : []), 'Recv', 'Price', 'Total'];
 
   const tableData = (order.items || []).map((item, index) => {
     const row = [
@@ -163,6 +173,10 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
       item.product?.name || 'Unknown',
       item.quantity || 0,
     ];
+
+    if (hasFocQty) {
+      row.push(item.focQuantity || 0);
+    }
 
     if (type === 'purchase') {
       row.push(item.receivedQuantity || 0);
@@ -284,10 +298,25 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
  * @param {string} url - Image URL
  * @returns {Promise<{data: string, width: number, height: number} | null>}
  */
+const IMAGE_LOAD_TIMEOUT_MS = 8000;
+
 const loadImage = (url) => {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'Anonymous';
+
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      resolve(result);
+    };
+
+    const timeoutId = setTimeout(() => {
+      console.error(`Timed out loading logo image after ${IMAGE_LOAD_TIMEOUT_MS}ms:`, url);
+      settle(null);
+    }, IMAGE_LOAD_TIMEOUT_MS);
 
     img.onload = () => {
       try {
@@ -299,24 +328,51 @@ const loadImage = (url) => {
         ctx.drawImage(img, 0, 0);
 
         const dataUrl = canvas.toDataURL('image/png');
-        resolve({
+        settle({
           data: dataUrl,
           width: img.width,
           height: img.height,
         });
       } catch (error) {
-        console.error('Error converting image:', error);
-        resolve(null);
+        // Most commonly a "tainted canvas" SecurityError: the image host didn't send an
+        // Access-Control-Allow-Origin header, so the browser blocks reading its pixels
+        // even though the image itself loaded and is visibly displayable elsewhere.
+        console.error(
+          `Failed to read logo image data (likely missing CORS headers on the image host): ${url}`,
+          error
+        );
+        settle(null);
       }
     };
 
     img.onerror = () => {
-      console.error('Failed to load image:', url);
-      resolve(null);
+      console.error(
+        `Failed to load logo image (network error or missing CORS headers on the image host): ${url}`
+      );
+      settle(null);
     };
 
     img.src = url;
   });
+};
+
+/**
+ * Draw a placeholder logo badge (filled circle + first initial) when the real
+ * logo image can't be loaded - never depends on network/CORS, so it can't fail.
+ */
+const drawLogoPlaceholder = (doc, name, x, y, size) => {
+  const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
+  const centerX = x + size / 2;
+  const centerY = y + size / 2;
+
+  doc.setFillColor(200, 200, 200);
+  doc.circle(centerX, centerY, size / 2, 'F');
+
+  doc.setFontSize(size * 1.8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(90, 90, 90);
+  doc.text(initial, centerX, centerY, { align: 'center', baseline: 'middle' });
+  doc.setTextColor(0, 0, 0);
 };
 
 export default generateInvoicePDF;

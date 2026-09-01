@@ -273,6 +273,7 @@ const SalesReport = () => {
                   <th>Item SKU</th>
                   <th>Item Name</th>
                   <th className="text-end">Qty</th>
+                  <th className="text-end">FOC Qty</th>
                   <th className="text-end">Unit Price</th>
                   <th className="text-end">Item Disc %</th>
                   <th className="text-end">Order Disc %</th>
@@ -302,6 +303,9 @@ const SalesReport = () => {
                           <td>{item.product?.name || '-'}</td>
                           <td className={`text-end ${item.quantity < 0 ? 'text-danger' : ''}`}>
                             {item.quantity}
+                          </td>
+                          <td className={`text-end ${item.focQuantity < 0 ? 'text-danger' : ''}`}>
+                            {item.focQuantity !== 0 ? item.focQuantity : '-'}
                           </td>
                           <td className="text-end">{formatAmount(Math.abs(item.unitPrice))}</td>
                           <td className="text-end">
@@ -340,6 +344,7 @@ const SalesReport = () => {
                           <td className="text-end">-</td>
                           <td className="text-end">-</td>
                           <td className="text-end">-</td>
+                          <td className="text-end">-</td>
                           <td className="text-end">
                             {transaction.discountPercent > 0 ? `${transaction.discountPercent}` : '-'}
                           </td>
@@ -360,7 +365,7 @@ const SalesReport = () => {
               </tbody>
               <tfoot>
                 <tr className="table-dark">
-                  <td colSpan="13" className="text-end fw-bold">Totals:</td>
+                  <td colSpan="14" className="text-end fw-bold">Totals:</td>
 
                   <td className="text-end fw-bold">
                     {formatAmount(sales.reduce((sum, s) => sum + parseFloat(s.subtotal || 0), 0))}
