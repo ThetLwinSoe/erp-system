@@ -57,6 +57,7 @@ const Sidebar = () => {
   const reportItems = [
     { path: '/reports/sales', label: 'Sales Report' },
     { path: '/reports/purchases', label: 'Purchases Report', requiresPurchases: true },
+    { path: '/reports/profit-loss', label: 'Profit & Loss', requiresPurchases: true },
   ];
 
   // Filter sales items for sale_rep (no sales returns)
