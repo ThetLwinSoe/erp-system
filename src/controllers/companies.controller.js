@@ -2,7 +2,6 @@ const { Company, User, Customer, Product, Sale, Purchase, sequelize } = require(
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, ROLES, COMPANY_STATUS } = require('../utils/constants');
 const { Op } = require('sequelize');
-const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
@@ -124,11 +123,10 @@ class CompaniesController {
             throw new Error('Admin user email already exists');
           }
 
-          const hashedPassword = await bcrypt.hash(adminUser.password, 10);
           await User.create(
             {
               email: adminUser.email,
-              password: hashedPassword,
+              password: adminUser.password,
               name: adminUser.name,
               role: ROLES.ADMIN,
               companyId: company.id,

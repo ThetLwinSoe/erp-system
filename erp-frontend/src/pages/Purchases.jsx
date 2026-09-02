@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { purchasesAPI, customersAPI, productsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
+import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -21,6 +22,7 @@ const Purchases = () => {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
@@ -74,7 +76,7 @@ const Purchases = () => {
 
   useEffect(() => {
     fetchPurchases();
-  }, [page, search, statusFilter, sortBy, sortOrder]);
+  }, [page, debouncedSearch, statusFilter, sortBy, sortOrder]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -251,7 +253,7 @@ const Purchases = () => {
                         <FaEye />
                       </Button>
                       {isSuperAdmin() && (purchase.status === 'pending' || purchase.status === 'cancelled') && (
-                        <Button variant="outline-danger" size="sm" onClick={() => { setSelectedPurchase(purchase); setShowDeleteModal(true); }}>
+                        <Button variant="outline-danger" size="sm" onClick={() => { setError(null); setSelectedPurchase(purchase); setShowDeleteModal(true); }}>
                           <FaTrash />
                         </Button>
                       )}
@@ -412,6 +414,7 @@ const Purchases = () => {
         onConfirm={handleDelete}
         title="Delete Purchase"
         message={`Are you sure you want to delete order ${selectedPurchase?.orderNumber}?`}
+        error={error}
       />
     </div>
   );

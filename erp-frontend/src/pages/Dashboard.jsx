@@ -24,13 +24,14 @@ const Dashboard = () => {
     products: 0,
     sales: 0,
     lowStock: [],
+    lowStockUnavailable: false,
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [customersRes, suppliersRes, productsRes, salesRes, lowStockRes] = await Promise.all([
+        const [customersRes, suppliersRes, productsRes, salesRes, lowStockRes] = await Promise.allSettled([
           customersAPI.getAll({ limit: 1, type: 'customer' }),
           customersAPI.getAll({ limit: 1, type: 'supplier' }),
           productsAPI.getAll({ limit: 1 }),
@@ -39,11 +40,12 @@ const Dashboard = () => {
         ]);
 
         setStats({
-          customers: customersRes.data.pagination?.total || 0,
-          suppliers: suppliersRes.data.pagination?.total || 0,
-          products: productsRes.data.pagination?.total || 0,
-          sales: salesRes.data.pagination?.total || 0,
-          lowStock: lowStockRes.data.data || [],
+          customers: customersRes.status === 'fulfilled' ? (customersRes.value.data.pagination?.total || 0) : 0,
+          suppliers: suppliersRes.status === 'fulfilled' ? (suppliersRes.value.data.pagination?.total || 0) : 0,
+          products: productsRes.status === 'fulfilled' ? (productsRes.value.data.pagination?.total || 0) : 0,
+          sales: salesRes.status === 'fulfilled' ? (salesRes.value.data.pagination?.total || 0) : 0,
+          lowStock: lowStockRes.status === 'fulfilled' ? (lowStockRes.value.data.data || []) : [],
+          lowStockUnavailable: lowStockRes.status === 'rejected',
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -83,7 +85,7 @@ const Dashboard = () => {
         <Col md={2}>
           <StatCard
             title="Low Stock Items"
-            value={stats.lowStock.length}
+            value={stats.lowStockUnavailable ? 'N/A' : stats.lowStock.length}
             icon={FaExclamationTriangle}
             color="warning"
           />
@@ -123,7 +125,13 @@ const Dashboard = () => {
         </Card>
       )}
 
-      {stats.lowStock.length === 0 && (
+      {stats.lowStockUnavailable && (
+        <Alert variant="secondary">
+          Low stock data is unavailable for your role.
+        </Alert>
+      )}
+
+      {!stats.lowStockUnavailable && stats.lowStock.length === 0 && (
         <Alert variant="success">
           All inventory levels are healthy. No low stock items detected.
         </Alert>

@@ -35,7 +35,12 @@ class AuthService {
       throw error;
     }
 
-    const user = await User.create(userData);
+    const user = await User.create({
+      email: userData.email,
+      password: userData.password,
+      name: userData.name,
+      role: ROLES.STAFF,
+    });
     const token = this.generateToken(user);
 
     return { user: user.toJSON(), token };

@@ -4,6 +4,8 @@ import { useAuth } from './context/AuthContext'
 // Layout
 import Layout from './components/Layout/Layout'
 import PrivateRoute from './components/PrivateRoute'
+import RoleRoute from './components/RoleRoute'
+import { ROLES } from './utils/constants'
 
 // Pages
 import Login from './pages/Login'
@@ -46,9 +48,13 @@ function App() {
       <Route element={<PrivateRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/companies" element={<Companies />} />
-          <Route path="/companies/:id" element={<CompanyDetails />} />
-          <Route path="/users" element={<Users />} />
+          <Route element={<RoleRoute allowedRoles={[ROLES.SUPERADMIN]} />}>
+            <Route path="/companies" element={<Companies />} />
+            <Route path="/companies/:id" element={<CompanyDetails />} />
+          </Route>
+          <Route element={<RoleRoute allowedRoles={[ROLES.ADMIN, ROLES.SUPERADMIN]} />}>
+            <Route path="/users" element={<Users />} />
+          </Route>
           <Route path="/customers" element={<ContactsPage type="customer" label="Customer" labelPlural="Customers" />} />
           <Route path="/suppliers" element={<ContactsPage type="supplier" label="Supplier" labelPlural="Suppliers" />} />
           <Route path="/products" element={<Products />} />

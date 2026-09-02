@@ -78,7 +78,7 @@ SaleItem.belongsTo(Sale, { foreignKey: 'saleId', as: 'sale' });
 
 // Product - SaleItems (One-to-Many)
 Product.hasMany(SaleItem, { foreignKey: 'productId', as: 'saleItems' });
-SaleItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+SaleItem.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'RESTRICT' });
 
 // Customer (as Supplier) - Purchases (One-to-Many)
 Customer.hasMany(Purchase, { foreignKey: 'supplierId', as: 'purchases' });
@@ -94,7 +94,7 @@ PurchaseItem.belongsTo(Purchase, { foreignKey: 'purchaseId', as: 'purchase' });
 
 // Product - PurchaseItems (One-to-Many)
 Product.hasMany(PurchaseItem, { foreignKey: 'productId', as: 'purchaseItems' });
-PurchaseItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+PurchaseItem.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'RESTRICT' });
 
 // Company - SalesReturn (One-to-Many)
 Company.hasMany(SalesReturn, { foreignKey: 'companyId', as: 'salesReturns' });
@@ -118,7 +118,7 @@ SalesReturnItem.belongsTo(SaleItem, { foreignKey: 'saleItemId', as: 'saleItem' }
 
 // Product - SalesReturnItem (One-to-Many)
 Product.hasMany(SalesReturnItem, { foreignKey: 'productId', as: 'salesReturnItems' });
-SalesReturnItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+SalesReturnItem.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'RESTRICT' });
 
 // Company - PurchaseReturn (One-to-Many)
 Company.hasMany(PurchaseReturn, { foreignKey: 'companyId', as: 'purchaseReturns' });
@@ -142,7 +142,7 @@ PurchaseReturnItem.belongsTo(PurchaseItem, { foreignKey: 'purchaseItemId', as: '
 
 // Product - PurchaseReturnItem (One-to-Many)
 Product.hasMany(PurchaseReturnItem, { foreignKey: 'productId', as: 'purchaseReturnItems' });
-PurchaseReturnItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+PurchaseReturnItem.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'RESTRICT' });
 
 // Company - InventoryAdjustment (One-to-Many)
 Company.hasMany(InventoryAdjustment, { foreignKey: 'companyId', as: 'inventoryAdjustments' });
@@ -158,7 +158,7 @@ InventoryAdjustmentItem.belongsTo(InventoryAdjustment, { foreignKey: 'inventoryA
 
 // Product - InventoryAdjustmentItem (One-to-Many)
 Product.hasMany(InventoryAdjustmentItem, { foreignKey: 'productId', as: 'inventoryAdjustmentItems' });
-InventoryAdjustmentItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+InventoryAdjustmentItem.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'RESTRICT' });
 
 module.exports = {
   sequelize,

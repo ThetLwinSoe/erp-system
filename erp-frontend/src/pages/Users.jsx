@@ -4,6 +4,7 @@ import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { usersAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
+import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { ROLES, ROLE_LABELS } from '../utils/constants';
@@ -17,6 +18,7 @@ const Users = () => {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [sortBy, setSortBy] = useState('createdAt');
@@ -58,7 +60,7 @@ const Users = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, search, sortBy, sortOrder]);
+  }, [page, debouncedSearch, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchCompanies();
@@ -196,7 +198,7 @@ const Users = () => {
                       <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(user)}>
                         <FaEdit />
                       </Button>
-                      <Button variant="outline-danger" size="sm" onClick={() => { setSelectedUser(user); setShowDeleteModal(true); }}>
+                      <Button variant="outline-danger" size="sm" onClick={() => { setError(null); setSelectedUser(user); setShowDeleteModal(true); }}>
                         <FaTrash />
                       </Button>
                     </td>
@@ -271,6 +273,7 @@ const Users = () => {
         onConfirm={handleDelete}
         title="Delete User"
         message={`Are you sure you want to delete ${selectedUser?.name}?`}
+        error={error}
       />
     </div>
   );

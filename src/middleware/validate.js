@@ -27,10 +27,6 @@ const authValidation = {
       .isLength({ min: 6 })
       .withMessage('Password must be at least 6 characters'),
     body('name').trim().notEmpty().withMessage('Name is required'),
-    body('role')
-      .optional()
-      .isIn(Object.values(ROLES))
-      .withMessage('Invalid role'),
     handleValidation,
   ],
   login: [

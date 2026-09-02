@@ -302,57 +302,59 @@ const IMAGE_LOAD_TIMEOUT_MS = 8000;
 
 const loadImage = (url) => {
   return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-
-    let settled = false;
-    const settle = (result) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeoutId);
-      resolve(result);
-    };
-
+    const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       console.error(`Timed out loading logo image after ${IMAGE_LOAD_TIMEOUT_MS}ms:`, url);
-      settle(null);
+      controller.abort();
     }, IMAGE_LOAD_TIMEOUT_MS);
 
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-
-        const dataUrl = canvas.toDataURL('image/png');
-        settle({
-          data: dataUrl,
-          width: img.width,
-          height: img.height,
-        });
-      } catch (error) {
-        // Most commonly a "tainted canvas" SecurityError: the image host didn't send an
-        // Access-Control-Allow-Origin header, so the browser blocks reading its pixels
-        // even though the image itself loaded and is visibly displayable elsewhere.
-        console.error(
-          `Failed to read logo image data (likely missing CORS headers on the image host): ${url}`,
-          error
-        );
-        settle(null);
-      }
-    };
-
-    img.onerror = () => {
-      console.error(
-        `Failed to load logo image (network error or missing CORS headers on the image host): ${url}`
-      );
-      settle(null);
-    };
-
-    img.src = url;
+    // Fetch with the browser HTTP cache bypassed and read via a same-origin
+    // blob: URL - the app's own <img> tags (Navbar, Companies list, etc.) load
+    // this same URL in no-cors mode and can leave a cached opaque response that
+    // a later crossOrigin="anonymous" <img> load can't safely reuse, causing the
+    // canvas read to silently fail (taint error or onerror). blob: URLs sidestep
+    // this: they're always same-origin, so the browser cache mode of the
+    // original request no longer matters once we have the bytes locally.
+    fetch(url, { cache: 'reload', signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.blob();
+      })
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            resolve({
+              data: canvas.toDataURL('image/png'),
+              width: img.width,
+              height: img.height,
+            });
+          } catch (error) {
+            console.error(`Failed to read logo image data: ${url}`, error);
+            resolve(null);
+          } finally {
+            URL.revokeObjectURL(objectUrl);
+            clearTimeout(timeoutId);
+          }
+        };
+        img.onerror = () => {
+          console.error(`Failed to decode logo image: ${url}`);
+          URL.revokeObjectURL(objectUrl);
+          clearTimeout(timeoutId);
+          resolve(null);
+        };
+        img.src = objectUrl;
+      })
+      .catch((error) => {
+        console.error(`Failed to fetch logo image: ${url}`, error);
+        clearTimeout(timeoutId);
+        resolve(null);
+      });
   });
 };
 

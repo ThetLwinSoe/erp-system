@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { salesAPI, customersAPI, productsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
+import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -21,6 +22,7 @@ const Sales = () => {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
@@ -74,7 +76,7 @@ const Sales = () => {
 
   useEffect(() => {
     fetchSales();
-  }, [page, search, statusFilter, sortBy, sortOrder]);
+  }, [page, debouncedSearch, statusFilter, sortBy, sortOrder]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -254,7 +256,7 @@ const Sales = () => {
                         <FaEye />
                       </Button>
                       {isSuperAdmin() && sale.status !== 'delivered' && (
-                        <Button variant="outline-danger" size="sm" onClick={() => { setSelectedSale(sale); setShowDeleteModal(true); }}>
+                        <Button variant="outline-danger" size="sm" onClick={() => { setError(null); setSelectedSale(sale); setShowDeleteModal(true); }}>
                           <FaTrash />
                         </Button>
                       )}
@@ -407,6 +409,7 @@ const Sales = () => {
         onConfirm={handleDelete}
         title="Delete Sale"
         message={`Are you sure you want to delete order ${selectedSale?.orderNumber}?`}
+        error={error}
       />
     </div>
   );
