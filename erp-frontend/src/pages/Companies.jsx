@@ -31,6 +31,8 @@ const Companies = () => {
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [error, setError] = useState(null);
   const [logoError, setLogoError] = useState(null);
@@ -202,13 +204,19 @@ const Companies = () => {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (password) => {
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    setDeleting(true);
     try {
-      await companiesAPI.delete(selectedCompany.id);
+      await companiesAPI.delete(selectedCompany.id, password);
       setShowDeleteModal(false);
       fetchCompanies();
     } catch (err) {
       setError(extractApiError(err, 'Delete failed'));
+    } finally {
+      deletingRef.current = false;
+      setDeleting(false);
     }
   };
 
@@ -545,6 +553,9 @@ const Companies = () => {
         title="Delete Company"
         message={`Are you sure you want to delete ${selectedCompany?.name}? This will also delete all associated data.`}
         error={error}
+        requirePassword
+        confirmDisabled={deleting}
+        confirmText={deleting ? 'Deleting...' : 'Delete'}
       />
     </div>
   );

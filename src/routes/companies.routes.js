@@ -26,8 +26,8 @@ router.get('/:id', CompaniesController.getById);
 // PUT /api/companies/:id - Update a company
 router.put('/:id', companyValidation.update, CompaniesController.update);
 
-// DELETE /api/companies/:id - Delete a company
-router.delete('/:id', CompaniesController.delete);
+// DELETE /api/companies/:id - Delete a company (requires re-entering the current user's password)
+router.delete('/:id', companyValidation.delete, CompaniesController.delete);
 
 // GET /api/companies/:id/users - Get users for a specific company
 router.get('/:id/users', CompaniesController.getUsers);

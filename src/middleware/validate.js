@@ -264,6 +264,11 @@ const companyValidation = {
     body('subscriptionEndDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid subscription end date is required'),
     handleValidation,
   ],
+  delete: [
+    param('id').isInt().withMessage('Valid company ID is required'),
+    body('password').notEmpty().withMessage('Password is required to delete a company'),
+    handleValidation,
+  ],
 };
 
 /**
