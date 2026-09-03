@@ -42,6 +42,10 @@ module.exports = (sequelize) => {
         defaultValue: 'USD',
         allowNull: false,
       },
+      subscriptionEndDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+      },
     },
     {
       tableName: 'companies',

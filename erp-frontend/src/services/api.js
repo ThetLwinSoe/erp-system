@@ -162,6 +162,7 @@ export const reportsAPI = {
 // Companies API (Super Admin only)
 export const companiesAPI = {
   getAll: (params) => api.get('/companies', { params }),
+  getSubscriptionAlerts: () => api.get('/companies/subscription-alerts'),
   getById: (id) => api.get(`/companies/${id}`),
   create: (data) => api.post('/companies', data),
   update: (id, data) => api.put(`/companies/${id}`, data),

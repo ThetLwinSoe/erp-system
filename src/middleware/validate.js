@@ -250,6 +250,7 @@ const companyValidation = {
     body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('phone').optional().trim(),
     body('address').optional().trim(),
+    body('subscriptionEndDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid subscription end date is required'),
     handleValidation,
   ],
   update: [
@@ -260,6 +261,7 @@ const companyValidation = {
       .optional()
       .isIn(Object.values(COMPANY_STATUS))
       .withMessage('Invalid status'),
+    body('subscriptionEndDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid subscription end date is required'),
     handleValidation,
   ],
 };

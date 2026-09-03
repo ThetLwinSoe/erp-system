@@ -1,6 +1,6 @@
 const { Company, User, Customer, Product, Sale, Purchase, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
-const { PAGINATION, ROLES, COMPANY_STATUS } = require('../utils/constants');
+const { PAGINATION, ROLES, COMPANY_STATUS, SUBSCRIPTION_ALERT_DAYS } = require('../utils/constants');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
@@ -98,16 +98,71 @@ class CompaniesController {
   }
 
   /**
+   * Get companies whose subscription is within the alert window (or already
+   * past it), for the superadmin expiry-warning banner. Alert-only - does not
+   * affect access for any company.
+   * GET /api/companies/subscription-alerts
+   */
+  static async getSubscriptionAlerts(req, res, next) {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const threshold = new Date(today);
+      threshold.setDate(threshold.getDate() + SUBSCRIPTION_ALERT_DAYS);
+
+      const formatDateOnly = (date) =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+      const companies = await Company.findAll({
+        where: {
+          subscriptionEndDate: { [Op.ne]: null, [Op.lte]: formatDateOnly(threshold) },
+        },
+        attributes: ['id', 'name', 'subscriptionEndDate'],
+        order: [['subscriptionEndDate', 'ASC']],
+      });
+
+      const results = companies.map((company) => {
+        const [y, m, d] = company.subscriptionEndDate.split('-').map(Number);
+        const endDate = new Date(y, m - 1, d);
+        const daysRemaining = Math.round((endDate - today) / (1000 * 60 * 60 * 24));
+        return {
+          id: company.id,
+          name: company.name,
+          subscriptionEndDate: company.subscriptionEndDate,
+          daysRemaining,
+        };
+      });
+
+      return ApiResponse.success(
+        res,
+        { count: results.length, companies: results },
+        'Subscription alerts retrieved successfully'
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Create a new company with optional admin user
    * POST /api/companies
    */
   static async create(req, res, next) {
     try {
-      const { name, address, phone, email, currency, adminUser } = req.body;
+      const { name, address, phone, email, currency, subscriptionEndDate, adminUser } = req.body;
 
       const result = await sequelize.transaction(async (transaction) => {
         const company = await Company.create(
-          { name, address: address || null, phone: phone || null, email: email || null, status: COMPANY_STATUS.ACTIVE, currency: currency || 'USD' },
+          {
+            name,
+            address: address || null,
+            phone: phone || null,
+            email: email || null,
+            status: COMPANY_STATUS.ACTIVE,
+            currency: currency || 'USD',
+            subscriptionEndDate: subscriptionEndDate || null,
+          },
           { transaction }
         );
 
@@ -184,7 +239,7 @@ class CompaniesController {
         return ApiResponse.notFound(res, 'Company not found');
       }
 
-      const { name, address, phone, email, status, currency } = req.body;
+      const { name, address, phone, email, status, currency, subscriptionEndDate } = req.body;
 
       const updates = {};
       if (name !== undefined) updates.name = name;
@@ -193,6 +248,7 @@ class CompaniesController {
       if (email !== undefined) updates.email = email || null;
       if (status !== undefined) updates.status = status;
       if (currency !== undefined) updates.currency = currency;
+      if (subscriptionEndDate !== undefined) updates.subscriptionEndDate = subscriptionEndDate || null;
 
       await company.update(updates);
 

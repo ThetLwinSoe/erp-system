@@ -128,3 +128,5 @@ export const CURRENCY_LABELS = {
   THB: 'Thai Baht (THB)',
   MMK: 'Myanmar Kyat (MMK)',
 };
+
+export const SUBSCRIPTION_ALERT_DAYS = 10;

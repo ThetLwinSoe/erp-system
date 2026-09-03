@@ -95,4 +95,7 @@ module.exports = {
     DEFAULT_LIMIT: 20,
     MAX_LIMIT: 100,
   },
+
+  // Days before a company's subscriptionEndDate that expiry-warning alerts start showing
+  SUBSCRIPTION_ALERT_DAYS: 10,
 };
