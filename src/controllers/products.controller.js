@@ -420,9 +420,16 @@ class ProductsController {
         );
       }
 
-      // Delete associated inventory first
-      await Inventory.destroy({ where: { productId: product.id } });
-      await product.destroy();
+      const transaction = await sequelize.transaction();
+      try {
+        // Delete associated inventory first
+        await Inventory.destroy({ where: { productId: product.id }, transaction });
+        await product.destroy({ transaction });
+        await transaction.commit();
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      }
 
       return ApiResponse.success(res, null, 'Product deleted successfully');
     } catch (error) {
