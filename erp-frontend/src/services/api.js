@@ -26,7 +26,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const isLoginRequest = error.config?.url?.includes('/auth/login');
-    if (error.response?.status === 401 && !isLoginRequest) {
+    const isCompanyDeleteRequest = error.config?.method === 'delete' && /\/companies\/\d+$/.test(error.config?.url || '');
+    if (error.response?.status === 401 && !isLoginRequest && !isCompanyDeleteRequest) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -166,7 +167,7 @@ export const companiesAPI = {
   getById: (id) => api.get(`/companies/${id}`),
   create: (data) => api.post('/companies', data),
   update: (id, data) => api.put(`/companies/${id}`, data),
-  delete: (id) => api.delete(`/companies/${id}`),
+  delete: (id, password) => api.delete(`/companies/${id}`, { data: { password } }),
   getUsers: (id) => api.get(`/companies/${id}/users`),
   getStats: (id) => api.get(`/companies/${id}/stats`),
   uploadLogo: (id, formData) => api.post(`/companies/${id}/logo`, formData, {

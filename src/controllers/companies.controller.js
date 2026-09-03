@@ -270,6 +270,12 @@ class CompaniesController {
         return ApiResponse.notFound(res, 'Company not found');
       }
 
+      const currentUser = await User.findByPk(req.user.id);
+      const isPasswordValid = await currentUser.comparePassword(req.body.password);
+      if (!isPasswordValid) {
+        return ApiResponse.unauthorized(res, 'Incorrect password');
+      }
+
       // Check if company has any data
       const userCount = await User.count({ where: { companyId: company.id } });
       const customerCount = await Customer.count({ where: { companyId: company.id } });
