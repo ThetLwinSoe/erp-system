@@ -5,7 +5,7 @@ const { authenticate, requireSuperAdmin } = require('../middleware/auth');
 const { companyValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { uploadLogo } = require('../middleware/upload');
 
-const COMPANY_SORT_FIELDS = ['name', 'email', 'phone', 'currency', 'status', 'createdAt'];
+const COMPANY_SORT_FIELDS = ['name', 'email', 'phone', 'currency', 'status', 'subscriptionEndDate', 'createdAt'];
 
 // All routes require authentication and superadmin role
 router.use(authenticate);
@@ -13,6 +13,9 @@ router.use(requireSuperAdmin);
 
 // GET /api/companies - List all companies (with pagination)
 router.get('/', paginationValidation, sortValidation(COMPANY_SORT_FIELDS), CompaniesController.getAll);
+
+// GET /api/companies/subscription-alerts - Companies nearing/past subscription end (must come before /:id)
+router.get('/subscription-alerts', CompaniesController.getSubscriptionAlerts);
 
 // POST /api/companies - Create a new company
 router.post('/', companyValidation.create, CompaniesController.create);

@@ -7,8 +7,9 @@ import SearchBar from '../components/common/SearchBar';
 import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
-import { COMPANY_STATUS, COMPANY_STATUS_COLORS, CURRENCIES, CURRENCY_LABELS } from '../utils/constants';
+import { COMPANY_STATUS, COMPANY_STATUS_COLORS, CURRENCIES, CURRENCY_LABELS, SUBSCRIPTION_ALERT_DAYS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
+import { getDaysRemaining } from '../utils/subscription';
 import ErrorAlert from '../components/common/ErrorAlert';
 import SortableHeader from '../components/common/SortableHeader';
 
@@ -41,6 +42,7 @@ const Companies = () => {
     email: '',
     status: COMPANY_STATUS.ACTIVE,
     currency: CURRENCIES.USD,
+    subscriptionEndDate: '',
     createAdmin: false,
     adminName: '',
     adminEmail: '',
@@ -83,6 +85,7 @@ const Companies = () => {
         email: company.email || '',
         status: company.status,
         currency: company.currency || CURRENCIES.USD,
+        subscriptionEndDate: company.subscriptionEndDate || '',
         createAdmin: false,
         adminName: '',
         adminEmail: '',
@@ -98,6 +101,7 @@ const Companies = () => {
         email: '',
         status: COMPANY_STATUS.ACTIVE,
         currency: CURRENCIES.USD,
+        subscriptionEndDate: '',
         createAdmin: false,
         adminName: '',
         adminEmail: '',
@@ -172,6 +176,7 @@ const Companies = () => {
         email: formData.email,
         status: formData.status,
         currency: formData.currency,
+        subscriptionEndDate: formData.subscriptionEndDate || null,
       };
 
       if (!selectedCompany && formData.createAdmin) {
@@ -236,6 +241,7 @@ const Companies = () => {
                   <SortableHeader label="Phone" field="phone" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Currency" field="currency" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Subscription End" field="subscriptionEndDate" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Created At" field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
@@ -270,6 +276,21 @@ const Companies = () => {
                       <Badge bg={COMPANY_STATUS_COLORS[company.status]}>
                         {company.status}
                       </Badge>
+                    </td>
+                    <td>
+                      {company.subscriptionEndDate ? (
+                        (() => {
+                          const daysRemaining = getDaysRemaining(company.subscriptionEndDate);
+                          const isNearOrPast = daysRemaining <= SUBSCRIPTION_ALERT_DAYS;
+                          return (
+                            <span className={isNearOrPast ? (daysRemaining < 0 ? 'text-danger fw-semibold' : 'text-warning fw-semibold') : ''}>
+                              {new Date(company.subscriptionEndDate + 'T00:00:00').toLocaleDateString()}
+                            </span>
+                          );
+                        })()
+                      ) : (
+                        '-'
+                      )}
                     </td>
                     <td>{new Date(company.createdAt).toLocaleDateString()}</td>
                     <td>
@@ -379,6 +400,17 @@ const Companies = () => {
                   </option>
                 ))}
               </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Subscription End Date</Form.Label>
+              <Form.Control
+                type="date"
+                value={formData.subscriptionEndDate}
+                onChange={(e) => setFormData({ ...formData, subscriptionEndDate: e.target.value })}
+              />
+              <Form.Text className="text-muted">
+                Optional. Users at this company (and superadmin) see a warning starting {SUBSCRIPTION_ALERT_DAYS} days before this date.
+              </Form.Text>
             </Form.Group>
 
             {selectedCompany && (
