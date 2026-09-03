@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Form } from 'react-bootstrap';
 import { FaArrowLeft } from 'react-icons/fa';
@@ -15,6 +15,7 @@ const CreatePurchaseReturn = () => {
   const currency = user?.company?.currency || 'USD';
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState(null);
   const [purchase, setPurchase] = useState(null);
   const [returnableItems, setReturnableItems] = useState([]);
@@ -77,6 +78,9 @@ const CreatePurchaseReturn = () => {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     try {
       setSubmitting(true);
 
@@ -99,6 +103,7 @@ const CreatePurchaseReturn = () => {
     } catch (err) {
       setError(extractApiError(err, 'Failed to create purchase return'));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

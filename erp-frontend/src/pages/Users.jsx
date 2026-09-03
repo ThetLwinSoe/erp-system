@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { usersAPI, companiesAPI } from '../services/api';
@@ -24,6 +24,8 @@ const Users = () => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [error, setError] = useState(null);
@@ -108,7 +110,10 @@ const Users = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError(null);
+    setSubmitting(true);
 
     try {
       // Get companyId - use formData value, fallback to first company if empty
@@ -132,6 +137,9 @@ const Users = () => {
       fetchUsers();
     } catch (err) {
       setError(extractApiError(err, 'Operation failed'));
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -262,7 +270,9 @@ const Users = () => {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit">{selectedUser ? 'Update' : 'Create'}</Button>
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? (selectedUser ? 'Updating...' : 'Creating...') : (selectedUser ? 'Update' : 'Create')}
+            </Button>
           </Modal.Footer>
         </Form>
       </Modal>

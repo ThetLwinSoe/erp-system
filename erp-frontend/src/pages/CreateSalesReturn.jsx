@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Form } from 'react-bootstrap';
 import { FaArrowLeft } from 'react-icons/fa';
@@ -15,6 +15,7 @@ const CreateSalesReturn = () => {
   const currency = user?.company?.currency || 'USD';
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState(null);
   const [sale, setSale] = useState(null);
   const [returnableItems, setReturnableItems] = useState([]);
@@ -99,6 +100,9 @@ const CreateSalesReturn = () => {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     try {
       setSubmitting(true);
 
@@ -121,6 +125,7 @@ const CreateSalesReturn = () => {
     } catch (err) {
       setError(extractApiError(err, 'Failed to create sales return'));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

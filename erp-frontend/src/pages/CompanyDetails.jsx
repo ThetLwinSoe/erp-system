@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Row, Col, Badge, Button, Table, Spinner, Modal, Form } from 'react-bootstrap';
 import { FaArrowLeft, FaBuilding, FaUsers, FaBoxes, FaShoppingCart, FaTruck, FaPlus } from 'react-icons/fa';
@@ -16,6 +16,8 @@ const CompanyDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [submittingUser, setSubmittingUser] = useState(false);
+  const submittingUserRef = useRef(false);
   const [userFormData, setUserFormData] = useState({
     name: '',
     email: '',
@@ -48,7 +50,10 @@ const CompanyDetails = () => {
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
+    if (submittingUserRef.current) return;
+    submittingUserRef.current = true;
     setUserError(null);
+    setSubmittingUser(true);
 
     try {
       await usersAPI.create({
@@ -60,6 +65,9 @@ const CompanyDetails = () => {
       fetchCompanyData();
     } catch (err) {
       setUserError(extractApiError(err, 'Failed to create user'));
+    } finally {
+      submittingUserRef.current = false;
+      setSubmittingUser(false);
     }
   };
 
@@ -245,8 +253,8 @@ const CompanyDetails = () => {
             <Button variant="secondary" onClick={() => setShowUserModal(false)}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit">
-              Create User
+            <Button variant="primary" type="submit" disabled={submittingUser}>
+              {submittingUser ? 'Creating...' : 'Create User'}
             </Button>
           </Modal.Footer>
         </Form>

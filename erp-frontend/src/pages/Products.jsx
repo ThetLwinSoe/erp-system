@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFileExport, FaFileImport } from 'react-icons/fa';
 import { productsAPI } from '../services/api';
@@ -25,6 +25,8 @@ const Products = () => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [error, setError] = useState(null);
@@ -92,7 +94,10 @@ const Products = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError(null);
+    setSubmitting(true);
 
     try {
       const data = {
@@ -110,6 +115,9 @@ const Products = () => {
       fetchProducts();
     } catch (err) {
       setError(extractApiError(err, 'Operation failed'));
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -330,7 +338,9 @@ const Products = () => {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit">{selectedProduct ? 'Update' : 'Create'}</Button>
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? (selectedProduct ? 'Updating...' : 'Creating...') : (selectedProduct ? 'Update' : 'Create')}
+            </Button>
           </Modal.Footer>
         </Form>
       </Modal>

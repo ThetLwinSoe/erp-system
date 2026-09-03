@@ -27,6 +27,8 @@ const Companies = () => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [error, setError] = useState(null);
@@ -157,7 +159,10 @@ const Companies = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError(null);
+    setSubmitting(true);
 
     try {
       const submitData = {
@@ -186,6 +191,9 @@ const Companies = () => {
       fetchCompanies();
     } catch (err) {
       setError(extractApiError(err, 'Operation failed'));
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -491,8 +499,8 @@ const Companies = () => {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit">
-              {selectedCompany ? 'Update' : 'Create'}
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? (selectedCompany ? 'Updating...' : 'Creating...') : (selectedCompany ? 'Update' : 'Create')}
             </Button>
           </Modal.Footer>
         </Form>
