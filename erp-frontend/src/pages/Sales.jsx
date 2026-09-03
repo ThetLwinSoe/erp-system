@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +29,8 @@ const Sales = () => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const [error, setError] = useState(null);
@@ -141,6 +143,9 @@ const Sales = () => {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
       const data = {
         customerId: parseInt(formData.customerId),
@@ -161,6 +166,9 @@ const Sales = () => {
       fetchSales();
     } catch (err) {
       setError(extractApiError(err, 'Failed to create sale'));
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -398,7 +406,9 @@ const Sales = () => {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit">Create Order</Button>
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? 'Creating...' : 'Create Order'}
+            </Button>
           </Modal.Footer>
         </Form>
       </Modal>

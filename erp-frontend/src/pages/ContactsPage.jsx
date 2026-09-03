@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFileExport, FaFileImport } from 'react-icons/fa';
 import { customersAPI } from '../services/api';
@@ -33,6 +33,8 @@ const ContactsPage = ({ type, label, labelPlural }) => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('DESC');
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
   const [error, setError] = useState(null);
@@ -99,7 +101,10 @@ const ContactsPage = ({ type, label, labelPlural }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError(null);
+    setSubmitting(true);
 
     try {
       if (selectedContact) {
@@ -113,6 +118,9 @@ const ContactsPage = ({ type, label, labelPlural }) => {
       fetchContacts();
     } catch (err) {
       setError(extractApiError(err, 'Operation failed'));
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -313,7 +321,9 @@ const ContactsPage = ({ type, label, labelPlural }) => {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit">{selectedContact ? 'Update' : 'Create'}</Button>
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? (selectedContact ? 'Updating...' : 'Creating...') : (selectedContact ? 'Update' : 'Create')}
+            </Button>
           </Modal.Footer>
         </Form>
       </Modal>

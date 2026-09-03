@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Row, Col, Form } from 'react-bootstrap';
 import { FaArrowLeft, FaTimes, FaPlus } from 'react-icons/fa';
@@ -13,6 +13,7 @@ const CreateInventoryAdjustment = () => {
   const { isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState(null);
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState({});
@@ -165,6 +166,9 @@ const CreateInventoryAdjustment = () => {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     try {
       setSubmitting(true);
       await inventoryAdjustmentsAPI.create({
@@ -177,6 +181,7 @@ const CreateInventoryAdjustment = () => {
     } catch (err) {
       setError(extractApiError(err, 'Failed to create adjustment'));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
