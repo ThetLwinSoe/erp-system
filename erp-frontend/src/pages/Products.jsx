@@ -4,6 +4,7 @@ import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFileExport, FaFileI
 import { productsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
+import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ImportCsvModal from '../components/common/ImportCsvModal';
@@ -18,6 +19,7 @@ const Products = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [sortBy, setSortBy] = useState('createdAt');
@@ -56,7 +58,7 @@ const Products = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [page, search, sortBy, sortOrder]);
+  }, [page, debouncedSearch, sortBy, sortOrder]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -241,7 +243,7 @@ const Products = () => {
                             {product.status === 'active' ? <FaToggleOff /> : <FaToggleOn />}
                           </Button>
                           {isSuperAdmin() && (
-                            <Button variant="outline-danger" size="sm" onClick={() => { setSelectedProduct(product); setShowDeleteModal(true); }}>
+                            <Button variant="outline-danger" size="sm" onClick={() => { setError(null); setSelectedProduct(product); setShowDeleteModal(true); }}>
                               <FaTrash />
                             </Button>
                           )}
@@ -339,6 +341,7 @@ const Products = () => {
         onConfirm={handleDelete}
         title="Delete Product"
         message={`Are you sure you want to delete ${selectedProduct?.name}?`}
+        error={error}
       />
 
       <ImportCsvModal

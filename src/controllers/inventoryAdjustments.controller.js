@@ -354,9 +354,11 @@ class InventoryAdjustmentsController {
             case ADJUSTMENT_TYPE.REMOVE:
               newQuantity = Math.max(0, inventory.quantity - item.quantityAdjusted);
               break;
-            case ADJUSTMENT_TYPE.SET:
-              newQuantity = item.quantityAdjusted;
+            case ADJUSTMENT_TYPE.SET: {
+              const delta = item.quantityAfter - item.quantityBefore;
+              newQuantity = Math.max(0, inventory.quantity + delta);
               break;
+            }
             default:
               newQuantity = inventory.quantity;
           }

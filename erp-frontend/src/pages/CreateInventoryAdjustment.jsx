@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Row, Col, Form } from 'react-bootstrap';
 import { FaArrowLeft, FaTimes, FaPlus } from 'react-icons/fa';
-import { inventoryAdjustmentsAPI } from '../services/api';
+import { inventoryAdjustmentsAPI, companiesAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { INVENTORY_ADJUSTMENT_REASONS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 
 const CreateInventoryAdjustment = () => {
   const navigate = useNavigate();
+  const { isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -17,11 +19,25 @@ const CreateInventoryAdjustment = () => {
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [companies, setCompanies] = useState([]);
+  const [companyId, setCompanyId] = useState('');
+
+  const canSubmit = !isSuperAdmin() || !!companyId;
+
+  useEffect(() => {
+    if (isSuperAdmin()) {
+      companiesAPI.getAll({ limit: 100 })
+        .then((res) => setCompanies(res.data.data || []))
+        .catch(() => setCompanies([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await inventoryAdjustmentsAPI.getProductsWithStock();
+      const params = isSuperAdmin() && companyId ? { companyId } : undefined;
+      const response = await inventoryAdjustmentsAPI.getProductsWithStock(params);
       const products = response.data.data || [];
       setAllProducts(products);
 
@@ -44,8 +60,19 @@ const CreateInventoryAdjustment = () => {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (isSuperAdmin()) {
+      if (!companyId) {
+        setAllProducts([]);
+        setSelectedProducts({});
+        setLoading(false);
+        return;
+      }
+      fetchProducts();
+    } else {
+      fetchProducts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   const handleGroundValueChange = (productId, value) => {
     const qty = Math.max(0, parseInt(value) || 0);
@@ -122,6 +149,11 @@ const CreateInventoryAdjustment = () => {
     e.preventDefault();
     setError(null);
 
+    if (isSuperAdmin() && !companyId) {
+      setError('Please select a company');
+      return;
+    }
+
     if (!reason) {
       setError('Please select a reason for the adjustment');
       return;
@@ -139,6 +171,7 @@ const CreateInventoryAdjustment = () => {
         items,
         reason,
         notes,
+        ...(isSuperAdmin() ? { companyId: parseInt(companyId, 10) } : {}),
       });
       navigate('/inventory-adjustments');
     } catch (err) {
@@ -268,7 +301,9 @@ const CreateInventoryAdjustment = () => {
                 </Table>
                 {includedProducts.length === 0 && (
                   <div className="text-center text-muted py-4">
-                    No products in the adjustment list
+                    {isSuperAdmin() && !companyId
+                      ? 'Select a company to load its products'
+                      : 'No products in the adjustment list'}
                   </div>
                 )}
               </Card.Body>
@@ -303,6 +338,24 @@ const CreateInventoryAdjustment = () => {
             <Card className="mb-4">
               <Card.Header>Adjustment Details</Card.Header>
               <Card.Body>
+                {isSuperAdmin() && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>Company *</Form.Label>
+                    <Form.Select
+                      value={companyId}
+                      onChange={(e) => setCompanyId(e.target.value)}
+                      required
+                    >
+                      <option value="">Select a company...</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={String(company.id)}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                )}
+
                 <Form.Group className="mb-3">
                   <Form.Label>Reason *</Form.Label>
                   <Form.Select
@@ -358,7 +411,7 @@ const CreateInventoryAdjustment = () => {
               <Button
                 variant="primary"
                 type="submit"
-                disabled={submitting || !hasChanges()}
+                disabled={submitting || !hasChanges() || !canSubmit}
               >
                 {submitting ? 'Creating...' : 'Create Adjustment'}
               </Button>

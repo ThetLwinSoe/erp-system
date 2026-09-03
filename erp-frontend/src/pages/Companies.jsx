@@ -4,6 +4,7 @@ import { FaPlus, FaEdit, FaTrash, FaEye, FaUpload, FaTimesCircle } from 'react-i
 import { useNavigate } from 'react-router-dom';
 import { companiesAPI, getStaticUrl } from '../services/api';
 import SearchBar from '../components/common/SearchBar';
+import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { COMPANY_STATUS, COMPANY_STATUS_COLORS, CURRENCIES, CURRENCY_LABELS } from '../utils/constants';
@@ -20,6 +21,7 @@ const Companies = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [sortBy, setSortBy] = useState('createdAt');
@@ -58,7 +60,7 @@ const Companies = () => {
 
   useEffect(() => {
     fetchCompanies();
-  }, [page, search, sortBy, sortOrder]);
+  }, [page, debouncedSearch, sortBy, sortOrder]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -285,6 +287,7 @@ const Companies = () => {
                         variant="outline-danger"
                         size="sm"
                         onClick={() => {
+                          setError(null);
                           setSelectedCompany(company);
                           setShowDeleteModal(true);
                         }}
@@ -501,6 +504,7 @@ const Companies = () => {
         onConfirm={handleDelete}
         title="Delete Company"
         message={`Are you sure you want to delete ${selectedCompany?.name}? This will also delete all associated data.`}
+        error={error}
       />
     </div>
   );

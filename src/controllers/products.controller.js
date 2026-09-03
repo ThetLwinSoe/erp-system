@@ -1,4 +1,13 @@
-const { Product, Inventory, sequelize } = require('../models');
+const {
+  Product,
+  Inventory,
+  SaleItem,
+  PurchaseItem,
+  SalesReturnItem,
+  PurchaseReturnItem,
+  InventoryAdjustmentItem,
+  sequelize,
+} = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
@@ -396,9 +405,31 @@ class ProductsController {
         return ApiResponse.notFound(res, 'Product not found');
       }
 
-      // Delete associated inventory first
-      await Inventory.destroy({ where: { productId: product.id } });
-      await product.destroy();
+      const [saleCount, purchaseCount, salesReturnCount, purchaseReturnCount, adjustmentCount] = await Promise.all([
+        SaleItem.count({ where: { productId: product.id } }),
+        PurchaseItem.count({ where: { productId: product.id } }),
+        SalesReturnItem.count({ where: { productId: product.id } }),
+        PurchaseReturnItem.count({ where: { productId: product.id } }),
+        InventoryAdjustmentItem.count({ where: { productId: product.id } }),
+      ]);
+
+      if (saleCount + purchaseCount + salesReturnCount + purchaseReturnCount + adjustmentCount > 0) {
+        return ApiResponse.badRequest(
+          res,
+          'Cannot delete a product with existing sales, purchase, return, or adjustment history. Deactivate it instead.'
+        );
+      }
+
+      const transaction = await sequelize.transaction();
+      try {
+        // Delete associated inventory first
+        await Inventory.destroy({ where: { productId: product.id }, transaction });
+        await product.destroy({ transaction });
+        await transaction.commit();
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      }
 
       return ApiResponse.success(res, null, 'Product deleted successfully');
     } catch (error) {

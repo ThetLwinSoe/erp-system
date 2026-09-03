@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { inventoryAdjustmentsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
+import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -19,6 +20,7 @@ const InventoryAdjustments = () => {
   const [adjustments, setAdjustments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
@@ -49,7 +51,7 @@ const InventoryAdjustments = () => {
   useEffect(() => {
     fetchAdjustments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, statusFilter, sortBy, sortOrder]);
+  }, [page, debouncedSearch, statusFilter, sortBy, sortOrder]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -150,6 +152,7 @@ const InventoryAdjustments = () => {
                           variant="outline-danger"
                           size="sm"
                           onClick={() => {
+                            setError(null);
                             setSelectedAdjustment(adjustment);
                             setShowDeleteModal(true);
                           }}
@@ -177,6 +180,7 @@ const InventoryAdjustments = () => {
         onConfirm={handleDelete}
         title="Delete Adjustment"
         message={`Are you sure you want to delete adjustment ${selectedAdjustment?.adjustmentNumber}?`}
+        error={error}
       />
     </div>
   );

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaFileExport, FaFilePdf, FaSearch, FaChartLine } from 'react-icons/fa';
-import { reportsAPI } from '../services/api';
+import { reportsAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
@@ -9,21 +9,37 @@ import ErrorAlert from '../components/common/ErrorAlert';
 import { generateProfitLossPDF } from '../utils/profitLossPdfGenerator';
 
 const ProfitLossReport = () => {
-  const { user } = useAuth();
-  const currency = user?.company?.currency || 'USD';
+  const { user, isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
   const [products, setProducts] = useState([]);
+  const [companies, setCompanies] = useState([]);
 
-  const [filters, setFilters] = useState({ startDate: '', endDate: '' });
+  const [filters, setFilters] = useState({ startDate: '', endDate: '', companyId: '' });
+
+  useEffect(() => {
+    if (isSuperAdmin()) {
+      companiesAPI.getAll({ limit: 100 })
+        .then((res) => setCompanies(res.data.data || []))
+        .catch(() => setCompanies([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectedCompany = isSuperAdmin()
+    ? companies.find((c) => String(c.id) === String(filters.companyId))
+    : user?.company;
+  const currency = selectedCompany?.currency || 'USD';
+  const canGenerate = !isSuperAdmin() || !!filters.companyId;
 
   const buildParams = () => {
     const params = {};
     if (filters.startDate) params.startDate = filters.startDate;
     if (filters.endDate) params.endDate = filters.endDate;
+    if (isSuperAdmin() && filters.companyId) params.companyId = filters.companyId;
     return params;
   };
 
@@ -72,12 +88,12 @@ const ProfitLossReport = () => {
   const handleExportPDF = () => {
     try {
       setGeneratingPdf(true);
-      const company = user?.company ? {
-        name: user.company.name,
-        address: user.company.address,
-        phone: user.company.phone,
-        email: user.company.email,
-        currency: user.company.currency,
+      const company = selectedCompany ? {
+        name: selectedCompany.name,
+        address: selectedCompany.address,
+        phone: selectedCompany.phone,
+        email: selectedCompany.email,
+        currency: selectedCompany.currency,
       } : null;
 
       generateProfitLossPDF({
@@ -103,6 +119,9 @@ const ProfitLossReport = () => {
         <h2>
           <FaChartLine className="me-2" />
           Profit &amp; Loss Report
+          {isSuperAdmin() && summary && selectedCompany && (
+            <small className="text-muted ms-2">— {selectedCompany.name}</small>
+          )}
         </h2>
         {summary && (
           <div className="d-flex gap-2">
@@ -126,6 +145,22 @@ const ProfitLossReport = () => {
         <Card.Body>
           <Form onSubmit={handleSubmit}>
             <Row className="g-3">
+              {isSuperAdmin() && (
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Company *</Form.Label>
+                    <Form.Select
+                      value={filters.companyId}
+                      onChange={(e) => setFilters({ ...filters, companyId: e.target.value })}
+                    >
+                      <option value="">Select a company...</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              )}
               <Col md={3}>
                 <Form.Group>
                   <Form.Label>Start Date</Form.Label>
@@ -148,10 +183,13 @@ const ProfitLossReport = () => {
               </Col>
             </Row>
             <div className="mt-3">
-              <Button variant="primary" type="submit" disabled={loading}>
+              <Button variant="primary" type="submit" disabled={loading || !canGenerate}>
                 <FaSearch className="me-2" />
                 {loading ? 'Loading...' : 'Generate Report'}
               </Button>
+              {isSuperAdmin() && !filters.companyId && (
+                <small className="text-muted ms-2">Select a company to generate this report.</small>
+              )}
             </div>
           </Form>
         </Card.Body>

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(curl -s -X DELETE http://localhost:3000/api/products/27 -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s -X DELETE http://localhost:3000/api/products/22 -H 'Authorization: Bearer __TRACKED_VAR__')"
+    ]
+  }
+}

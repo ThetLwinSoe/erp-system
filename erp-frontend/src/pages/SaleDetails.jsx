@@ -214,7 +214,11 @@ const SaleDetails = () => {
               <p className="mb-1"><strong>{sale.customer?.name}</strong></p>
               <p className="mb-1 text-muted">{sale.customer?.email}</p>
               <p className="mb-1 text-muted">{sale.customer?.phone}</p>
-              <p className="mb-0 text-muted">{sale.customer?.city}, {sale.customer?.country}</p>
+              {(sale.customer?.city || sale.customer?.country) && (
+                <p className="mb-0 text-muted">
+                  {[sale.customer?.city, sale.customer?.country].filter(Boolean).join(', ')}
+                </p>
+              )}
             </Card.Body>
           </Card>
 

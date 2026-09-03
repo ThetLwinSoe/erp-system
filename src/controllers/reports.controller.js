@@ -2,6 +2,7 @@ const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, Pu
 const ApiResponse = require('../utils/apiResponse');
 const { toCSV } = require('../utils/csv');
 const { Op } = require('sequelize');
+const { ROLES } = require('../utils/constants');
 
 class ReportsController {
   /**
@@ -1049,6 +1050,9 @@ class ReportsController {
    */
   static async getProfitLossReport(req, res, next) {
     try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
       const { startDate, endDate } = req.query;
       const result = await ReportsController._computeProfitLoss(req.companyFilter, startDate, endDate);
       return ApiResponse.success(res, { ...result, startDate, endDate }, 'Profit & Loss report retrieved successfully');
@@ -1064,6 +1068,9 @@ class ReportsController {
    */
   static async exportProfitLossReport(req, res, next) {
     try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
       const { startDate, endDate } = req.query;
       const { summary, products } = await ReportsController._computeProfitLoss(req.companyFilter, startDate, endDate);
 

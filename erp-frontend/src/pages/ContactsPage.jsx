@@ -4,6 +4,7 @@ import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFileExport, FaFileI
 import { customersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
+import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ImportCsvModal from '../components/common/ImportCsvModal';
@@ -26,6 +27,7 @@ const ContactsPage = ({ type, label, labelPlural }) => {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [sortBy, setSortBy] = useState('createdAt');
@@ -64,7 +66,7 @@ const ContactsPage = ({ type, label, labelPlural }) => {
   useEffect(() => {
     fetchContacts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, sortBy, sortOrder, type]);
+  }, [page, debouncedSearch, sortBy, sortOrder, type]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -230,7 +232,7 @@ const ContactsPage = ({ type, label, labelPlural }) => {
                             {contact.status === 'active' ? <FaToggleOff /> : <FaToggleOn />}
                           </Button>
                           {isSuperAdmin() && (
-                            <Button variant="outline-danger" size="sm" onClick={() => { setSelectedContact(contact); setShowDeleteModal(true); }}>
+                            <Button variant="outline-danger" size="sm" onClick={() => { setError(null); setSelectedContact(contact); setShowDeleteModal(true); }}>
                               <FaTrash />
                             </Button>
                           )}
@@ -322,6 +324,7 @@ const ContactsPage = ({ type, label, labelPlural }) => {
         onConfirm={handleDelete}
         title={`Delete ${label}`}
         message={`Are you sure you want to delete ${selectedContact?.name}?`}
+        error={error}
       />
 
       <ImportCsvModal

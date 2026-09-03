@@ -34,7 +34,7 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'SequelizeForeignKeyConstraintError') {
     return res.status(400).json({
       success: false,
-      message: 'Referenced record does not exist',
+      message: 'Cannot delete or modify this record because it is still referenced by other data.',
     });
   }
 

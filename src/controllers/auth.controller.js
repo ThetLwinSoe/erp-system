@@ -8,8 +8,8 @@ class AuthController {
    */
   static async register(req, res, next) {
     try {
-      const { email, password, name, role } = req.body;
-      const result = await AuthService.register({ email, password, name, role });
+      const { email, password, name } = req.body;
+      const result = await AuthService.register({ email, password, name });
       return ApiResponse.created(res, result, 'User registered successfully');
     } catch (error) {
       next(error);
