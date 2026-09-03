@@ -32,3 +32,8 @@ coverage/
 *.tmp
 *.temp
 uploads/
+BUGS.md
+CR.md
+package-lock.json
+erp-frontend/package-lock.json
+migrations/

@@ -76,9 +76,16 @@ const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal server error';
 
+  // Errors thrown deliberately with a statusCode already carry a safe,
+  // user-facing message (e.g. "Invalid credentials"). Only genuinely
+  // unexpected errors (no statusCode set) get masked in production.
+  const isOperational = Boolean(err.statusCode);
+  const responseMessage =
+    isOperational || process.env.NODE_ENV !== 'production' ? message : 'An error occurred';
+
   res.status(statusCode).json({
     success: false,
-    message: process.env.NODE_ENV === 'production' ? 'An error occurred' : message,
+    message: responseMessage,
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 };
