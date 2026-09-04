@@ -98,4 +98,7 @@ module.exports = {
 
   // Days before a company's subscriptionEndDate that expiry-warning alerts start showing
   SUBSCRIPTION_ALERT_DAYS: 10,
+
+  // Maximum allowed span (in days) between startDate and endDate on any report
+  REPORT_MAX_DATE_RANGE_DAYS: 366,
 };

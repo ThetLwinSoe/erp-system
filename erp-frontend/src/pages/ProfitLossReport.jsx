@@ -33,7 +33,7 @@ const ProfitLossReport = () => {
     ? companies.find((c) => String(c.id) === String(filters.companyId))
     : user?.company;
   const currency = selectedCompany?.currency || 'USD';
-  const canGenerate = !isSuperAdmin() || !!filters.companyId;
+  const canGenerate = (!isSuperAdmin() || !!filters.companyId) && !!filters.startDate && !!filters.endDate;
 
   const buildParams = () => {
     const params = {};
@@ -125,7 +125,7 @@ const ProfitLossReport = () => {
         </h2>
         {summary && (
           <div className="d-flex gap-2">
-            <Button variant="success" onClick={handleExportCSV} disabled={exporting}>
+            <Button variant="success" onClick={handleExportCSV} disabled={exporting || !canGenerate}>
               <FaFileExport className="me-2" />
               {exporting ? 'Exporting...' : 'Export to CSV'}
             </Button>
@@ -166,6 +166,7 @@ const ProfitLossReport = () => {
                   <Form.Label>Start Date</Form.Label>
                   <Form.Control
                     type="date"
+                    required
                     value={filters.startDate}
                     onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
                   />
@@ -176,6 +177,7 @@ const ProfitLossReport = () => {
                   <Form.Label>End Date</Form.Label>
                   <Form.Control
                     type="date"
+                    required
                     value={filters.endDate}
                     onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
                   />
@@ -187,8 +189,12 @@ const ProfitLossReport = () => {
                 <FaSearch className="me-2" />
                 {loading ? 'Loading...' : 'Generate Report'}
               </Button>
-              {isSuperAdmin() && !filters.companyId && (
-                <small className="text-muted ms-2">Select a company to generate this report.</small>
+              {!canGenerate && (
+                <small className="text-muted ms-2">
+                  {isSuperAdmin() && !filters.companyId
+                    ? 'Select a company, start date, and end date to generate this report.'
+                    : 'Select a start and end date to generate this report.'}
+                </small>
               )}
             </div>
           </Form>
