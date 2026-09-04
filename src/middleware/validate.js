@@ -1,6 +1,6 @@
 const { validationResult, body, param, query } = require('express-validator');
 const ApiResponse = require('../utils/apiResponse');
-const { ROLES, ORDER_STATUS, PURCHASE_STATUS, ADJUSTMENT_TYPE, COMPANY_STATUS } = require('../utils/constants');
+const { ROLES, ORDER_STATUS, PURCHASE_STATUS, ADJUSTMENT_TYPE, COMPANY_STATUS, REPORT_MAX_DATE_RANGE_DAYS } = require('../utils/constants');
 
 /**
  * Validation result handler
@@ -272,6 +272,29 @@ const companyValidation = {
 };
 
 /**
+ * Reports validation rules
+ */
+const reportsValidation = {
+  dateRange: [
+    query('startDate').notEmpty().withMessage('Start date is required').isISO8601().withMessage('Valid start date is required'),
+    query('endDate').notEmpty().withMessage('End date is required').isISO8601().withMessage('Valid end date is required')
+      .custom((endDate, { req }) => {
+        const start = new Date(req.query.startDate);
+        const end = new Date(endDate);
+        if (end < start) {
+          throw new Error('End date must be on or after start date');
+        }
+        const days = (end - start) / (1000 * 60 * 60 * 24);
+        if (days > REPORT_MAX_DATE_RANGE_DAYS) {
+          throw new Error(`Date range cannot exceed ${REPORT_MAX_DATE_RANGE_DAYS} days`);
+        }
+        return true;
+      }),
+    handleValidation,
+  ],
+};
+
+/**
  * Sort validation factory - validates sortBy against a resource-specific
  * whitelist of columns and sortOrder against ASC/DESC
  */
@@ -314,6 +337,7 @@ module.exports = {
   salesValidation,
   purchaseValidation,
   companyValidation,
+  reportsValidation,
   paginationValidation,
   sortValidation,
 };

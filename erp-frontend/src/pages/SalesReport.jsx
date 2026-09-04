@@ -99,6 +99,8 @@ const SalesReport = () => {
     fetchReport();
   };
 
+  const canGenerate = !!filters.startDate && !!filters.endDate;
+
   const formatAmount = (value) => {
     return formatCurrency(value, currency);
   };
@@ -111,7 +113,7 @@ const SalesReport = () => {
           Sales Report
         </h2>
         {sales.length > 0 && (
-          <Button variant="success" onClick={handleExport} disabled={exporting}>
+          <Button variant="success" onClick={handleExport} disabled={exporting || !canGenerate}>
             <FaFileExport className="me-2" />
             {exporting ? 'Exporting...' : 'Export to CSV'}
           </Button>
@@ -131,6 +133,7 @@ const SalesReport = () => {
                   <Form.Label>Start Date</Form.Label>
                   <Form.Control
                     type="date"
+                    required
                     value={filters.startDate}
                     onChange={(e) => handleFilterChange('startDate', e.target.value)}
                   />
@@ -141,6 +144,7 @@ const SalesReport = () => {
                   <Form.Label>End Date</Form.Label>
                   <Form.Control
                     type="date"
+                    required
                     value={filters.endDate}
                     onChange={(e) => handleFilterChange('endDate', e.target.value)}
                   />
@@ -180,10 +184,13 @@ const SalesReport = () => {
               </Col>
             </Row>
             <div className="mt-3">
-              <Button variant="primary" type="submit" disabled={loading}>
+              <Button variant="primary" type="submit" disabled={loading || !canGenerate}>
                 <FaSearch className="me-2" />
                 {loading ? 'Loading...' : 'Generate Report'}
               </Button>
+              {!canGenerate && (
+                <small className="text-muted ms-2">Select a start and end date to generate this report.</small>
+              )}
             </div>
           </Form>
         </Card.Body>
