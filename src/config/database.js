@@ -7,6 +7,7 @@ module.exports = {
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     logging: console.log,
+    dialectOptions: process.env.DB_SSL === 'true' ? { ssl: { rejectUnauthorized: false } } : {},
     pool: {
       max: 5,
       min: 0,
@@ -31,6 +32,7 @@ module.exports = {
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     logging: false,
+    dialectOptions: process.env.DB_SSL === 'true' ? { ssl: { rejectUnauthorized: false } } : {},
     pool: {
       max: 10,
       min: 2,

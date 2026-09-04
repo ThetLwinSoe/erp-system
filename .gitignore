@@ -36,3 +36,6 @@ BUGS.md
 CR.md
 package-lock.json
 erp-frontend/package-lock.json
+
+# Local-only admin/dev scripts - never committed
+scripts/
