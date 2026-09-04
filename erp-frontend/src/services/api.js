@@ -176,6 +176,11 @@ export const companiesAPI = {
   deleteLogo: (id) => api.delete(`/companies/${id}/logo`),
 };
 
+// Version API (public API root, no resource path)
+export const versionAPI = {
+  get: () => api.get('/'),
+};
+
 // Get base URL for static files
 export const getStaticUrl = (path) => {
   if (!path) return null;
