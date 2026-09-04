@@ -33,6 +33,8 @@ router.get('/', (req, res) => {
   res.json({
     name: 'ERP System API',
     version: '1.0.0',
+    latestWebVersion: process.env.LATEST_WEB_VERSION || '1.0.0',
+    latestMobileVersion: process.env.LATEST_MOBILE_VERSION || '1.0.0',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',

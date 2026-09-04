@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import SubscriptionAlertBanner from '../common/SubscriptionAlertBanner';
+import VersionUpdateBanner from '../common/VersionUpdateBanner';
 
 const Layout = () => {
   const location = useLocation();
@@ -9,6 +10,7 @@ const Layout = () => {
   return (
     <div className="d-flex flex-column min-vh-100">
       <Navbar />
+      <VersionUpdateBanner />
       <SubscriptionAlertBanner key={location.pathname} />
       <div className="d-flex flex-grow-1" style={{ overflow: 'hidden' }}>
         <Sidebar />
