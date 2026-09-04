@@ -12,6 +12,7 @@ const SearchBar = ({ value, onChange, placeholder = 'Search...' }) => {
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        autoComplete="off"
       />
     </InputGroup>
   );
