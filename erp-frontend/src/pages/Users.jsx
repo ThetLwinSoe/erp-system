@@ -11,6 +11,7 @@ import { ROLES, ROLE_LABELS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 import SortableHeader from '../components/common/SortableHeader';
+import PasswordInput from '../components/common/PasswordInput';
 
 const Users = () => {
   const { isSuperAdmin } = useAuth();
@@ -239,7 +240,7 @@ const Users = () => {
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Password {selectedUser ? '(leave blank to keep current)' : '*'}</Form.Label>
-              <Form.Control type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!selectedUser} />
+              <PasswordInput value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!selectedUser} />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Role</Form.Label>

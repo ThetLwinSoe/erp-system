@@ -4,6 +4,7 @@ import { Container, Card, Form, Button } from 'react-bootstrap';
 import { useAuth } from '../context/AuthContext';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import PasswordInput from '../components/common/PasswordInput';
 import logo from '../assets/logo-horizontal-light@2x-center.png';
 
 const Login = () => {
@@ -57,8 +58,7 @@ const Login = () => {
 
             <Form.Group className="mb-4">
               <Form.Label>Password</Form.Label>
-              <Form.Control
-                type="password"
+              <PasswordInput
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

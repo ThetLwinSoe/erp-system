@@ -6,6 +6,7 @@ import { companiesAPI, usersAPI } from '../services/api';
 import { COMPANY_STATUS_COLORS, ROLES } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import PasswordInput from '../components/common/PasswordInput';
 
 const CompanyDetails = () => {
   const { id } = useParams();
@@ -230,8 +231,7 @@ const CompanyDetails = () => {
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Password *</Form.Label>
-              <Form.Control
-                type="password"
+              <PasswordInput
                 value={userFormData.password}
                 onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
                 required

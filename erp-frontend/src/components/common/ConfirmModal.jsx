@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import ErrorAlert from './ErrorAlert';
+import PasswordInput from './PasswordInput';
 
 const ConfirmModal = ({
   show,
@@ -33,8 +34,7 @@ const ConfirmModal = ({
         {requirePassword && (
           <Form.Group className="mt-3">
             <Form.Label>Enter your password to confirm</Form.Label>
-            <Form.Control
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoFocus

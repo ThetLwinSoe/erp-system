@@ -12,6 +12,7 @@ import { extractApiError } from '../utils/errorUtils';
 import { getDaysRemaining } from '../utils/subscription';
 import ErrorAlert from '../components/common/ErrorAlert';
 import SortableHeader from '../components/common/SortableHeader';
+import PasswordInput from '../components/common/PasswordInput';
 
 const LOGO_MAX_SIZE = 2 * 1024 * 1024; // 2MB, must match backend's uploadLogo limit
 
@@ -523,8 +524,7 @@ const Companies = () => {
                     </Form.Group>
                     <Form.Group className="mb-3">
                       <Form.Label>Admin Password *</Form.Label>
-                      <Form.Control
-                        type="password"
+                      <PasswordInput
                         value={formData.adminPassword}
                         onChange={(e) => setFormData({ ...formData, adminPassword: e.target.value })}
                         required={formData.createAdmin}
