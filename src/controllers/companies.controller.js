@@ -116,6 +116,7 @@ class CompaniesController {
 
       const companies = await Company.findAll({
         where: {
+          status: COMPANY_STATUS.ACTIVE,
           subscriptionEndDate: { [Op.ne]: null, [Op.lte]: formatDateOnly(threshold) },
         },
         attributes: ['id', 'name', 'subscriptionEndDate'],
