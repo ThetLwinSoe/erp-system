@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, master]
+  push:
+    branches: [develop, master]
+
+jobs:
+  backend:
+    name: Backend – install & sanity check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      # No test/lint script exists in package.json yet.
+      # `npm ci` still catches a broken package.json/lockfile or a
+      # dependency that no longer installs cleanly on a clean machine.
+      # Add `npm test` / `npm run lint` here once those scripts exist.
+      - name: Sanity-check the server boots
+        run: node -e "require('./app.js'); console.log('app.js loaded OK')"
+
+  frontend:
+    name: Frontend – lint & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./erp-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: erp-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
