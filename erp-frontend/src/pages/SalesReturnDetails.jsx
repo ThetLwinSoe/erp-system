@@ -24,7 +24,7 @@ const SalesReturnDetails = () => {
       setLoading(true);
       const response = await salesReturnsAPI.getById(id);
       setSalesReturn(response.data.data);
-    } catch (err) {
+    } catch {
       setError('Failed to load sales return details');
     } finally {
       setLoading(false);

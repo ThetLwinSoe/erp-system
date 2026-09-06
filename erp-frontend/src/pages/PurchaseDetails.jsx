@@ -28,7 +28,7 @@ const PurchaseDetails = () => {
       setLoading(true);
       const response = await purchasesAPI.getById(id);
       setPurchase(response.data.data);
-    } catch (err) {
+    } catch {
       setError('Failed to load purchase details');
     } finally {
       setLoading(false);

@@ -3,6 +3,10 @@ import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
+// useAuth is a hook, not a component; splitting it into its own file would
+// mean updating every page that imports it from here, for a Fast Refresh
+// nicety only.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

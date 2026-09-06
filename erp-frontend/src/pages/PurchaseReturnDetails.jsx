@@ -24,7 +24,7 @@ const PurchaseReturnDetails = () => {
       setLoading(true);
       const response = await purchaseReturnsAPI.getById(id);
       setPurchaseReturn(response.data.data);
-    } catch (err) {
+    } catch {
       setError('Failed to load purchase return details');
     } finally {
       setLoading(false);
