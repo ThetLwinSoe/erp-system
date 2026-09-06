@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -16,19 +16,14 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
+  // localStorage reads are synchronous, so the saved session can be read
+  // directly as the initial state instead of via a mount effect - avoids an
+  // extra render and the react-hooks/set-state-in-effect lint error.
+  const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-
-    if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
-  }, []);
-
+    return token && savedUser ? JSON.parse(savedUser) : null;
+  });
   const login = async (email, password) => {
     const response = await authAPI.login({ email, password });
     const { user, token } = response.data.data;
@@ -58,7 +53,10 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    loading,
+    // Always false: restoring the session from localStorage above is
+    // synchronous, so there's no longer an async gap for callers (e.g.
+    // PrivateRoute) to show a loading state for.
+    loading: false,
     login,
     logout,
     isSuperAdmin,
