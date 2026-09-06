@@ -34,8 +34,6 @@ coverage/
 uploads/
 BUGS.md
 CR.md
-package-lock.json
-erp-frontend/package-lock.json
 
 # Local-only admin/dev scripts - never committed. Anchored to repo root and
 # named distinctly from the existing tracked src/scripts/ dir - an earlier,
