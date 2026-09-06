@@ -17,7 +17,9 @@
       "mcp__chrome-devtools__list_network_requests",
       "mcp__chrome-devtools__list_console_messages",
       "mcp__chrome-devtools__get_network_request",
-      "Bash(curl -s http://localhost:3000/health)"
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(flutter devices *)",
+      "mcp__claude_ai_Notion__notion-create-file-upload"
     ]
   }
 }
