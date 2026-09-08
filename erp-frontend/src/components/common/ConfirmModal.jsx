@@ -19,6 +19,8 @@ const ConfirmModal = ({
 
   useEffect(() => {
     if (show) {
+      // Intentional reset of the password field whenever the modal opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPassword('');
     }
   }, [show]);

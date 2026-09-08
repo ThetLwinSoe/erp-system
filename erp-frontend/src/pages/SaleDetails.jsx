@@ -27,7 +27,7 @@ const SaleDetails = () => {
       setLoading(true);
       const response = await salesAPI.getById(id);
       setSale(response.data.data);
-    } catch (err) {
+    } catch {
       setError('Failed to load sale details');
     } finally {
       setLoading(false);

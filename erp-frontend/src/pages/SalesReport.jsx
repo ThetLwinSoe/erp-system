@@ -83,7 +83,7 @@ const SalesReport = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       setError('Failed to export report');
     } finally {
       setExporting(false);
