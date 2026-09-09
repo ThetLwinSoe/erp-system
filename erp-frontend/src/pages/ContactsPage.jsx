@@ -282,7 +282,7 @@ const ContactsPage = ({ type, label, labelPlural }) => {
               <div className="col-md-6">
                 <Form.Group className="mb-3">
                   <Form.Label>Phone</Form.Label>
-                  <Form.Control type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                  <Form.Control type="text" maxLength={150} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
                 </Form.Group>
               </div>
               <div className="col-md-6">
