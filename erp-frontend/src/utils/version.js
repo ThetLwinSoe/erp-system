@@ -1,6 +1,3 @@
-// Bump by hand on each web release (mirrors AppConstants.appVersion on mobile).
-export const APP_VERSION = '1.0.0';
-
 /**
  * True if `latest` is a newer version than `current`. Compares dot-separated
  * numeric segments (e.g. "1.10.0" > "1.9.5"); non-numeric segments compare
@@ -19,4 +16,27 @@ export const isNewerVersion = (latest, current) => {
     if (x < y) return false;
   }
   return false;
+};
+
+// The last LATEST_WEB_VERSION this browser has acknowledged, so the update
+// banner only nags about versions the user hasn't already dismissed - and
+// stays dismissed across refreshes, unlike component state. Wrapped in
+// try/catch since localStorage can throw (private browsing, storage disabled).
+const LAST_SEEN_KEY = 'lastSeenAppVersion';
+
+export const getLastSeenVersion = () => {
+  try {
+    return localStorage.getItem(LAST_SEEN_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const setLastSeenVersion = (version) => {
+  if (!version) return;
+  try {
+    localStorage.setItem(LAST_SEEN_KEY, version);
+  } catch {
+    // ignore - nothing we can do if storage is unavailable
+  }
 };
