@@ -3,9 +3,8 @@ import { FaUser, FaSignOutAlt } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getStaticUrl } from '../../services/api';
-import { APP_VERSION } from '../../utils/version';
 
-const Navbar = () => {
+const Navbar = ({ appVersion }) => {
   const { user, logout, isSuperAdmin, getCompanyName } = useAuth();
   const navigate = useNavigate();
 
@@ -63,7 +62,7 @@ const Navbar = () => {
               </Dropdown.Item>
             )}
             <Dropdown.Item disabled>
-              <small className="text-muted">App version: {APP_VERSION}</small>
+              <small className="text-muted">App version: {appVersion || '...'}</small>
             </Dropdown.Item>
             <Dropdown.Divider />
             <Dropdown.Item onClick={handleLogout}>
