@@ -292,6 +292,14 @@ class CompaniesController {
       }
 
       await company.destroy();
+      
+      if (company.logo) {
+        try {
+          await deleteStoredLogo(company.logo);
+        } catch (cleanupError) {
+          console.error('Failed to delete company logo during company deletion:', cleanupError);
+        }
+      }
 
       return ApiResponse.success(res, null, 'Company deleted successfully');
     } catch (error) {

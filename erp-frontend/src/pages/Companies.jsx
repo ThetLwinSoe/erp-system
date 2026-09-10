@@ -374,6 +374,7 @@ const Companies = () => {
               <Form.Label>Phone</Form.Label>
               <Form.Control
                 type="text"
+                maxLength={150}
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />

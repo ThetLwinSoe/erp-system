@@ -75,7 +75,7 @@ export const generateProfitLossPDF = ({ company, summary, products, startDate, e
     body: summaryRows,
     theme: 'plain',
     margin: { left: margin, right: margin },
-    styles: { fontSize: 10, cellPadding: 1.5 },
+    styles: { fontSize: 10, cellPadding: 1.5, textColor: [0, 0, 0] },
     columnStyles: {
       0: { fontStyle: 'bold', cellWidth: 90 },
       1: { halign: 'right' },
@@ -111,8 +111,8 @@ export const generateProfitLossPDF = ({ company, summary, products, startDate, e
     head: [productColumns],
     body: productRows,
     margin: { left: margin, right: margin },
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
+    styles: { fontSize: 8, cellPadding: 2, textColor: [0, 0, 0] },
+    headStyles: { fillColor: [51, 51, 51], textColor: 255 },
     columnStyles: {
       2: { halign: 'right' },
       3: { halign: 'right' },

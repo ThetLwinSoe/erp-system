@@ -204,6 +204,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
       fontSize: 8,
       cellPadding: 2,
       font: myanmarFontLoaded ? 'NotoSansMyanmar' : 'helvetica',
+      textColor: [0, 0, 0],
     },
     headStyles: {
       fillColor: [66, 66, 66],
@@ -244,8 +245,25 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   // Get the final Y position after the table
   yPos = doc.lastAutoTable.finalY + 8;
 
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const FOOTER_HEIGHT = 20; // matches the footer's own layout below (line at pageHeight-20, text through pageHeight-11)
+
+  // Starts a new page (resetting yPos to the top margin) if the next block of
+  // `neededHeight` wouldn't fit above the footer's reserved zone - without this,
+  // longer orders push Totals/Notes down far enough to overlap the footer,
+  // which is drawn at a fixed offset from the page bottom regardless of yPos.
+  const ensureSpace = (neededHeight) => {
+    if (yPos + neededHeight > pageHeight - FOOTER_HEIGHT) {
+      doc.addPage();
+      yPos = 15;
+    }
+  };
+
   // Totals section
   const totalsX = pageWidth - margin - 55;
+
+  // Worst case: subtotal + discount + tax + separator/gap + TOTAL line
+  ensureSpace(5 + 5 + 5 + 4 + 10);
 
   addText('Subtotal:', totalsX, yPos, { fontSize: 9 });
   addText(formatCurrency(order.subtotal, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
@@ -272,10 +290,12 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
 
   // Notes section
   if (order.notes) {
+    const splitNotes = doc.splitTextToSize(String(order.notes), pageWidth - 2 * margin);
+    ensureSpace(4 + splitNotes.length * 3.5);
+
     addText('Notes:', margin, yPos, { fontSize: 9, fontStyle: 'bold' });
     yPos += 4;
 
-    const splitNotes = doc.splitTextToSize(String(order.notes), pageWidth - 2 * margin);
     doc.setFontSize(8);
     doc.text(splitNotes, margin, yPos);
   }
