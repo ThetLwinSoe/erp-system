@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getStaticUrl } from '../../services/api';
 
-const Navbar = ({ appVersion }) => {
+const Navbar = ({ latestVersion }) => {
   const { user, logout, isSuperAdmin, getCompanyName } = useAuth();
   const navigate = useNavigate();
 
@@ -62,7 +62,7 @@ const Navbar = ({ appVersion }) => {
               </Dropdown.Item>
             )}
             <Dropdown.Item disabled>
-              <small className="text-muted">App version: {appVersion || '...'}</small>
+              <small className="text-muted">Latest available version: {latestVersion || '...'}</small>
             </Dropdown.Item>
             <Dropdown.Divider />
             <Dropdown.Item onClick={handleLogout}>

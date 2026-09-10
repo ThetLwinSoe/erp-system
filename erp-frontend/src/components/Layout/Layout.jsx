@@ -19,7 +19,7 @@ const Layout = () => {
 
   return (
     <div className="d-flex flex-column min-vh-100">
-      <Navbar appVersion={latestVersion} />
+      <Navbar latestVersion={latestVersion} />
       <VersionUpdateBanner latestVersion={latestVersion} />
       <SubscriptionAlertBanner key={location.pathname} />
       <div className="d-flex flex-grow-1" style={{ overflow: 'hidden' }}>
