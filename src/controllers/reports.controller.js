@@ -51,11 +51,6 @@ class ReportsController {
         }
       }
 
-      // Customer filter
-      if (customerId) {
-        whereClause.customerId = parseInt(customerId);
-      }
-
       // Status filter - exclude pending and cancelled by default
       if (status) {
         whereClause.status = status;
@@ -66,8 +61,16 @@ class ReportsController {
         };
       }
 
+      // Customer filter - applied directly to Sale (has a customerId column), and via
+      // the nested Sale include below for SalesReturn, which has no customerId column
+      // of its own (only saleId) - the customer relationship there is indirect.
+      const salesWhereClause = { ...whereClause };
+      if (customerId) {
+        salesWhereClause.customerId = parseInt(customerId);
+      }
+
       const sales = await Sale.findAll({
-        where: whereClause,
+        where: salesWhereClause,
         include: [
           { model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] },
           { model: User, as: 'user', attributes: ['id', 'name'] },
@@ -87,6 +90,8 @@ class ReportsController {
           {
             model: Sale,
             as: 'sale',
+            where: customerId ? { customerId: parseInt(customerId) } : undefined,
+            required: !!customerId,
             include: [{ model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] }],
           },
           { model: User, as: 'user', attributes: ['id', 'name'] },
@@ -244,10 +249,6 @@ class ReportsController {
         }
       }
 
-      if (customerId) {
-        whereClause.customerId = parseInt(customerId);
-      }
-
       // Status filter - exclude pending and cancelled by default
       if (status) {
         whereClause.status = status;
@@ -258,8 +259,16 @@ class ReportsController {
         };
       }
 
+      // Customer filter - applied directly to Sale (has a customerId column), and via
+      // the nested Sale include below for SalesReturn, which has no customerId column
+      // of its own (only saleId) - the customer relationship there is indirect.
+      const salesWhereClause = { ...whereClause };
+      if (customerId) {
+        salesWhereClause.customerId = parseInt(customerId);
+      }
+
       const sales = await Sale.findAll({
-        where: whereClause,
+        where: salesWhereClause,
         include: [
           { model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] },
           { model: User, as: 'user', attributes: ['id', 'name'] },
@@ -279,6 +288,8 @@ class ReportsController {
           {
             model: Sale,
             as: 'sale',
+            where: customerId ? { customerId: parseInt(customerId) } : undefined,
+            required: !!customerId,
             include: [{ model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] }],
           },
           { model: User, as: 'user', attributes: ['id', 'name'] },
@@ -484,18 +495,22 @@ class ReportsController {
         }
       }
 
-      // Supplier filter
-      if (supplierId) {
-        whereClause.supplierId = parseInt(supplierId);
-      }
-
       // Status filter
       if (status) {
         whereClause.status = status;
       }
 
+      // Supplier filter - applied directly to Purchase (has a supplierId column), and
+      // via the nested Purchase include below for PurchaseReturn, which has no
+      // supplierId column of its own (only purchaseId) - the supplier relationship
+      // there is indirect.
+      const purchasesWhereClause = { ...whereClause };
+      if (supplierId) {
+        purchasesWhereClause.supplierId = parseInt(supplierId);
+      }
+
       const purchases = await Purchase.findAll({
-        where: whereClause,
+        where: purchasesWhereClause,
         include: [
           { model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] },
           { model: User, as: 'user', attributes: ['id', 'name'] },
@@ -515,6 +530,8 @@ class ReportsController {
           {
             model: Purchase,
             as: 'purchase',
+            where: supplierId ? { supplierId: parseInt(supplierId) } : undefined,
+            required: !!supplierId,
             include: [{ model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] }],
           },
           { model: User, as: 'user', attributes: ['id', 'name'] },
@@ -665,16 +682,21 @@ class ReportsController {
         }
       }
 
-      if (supplierId) {
-        whereClause.supplierId = parseInt(supplierId);
-      }
-
       if (status) {
         whereClause.status = status;
       }
 
+      // Supplier filter - applied directly to Purchase (has a supplierId column), and
+      // via the nested Purchase include below for PurchaseReturn, which has no
+      // supplierId column of its own (only purchaseId) - the supplier relationship
+      // there is indirect.
+      const purchasesWhereClause = { ...whereClause };
+      if (supplierId) {
+        purchasesWhereClause.supplierId = parseInt(supplierId);
+      }
+
       const purchases = await Purchase.findAll({
-        where: whereClause,
+        where: purchasesWhereClause,
         include: [
           { model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] },
           { model: User, as: 'user', attributes: ['id', 'name'] },
@@ -694,6 +716,8 @@ class ReportsController {
           {
             model: Purchase,
             as: 'purchase',
+            where: supplierId ? { supplierId: parseInt(supplierId) } : undefined,
+            required: !!supplierId,
             include: [{ model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] }],
           },
           { model: User, as: 'user', attributes: ['id', 'name'] },
