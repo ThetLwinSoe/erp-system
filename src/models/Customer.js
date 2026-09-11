@@ -36,6 +36,14 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(100),
         allowNull: true,
       },
+      customerCode: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      },
+      supplierCode: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      },
       type: {
         type: DataTypes.ENUM('customer', 'supplier', 'both'),
         defaultValue: 'customer',

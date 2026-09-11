@@ -276,6 +276,7 @@ const SalesReport = () => {
                   <th>Original Order</th>
                   <th>Date</th>
                   <th>Customer ID</th>
+                  <th>Customer Code</th>
                   <th>Customer</th>
                   <th>Item SKU</th>
                   <th>Item Name</th>
@@ -305,6 +306,7 @@ const SalesReport = () => {
                           <td>{transaction.type === 'return' ? <code>{transaction.originalOrderNumber}</code> : '-'}</td>
                           <td>{new Date(transaction.createdAt).toLocaleDateString()}</td>
                           <td><code>{transaction.customer?.id || '-'}</code></td>
+                          <td>{transaction.customer?.customerCode || '-'}</td>
                           <td>{transaction.customer?.name || '-'}</td>
                           <td><code>{item.product?.sku || '-'}</code></td>
                           <td>{item.product?.name || '-'}</td>
@@ -345,6 +347,7 @@ const SalesReport = () => {
                           <td>{transaction.type === 'return' ? <code>{transaction.originalOrderNumber}</code> : '-'}</td>
                           <td>{new Date(transaction.createdAt).toLocaleDateString()}</td>
                           <td><code>{transaction.customer?.id || '-'}</code></td>
+                          <td>{transaction.customer?.customerCode || '-'}</td>
                           <td>{transaction.customer?.name || '-'}</td>
                           <td>-</td>
                           <td>-</td>

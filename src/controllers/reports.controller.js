@@ -72,7 +72,7 @@ class ReportsController {
       const sales = await Sale.findAll({
         where: salesWhereClause,
         include: [
-          { model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] },
+          { model: Customer, as: 'customer', attributes: ['id', 'name', 'email', 'customerCode'] },
           { model: User, as: 'user', attributes: ['id', 'name'] },
           {
             model: SaleItem,
@@ -92,7 +92,7 @@ class ReportsController {
             as: 'sale',
             where: customerId ? { customerId: parseInt(customerId) } : undefined,
             required: !!customerId,
-            include: [{ model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] }],
+            include: [{ model: Customer, as: 'customer', attributes: ['id', 'name', 'email', 'customerCode'] }],
           },
           { model: User, as: 'user', attributes: ['id', 'name'] },
           {
@@ -270,7 +270,7 @@ class ReportsController {
       const sales = await Sale.findAll({
         where: salesWhereClause,
         include: [
-          { model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] },
+          { model: Customer, as: 'customer', attributes: ['id', 'name', 'email', 'customerCode'] },
           { model: User, as: 'user', attributes: ['id', 'name'] },
           {
             model: SaleItem,
@@ -290,7 +290,7 @@ class ReportsController {
             as: 'sale',
             where: customerId ? { customerId: parseInt(customerId) } : undefined,
             required: !!customerId,
-            include: [{ model: Customer, as: 'customer', attributes: ['id', 'name', 'email'] }],
+            include: [{ model: Customer, as: 'customer', attributes: ['id', 'name', 'email', 'customerCode'] }],
           },
           { model: User, as: 'user', attributes: ['id', 'name'] },
           {
@@ -309,6 +309,7 @@ class ReportsController {
         'Original Order',
         'Date',
         'Customer ID',
+        'Customer Code',
         'Customer',
         'Customer Email',
         'Status',
@@ -342,6 +343,7 @@ class ReportsController {
               '',
               new Date(sale.createdAt).toISOString().split('T')[0],
               sale.customer?.id || '',
+              sale.customer?.customerCode || '',
               sale.customer?.name || '',
               sale.customer?.email || '',
               sale.status,
@@ -367,6 +369,7 @@ class ReportsController {
             '',
             new Date(sale.createdAt).toISOString().split('T')[0],
             sale.customer?.id || '',
+            sale.customer?.customerCode || '',
             sale.customer?.name || '',
             sale.customer?.email || '',
             sale.status,
@@ -400,6 +403,7 @@ class ReportsController {
               ret.sale?.orderNumber || '',
               new Date(ret.createdAt).toISOString().split('T')[0],
               ret.sale?.customer?.id || '',
+              ret.sale?.customer?.customerCode || '',
               ret.sale?.customer?.name || '',
               ret.sale?.customer?.email || '',
               ret.status,
@@ -425,6 +429,7 @@ class ReportsController {
             ret.sale?.orderNumber || '',
             new Date(ret.createdAt).toISOString().split('T')[0],
             ret.sale?.customer?.id || '',
+            ret.sale?.customer?.customerCode || '',
             ret.sale?.customer?.name || '',
             ret.sale?.customer?.email || '',
             ret.status,
@@ -512,7 +517,7 @@ class ReportsController {
       const purchases = await Purchase.findAll({
         where: purchasesWhereClause,
         include: [
-          { model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] },
+          { model: Customer, as: 'supplier', attributes: ['id', 'name', 'email', 'supplierCode'] },
           { model: User, as: 'user', attributes: ['id', 'name'] },
           {
             model: PurchaseItem,
@@ -532,7 +537,7 @@ class ReportsController {
             as: 'purchase',
             where: supplierId ? { supplierId: parseInt(supplierId) } : undefined,
             required: !!supplierId,
-            include: [{ model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] }],
+            include: [{ model: Customer, as: 'supplier', attributes: ['id', 'name', 'email', 'supplierCode'] }],
           },
           { model: User, as: 'user', attributes: ['id', 'name'] },
           {
@@ -698,7 +703,7 @@ class ReportsController {
       const purchases = await Purchase.findAll({
         where: purchasesWhereClause,
         include: [
-          { model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] },
+          { model: Customer, as: 'supplier', attributes: ['id', 'name', 'email', 'supplierCode'] },
           { model: User, as: 'user', attributes: ['id', 'name'] },
           {
             model: PurchaseItem,
@@ -718,7 +723,7 @@ class ReportsController {
             as: 'purchase',
             where: supplierId ? { supplierId: parseInt(supplierId) } : undefined,
             required: !!supplierId,
-            include: [{ model: Customer, as: 'supplier', attributes: ['id', 'name', 'email'] }],
+            include: [{ model: Customer, as: 'supplier', attributes: ['id', 'name', 'email', 'supplierCode'] }],
           },
           { model: User, as: 'user', attributes: ['id', 'name'] },
           {
@@ -737,6 +742,7 @@ class ReportsController {
         'Original Order',
         'Date',
         'Supplier ID',
+        'Supplier Code',
         'Supplier',
         'Supplier Email',
         'Status',
@@ -770,6 +776,7 @@ class ReportsController {
               '',
               new Date(purchase.createdAt).toISOString().split('T')[0],
               purchase.supplier?.id || '',
+              purchase.supplier?.supplierCode || '',
               purchase.supplier?.name || '',
               purchase.supplier?.email || '',
               purchase.status,
@@ -795,6 +802,7 @@ class ReportsController {
             '',
             new Date(purchase.createdAt).toISOString().split('T')[0],
             purchase.supplier?.id || '',
+            purchase.supplier?.supplierCode || '',
             purchase.supplier?.name || '',
             purchase.supplier?.email || '',
             purchase.status,
@@ -828,6 +836,7 @@ class ReportsController {
               ret.purchase?.orderNumber || '',
               new Date(ret.createdAt).toISOString().split('T')[0],
               ret.purchase?.supplier?.id || '',
+              ret.purchase?.supplier?.supplierCode || '',
               ret.purchase?.supplier?.name || '',
               ret.purchase?.supplier?.email || '',
               ret.status,
@@ -853,6 +862,7 @@ class ReportsController {
             ret.purchase?.orderNumber || '',
             new Date(ret.createdAt).toISOString().split('T')[0],
             ret.purchase?.supplier?.id || '',
+            ret.purchase?.supplier?.supplierCode || '',
             ret.purchase?.supplier?.name || '',
             ret.purchase?.supplier?.email || '',
             ret.status,

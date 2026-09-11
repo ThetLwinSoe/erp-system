@@ -276,6 +276,7 @@ const PurchasesReport = () => {
                   <th>Original Order</th>
                   <th>Date</th>
                   <th>Supplier ID</th>
+                  <th>Supplier Code</th>
                   <th>Supplier</th>
                   <th>Item SKU</th>
                   <th>Item Name</th>
@@ -305,6 +306,7 @@ const PurchasesReport = () => {
                           <td>{transaction.type === 'return' ? <code>{transaction.originalOrderNumber}</code> : '-'}</td>
                           <td>{new Date(transaction.createdAt).toLocaleDateString()}</td>
                           <td><code>{transaction.supplier?.id || '-'}</code></td>
+                          <td>{transaction.supplier?.supplierCode || '-'}</td>
                           <td>{transaction.supplier?.name || '-'}</td>
                           <td><code>{item.product?.sku || '-'}</code></td>
                           <td>{item.product?.name || '-'}</td>
@@ -345,6 +347,7 @@ const PurchasesReport = () => {
                           <td>{transaction.type === 'return' ? <code>{transaction.originalOrderNumber}</code> : '-'}</td>
                           <td>{new Date(transaction.createdAt).toLocaleDateString()}</td>
                           <td><code>{transaction.supplier?.id || '-'}</code></td>
+                          <td>{transaction.supplier?.supplierCode || '-'}</td>
                           <td>{transaction.supplier?.name || '-'}</td>
                           <td>-</td>
                           <td>-</td>
