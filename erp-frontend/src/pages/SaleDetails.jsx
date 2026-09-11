@@ -211,7 +211,10 @@ const SaleDetails = () => {
           <Card className="mb-4">
             <Card.Header>Customer Info</Card.Header>
             <Card.Body>
-              <p className="mb-1"><strong>{sale.customer?.name}</strong></p>
+              <p className="mb-1">
+                <strong>{sale.customer?.name}</strong>
+                {sale.customer?.customerCode && <span className="text-muted"> ({sale.customer.customerCode})</span>}
+              </p>
               <p className="mb-1 text-muted">{sale.customer?.email}</p>
               <p className="mb-1 text-muted">{sale.customer?.phone}</p>
               {(sale.customer?.city || sale.customer?.country) && (

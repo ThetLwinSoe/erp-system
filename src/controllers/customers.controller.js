@@ -1,9 +1,38 @@
-const { Customer } = require('../models');
+const { Customer, Company, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, CUSTOMER_TYPE } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { toCSV, parseCSV } = require('../utils/csv');
 const { Op } = require('sequelize');
+
+/**
+ * Assign whichever of customerCode/supplierCode a given `type` needs
+ * ("customer"/"both" -> customerCode, "supplier"/"both" -> supplierCode),
+ * each from its own per-company running sequence on the Company row
+ * (lastCustomerCodeSeq/lastSupplierCodeSeq). Must run inside `transaction`:
+ * the increment is a single atomic `UPDATE ... SET col = col + 1`, so
+ * Postgres row-locking on that statement serializes concurrent assignments
+ * for the same company - no two rows in one company can ever get the same
+ * code, and rolling back the transaction (e.g. a failed Customer.create)
+ * rolls back the increment too.
+ */
+const assignNextCodes = async (type, companyId, transaction) => {
+  const codes = {};
+
+  if (type === CUSTOMER_TYPE.CUSTOMER || type === CUSTOMER_TYPE.BOTH) {
+    await Company.increment('lastCustomerCodeSeq', { by: 1, where: { id: companyId }, transaction });
+    const company = await Company.findByPk(companyId, { transaction });
+    codes.customerCode = `Cus${String(company.lastCustomerCodeSeq).padStart(5, '0')}`;
+  }
+
+  if (type === CUSTOMER_TYPE.SUPPLIER || type === CUSTOMER_TYPE.BOTH) {
+    await Company.increment('lastSupplierCodeSeq', { by: 1, where: { id: companyId }, transaction });
+    const company = await Company.findByPk(companyId, { transaction });
+    codes.supplierCode = `Sup${String(company.lastSupplierCodeSeq).padStart(5, '0')}`;
+  }
+
+  return codes;
+};
 
 class CustomersController {
   /**
@@ -45,6 +74,8 @@ class CustomersController {
           { email: { [Op.iLike]: `%${search}%` } },
           { phone: { [Op.iLike]: `%${search}%` } },
           { city: { [Op.iLike]: `%${search}%` } },
+          { customerCode: { [Op.iLike]: `%${search}%` } },
+          { supplierCode: { [Op.iLike]: `%${search}%` } },
         ];
       }
 
@@ -84,17 +115,22 @@ class CustomersController {
       }
 
       const { name, email, phone, address, city, country, type, status } = req.body;
+      const resolvedType = type || CUSTOMER_TYPE.CUSTOMER;
 
-      const customer = await Customer.create({
-        name,
-        email: email || null,
-        phone: phone || null,
-        address: address || null,
-        city: city || null,
-        country: country || null,
-        type: type || CUSTOMER_TYPE.CUSTOMER,
-        status: status || 'active',
-        companyId,
+      const customer = await sequelize.transaction(async (transaction) => {
+        const codes = await assignNextCodes(resolvedType, companyId, transaction);
+        return Customer.create({
+          name,
+          email: email || null,
+          phone: phone || null,
+          address: address || null,
+          city: city || null,
+          country: country || null,
+          type: resolvedType,
+          status: status || 'active',
+          companyId,
+          ...codes,
+        }, { transaction });
       });
 
       return ApiResponse.created(res, customer, 'Customer created successfully');
@@ -147,7 +183,29 @@ class CustomersController {
       if (type !== undefined) updates.type = type;
       if (status !== undefined) updates.status = status;
 
-      await customer.update(updates);
+      // If type is changing to add a role (e.g. customer -> both) that doesn't have
+      // a code yet, assign it now. The web UI never sends `type` on update today,
+      // but the API accepts it, so this keeps that path from silently leaving a
+      // role without a code.
+      if (type !== undefined && type !== customer.type) {
+        await sequelize.transaction(async (transaction) => {
+          const needsCustomerCode =
+            (type === CUSTOMER_TYPE.CUSTOMER || type === CUSTOMER_TYPE.BOTH) && !customer.customerCode;
+          const needsSupplierCode =
+            (type === CUSTOMER_TYPE.SUPPLIER || type === CUSTOMER_TYPE.BOTH) && !customer.supplierCode;
+
+          if (needsCustomerCode || needsSupplierCode) {
+            const missingType = needsCustomerCode && needsSupplierCode
+              ? CUSTOMER_TYPE.BOTH
+              : (needsCustomerCode ? CUSTOMER_TYPE.CUSTOMER : CUSTOMER_TYPE.SUPPLIER);
+            Object.assign(updates, await assignNextCodes(missingType, customer.companyId, transaction));
+          }
+
+          await customer.update(updates, { transaction });
+        });
+      } else {
+        await customer.update(updates);
+      }
 
       return ApiResponse.success(res, customer, 'Customer updated successfully');
     } catch (error) {
@@ -251,16 +309,20 @@ class CustomersController {
         }
 
         try {
-          await Customer.create({
-            name,
-            email: email || null,
-            phone: getValue(row, 'phone') || null,
-            address: getValue(row, 'address') || null,
-            city: getValue(row, 'city') || null,
-            country: getValue(row, 'country') || null,
-            type,
-            status: 'active',
-            companyId,
+          await sequelize.transaction(async (transaction) => {
+            const codes = await assignNextCodes(type, companyId, transaction);
+            return Customer.create({
+              name,
+              email: email || null,
+              phone: getValue(row, 'phone') || null,
+              address: getValue(row, 'address') || null,
+              city: getValue(row, 'city') || null,
+              country: getValue(row, 'country') || null,
+              type,
+              status: 'active',
+              companyId,
+              ...codes,
+            }, { transaction });
           });
           created++;
         } catch (err) {
@@ -306,6 +368,8 @@ class CustomersController {
           { email: { [Op.iLike]: `%${search}%` } },
           { phone: { [Op.iLike]: `%${search}%` } },
           { city: { [Op.iLike]: `%${search}%` } },
+          { customerCode: { [Op.iLike]: `%${search}%` } },
+          { supplierCode: { [Op.iLike]: `%${search}%` } },
         ];
       }
 
@@ -314,9 +378,11 @@ class CustomersController {
         order: [['name', 'ASC']],
       });
 
-      const headers = ['ID', 'Name', 'Email', 'Phone', 'Address', 'City', 'Country', 'Type', 'Status', 'Created At'];
+      const headers = ['ID', 'Customer Code', 'Supplier Code', 'Name', 'Email', 'Phone', 'Address', 'City', 'Country', 'Type', 'Status', 'Created At'];
       const rows = customers.map((customer) => [
         customer.id,
+        customer.customerCode || '',
+        customer.supplierCode || '',
         customer.name,
         customer.email || '',
         customer.phone || '',

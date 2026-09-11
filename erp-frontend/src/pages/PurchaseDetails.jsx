@@ -277,7 +277,10 @@ const PurchaseDetails = () => {
           <Card className="mb-4">
             <Card.Header>Supplier Info</Card.Header>
             <Card.Body>
-              <p className="mb-1"><strong>{purchase.supplier?.name}</strong></p>
+              <p className="mb-1">
+                <strong>{purchase.supplier?.name}</strong>
+                {purchase.supplier?.supplierCode && <span className="text-muted"> ({purchase.supplier.supplierCode})</span>}
+              </p>
               <p className="mb-1 text-muted">{purchase.supplier?.email}</p>
               <p className="mb-0 text-muted">{purchase.supplier?.phone}</p>
             </Card.Body>

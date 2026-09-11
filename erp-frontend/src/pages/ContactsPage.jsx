@@ -204,6 +204,7 @@ const ContactsPage = ({ type, label, labelPlural }) => {
             <Table striped hover responsive>
               <thead>
                 <tr>
+                  <th>Code</th>
                   <SortableHeader label="Name" field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Email" field="email" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Phone" field="phone" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -215,6 +216,7 @@ const ContactsPage = ({ type, label, labelPlural }) => {
               <tbody>
                 {contacts.map((contact) => (
                   <tr key={contact.id}>
+                    <td>{(type === 'customer' ? contact.customerCode : contact.supplierCode) || '-'}</td>
                     <td>{contact.name}</td>
                     <td>{contact.email || '-'}</td>
                     <td>{contact.phone || '-'}</td>
@@ -267,6 +269,18 @@ const ContactsPage = ({ type, label, labelPlural }) => {
           <Modal.Body>
             <ErrorAlert error={error} />
             <div className="row">
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>Code</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={selectedContact ? ((type === 'customer' ? selectedContact.customerCode : selectedContact.supplierCode) || '-') : ''}
+                    placeholder={selectedContact ? '' : 'Generated automatically after saving'}
+                    readOnly
+                    className="bg-light"
+                  />
+                </Form.Group>
+              </div>
               <div className="col-md-6">
                 <Form.Group className="mb-3">
                   <Form.Label>Name *</Form.Label>
