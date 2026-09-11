@@ -294,7 +294,7 @@ const Sales = () => {
               <Form.Select value={formData.customerId} onChange={(e) => setFormData({ ...formData, customerId: e.target.value })} required>
                 <option value="">Select Customer</option>
                 {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{c.customerCode ? `${c.customerCode} - ${c.name}` : c.name}</option>
                 ))}
               </Form.Select>
             </Form.Group>

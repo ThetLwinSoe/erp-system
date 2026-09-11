@@ -137,10 +137,11 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   // Customer/Supplier info
   const partyLabel = type === 'sale' ? 'Bill To:' : 'Supplier:';
   const party = type === 'sale' ? order.customer : order.supplier;
+  const partyCode = type === 'sale' ? party?.customerCode : party?.supplierCode;
 
   addText(partyLabel, col1X, yPos, { fontSize: 9, fontStyle: 'bold' });
   yPos += 4;
-  addText(party?.name || 'N/A', col1X, yPos, { fontSize: 9 });
+  addText(partyCode ? `${party?.name || 'N/A'} (${partyCode})` : (party?.name || 'N/A'), col1X, yPos, { fontSize: 9 });
   yPos += 4;
   if (party?.email) {
     addText(party.email, col1X, yPos, { fontSize: 8 });

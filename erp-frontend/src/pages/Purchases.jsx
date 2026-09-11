@@ -293,7 +293,7 @@ const Purchases = () => {
                   <Form.Select value={formData.supplierId} onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })} required>
                     <option value="">Select Supplier</option>
                     {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                      <option key={s.id} value={s.id}>{s.supplierCode ? `${s.supplierCode} - ${s.name}` : s.name}</option>
                     ))}
                   </Form.Select>
                 </Form.Group>
