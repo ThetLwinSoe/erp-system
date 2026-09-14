@@ -128,7 +128,7 @@ class SalesService {
         {
           model: SaleItem,
           as: 'items',
-          include: [{ model: Product, as: 'product' }],
+          include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name'] }],
         },
       ],
     });
