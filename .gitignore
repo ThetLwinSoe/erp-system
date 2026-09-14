@@ -33,7 +33,6 @@ coverage/
 *.temp
 uploads/
 BUGS.md
-CR.md
 
 # Local-only admin/dev scripts - never committed. Anchored to repo root and
 # named distinctly from the existing tracked src/scripts/ dir - an earlier,
@@ -41,8 +40,7 @@ CR.md
 # depth match), which would have swallowed new files dropped in there with
 # zero warning.
 /local-scripts/
-CR-erp-system-pr29.md
 BUGS-round2.md
 Branching-deployment-architecture.md
-CR-erp-system-pr38.md
 Claude outputs/
+code-review-cr/

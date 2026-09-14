@@ -300,11 +300,17 @@ const reportsValidation = {
  * Sort validation factory - validates sortBy against a resource-specific
  * whitelist of columns and sortOrder against ASC/DESC
  */
-const sortValidation = (allowedFields) => [
+const sortValidation = (allowedFields, restrictedForSaleRep = []) => [
   query('sortBy')
     .optional()
     .isIn(allowedFields)
-    .withMessage(`Sort field must be one of: ${allowedFields.join(', ')}`),
+    .withMessage(`Sort field must be one of: ${allowedFields.join(', ')}`)
+    .custom((value, { req }) => {
+      if (req.isSaleRep && restrictedForSaleRep.includes(value)) {
+        throw new Error(`Sort field must be one of: ${allowedFields.filter((f) => !restrictedForSaleRep.includes(f)).join(', ')}`);
+      }
+      return true;
+    }),
   query('sortOrder')
     .optional()
     .toUpperCase()

@@ -18,7 +18,7 @@ router.use(companyScope);
  * @desc Get all products
  * @access Private
  */
-router.get('/', checkSaleRep, paginationValidation, sortValidation(PRODUCT_SORT_FIELDS), ProductsController.getAll);
+router.get('/', checkSaleRep, paginationValidation, sortValidation(PRODUCT_SORT_FIELDS, ['costPrice']), ProductsController.getAll);
 
 /**
  * @route POST /api/products
