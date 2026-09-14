@@ -1,6 +1,6 @@
 const express = require('express');
 const ProductsController = require('../controllers/products.controller');
-const { authenticate, restrictSaleRep, requireSuperAdmin } = require('../middleware/auth');
+const { authenticate, restrictSaleRep, requireSuperAdmin, checkSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { productValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { uploadCSV } = require('../middleware/upload');
@@ -18,7 +18,7 @@ router.use(companyScope);
  * @desc Get all products
  * @access Private
  */
-router.get('/', paginationValidation, sortValidation(PRODUCT_SORT_FIELDS), ProductsController.getAll);
+router.get('/', checkSaleRep, paginationValidation, sortValidation(PRODUCT_SORT_FIELDS, ['costPrice']), ProductsController.getAll);
 
 /**
  * @route POST /api/products
@@ -32,7 +32,7 @@ router.post('/', restrictSaleRep, productValidation.create, ProductsController.c
  * @desc Export products to CSV
  * @access Private
  */
-router.get('/export', ProductsController.exportCSV);
+router.get('/export', checkSaleRep, ProductsController.exportCSV);
 
 /**
  * @route POST /api/products/import
@@ -46,7 +46,7 @@ router.post('/import', restrictSaleRep, uploadCSV, ProductsController.importCSV)
  * @desc Get product by ID
  * @access Private
  */
-router.get('/:id', ProductsController.getById);
+router.get('/:id', checkSaleRep, ProductsController.getById);
 
 /**
  * @route PUT /api/products/:id
