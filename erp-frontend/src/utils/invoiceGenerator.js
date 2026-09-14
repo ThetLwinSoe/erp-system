@@ -89,32 +89,35 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     }
   }
 
-  // Company name (positioned after logo if exists)
+  // Company name, address and contact (positioned after logo if exists).
+  // Each is wrapped to the available width so long text doesn't run past the
+  // page edge - draws the given text as one or more lines and returns the Y
+  // position just after the last line, so the next block can start there.
   const nameX = hasLogo ? margin + logoWidth + 3 : margin;
-  if (company?.name) {
-    addText(company.name, nameX, yPos + 3, { fontSize: 14, fontStyle: 'bold' });
-  }
-
-  // Company address and contact (below name, aligned with name, wrapped to
-  // avoid overflowing the page edge when the text is long)
-  const contactMaxWidth = pageWidth - nameX - margin;
-  const addContactLine = (text) => {
-    doc.setFontSize(8);
-    doc.setFont(getFontForText(text, myanmarFontLoaded), 'normal');
-    const lines = doc.splitTextToSize(text, contactMaxWidth);
-    lines.forEach((line) => {
-      addText(line, nameX, contactY, { fontSize: 8 });
-      contactY += 3;
+  const headerMaxWidth = pageWidth - nameX - margin;
+  const addWrappedText = (text, x, y, { fontSize, fontStyle = 'normal', lineHeight }) => {
+    const fontName = getFontForText(text, myanmarFontLoaded);
+    // Myanmar font only has 'normal' style - use normal even for bold requests
+    const actualFontStyle = fontName === 'NotoSansMyanmar' ? 'normal' : fontStyle;
+    doc.setFontSize(fontSize);
+    doc.setFont(fontName, actualFontStyle);
+    const lines = doc.splitTextToSize(text, headerMaxWidth);
+    lines.forEach((line, i) => {
+      addText(line, x, y + i * lineHeight, { fontSize, fontStyle });
     });
+    return y + lines.length * lineHeight;
   };
 
   let contactY = yPos + 8;
+  if (company?.name) {
+    contactY = addWrappedText(company.name, nameX, yPos + 3, { fontSize: 14, fontStyle: 'bold', lineHeight: 5 });
+  }
   if (company?.address) {
-    addContactLine(company.address);
+    contactY = addWrappedText(company.address, nameX, contactY, { fontSize: 8, lineHeight: 3 });
   }
   if (company?.phone || company?.email) {
     const contactInfo = [company?.phone, company?.email].filter(Boolean).join(' | ');
-    addContactLine(contactInfo);
+    contactY = addWrappedText(contactInfo, nameX, contactY, { fontSize: 8, lineHeight: 3 });
   }
 
   // Move yPos to after the header section with spacing
