@@ -214,7 +214,9 @@ const Products = () => {
                   <SortableHeader label="SKU" field="sku" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Name" field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Category" field="category" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                  <SortableHeader label="Cost Price" field="costPrice" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {!isSaleRep() && (
+                    <SortableHeader label="Cost Price" field="costPrice" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   <SortableHeader label="Selling Price" field="sellingPrice" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Stock" field="stock" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -227,7 +229,7 @@ const Products = () => {
                     <td><code>{product.sku}</code></td>
                     <td>{product.name}</td>
                     <td>{product.category || '-'}</td>
-                    <td>{formatCurrency(product.costPrice, currency)}</td>
+                    {!isSaleRep() && <td>{formatCurrency(product.costPrice, currency)}</td>}
                     <td>{formatCurrency(product.sellingPrice, currency)}</td>
                     <td>{getStockBadge(product)}</td>
                     <td>

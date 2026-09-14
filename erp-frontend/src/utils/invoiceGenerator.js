@@ -57,7 +57,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   // Company header with logo and name side by side
   let logoWidth = 0;
   let logoHeight = 0;
-  const logoSize = 12; // Small logo size in mm
+  const logoSize = 20; // Logo size in mm
   let hasLogo = false;
 
   // Load and add company logo if available
@@ -89,22 +89,35 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     }
   }
 
-  // Company name (positioned after logo if exists)
+  // Company name, address and contact (positioned after logo if exists).
+  // Each is wrapped to the available width so long text doesn't run past the
+  // page edge - draws the given text as one or more lines and returns the Y
+  // position just after the last line, so the next block can start there.
   const nameX = hasLogo ? margin + logoWidth + 3 : margin;
-  if (company?.name) {
-    addText(company.name, nameX, yPos + 3, { fontSize: 14, fontStyle: 'bold' });
-  }
+  const headerMaxWidth = pageWidth - nameX - margin;
+  const addWrappedText = (text, x, y, { fontSize, fontStyle = 'normal', lineHeight }) => {
+    const fontName = getFontForText(text, myanmarFontLoaded);
+    // Myanmar font only has 'normal' style - use normal even for bold requests
+    const actualFontStyle = fontName === 'NotoSansMyanmar' ? 'normal' : fontStyle;
+    doc.setFontSize(fontSize);
+    doc.setFont(fontName, actualFontStyle);
+    const lines = doc.splitTextToSize(text, headerMaxWidth);
+    lines.forEach((line, i) => {
+      addText(line, x, y + i * lineHeight, { fontSize, fontStyle });
+    });
+    return y + lines.length * lineHeight;
+  };
 
-  // Company address and contact (below name, aligned with name)
   let contactY = yPos + 8;
+  if (company?.name) {
+    contactY = addWrappedText(company.name, nameX, yPos + 3, { fontSize: 14, fontStyle: 'bold', lineHeight: 5 });
+  }
   if (company?.address) {
-    addText(company.address, nameX, contactY, { fontSize: 8 });
-    contactY += 3;
+    contactY = addWrappedText(company.address, nameX, contactY, { fontSize: 8, lineHeight: 3 });
   }
   if (company?.phone || company?.email) {
     const contactInfo = [company?.phone, company?.email].filter(Boolean).join(' | ');
-    addText(contactInfo, nameX, contactY, { fontSize: 8 });
-    contactY += 3;
+    contactY = addWrappedText(contactInfo, nameX, contactY, { fontSize: 8, lineHeight: 3 });
   }
 
   // Move yPos to after the header section with spacing
@@ -162,10 +175,33 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   const hasItemDiscounts = type === 'sale' && (order.items || []).some(item => item.discountPercent > 0);
   const hasFocQty = (order.items || []).some(item => item.focQuantity > 0);
 
-  // Items table
-  const tableColumns = type === 'sale'
-    ? ['#', 'SKU', 'Product', 'Qty', ...(hasFocQty ? ['FOC'] : []), 'Price', ...(hasItemDiscounts ? ['Disc %'] : []), 'Total']
-    : ['#', 'SKU', 'Product', 'Qty', ...(hasFocQty ? ['FOC'] : []), 'Recv', 'Price', 'Total'];
+  // Items table - column labels and widths are built from the same list, in
+  // the same conditional order as the row values below (Qty, [FOC], [Recv],
+  // Price, [Disc %], Total), so header/row/width can never drift out of sync
+  // regardless of which optional columns (FOC, Recv, Disc %) are present.
+  const itemColumns = [
+    { label: '#', width: 8 },
+    { label: 'SKU', width: 18 },
+    { label: 'Product', width: 'auto' },
+    { label: 'Qty', width: 10, halign: 'center' },
+  ];
+  if (hasFocQty) {
+    itemColumns.push({ label: 'FOC', width: 10, halign: 'center' });
+  }
+  if (type === 'purchase') {
+    itemColumns.push({ label: 'Recv', width: 10, halign: 'center' });
+  }
+  itemColumns.push({ label: 'Price', width: 18, halign: 'right' });
+  if (type === 'sale' && hasItemDiscounts) {
+    itemColumns.push({ label: 'Disc %', width: 12, halign: 'center' });
+  }
+  itemColumns.push({ label: 'Total', width: 20, halign: 'right' });
+
+  const tableColumns = itemColumns.map((col) => col.label);
+  const columnStyles = itemColumns.reduce((styles, col, index) => {
+    styles[index] = { cellWidth: col.width, ...(col.halign && { halign: col.halign }) };
+    return styles;
+  }, {});
 
   const tableData = (order.items || []).map((item, index) => {
     const row = [
@@ -217,30 +253,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     alternateRowStyles: {
       fillColor: [245, 245, 245],
     },
-    columnStyles: type === 'sale' ? (hasItemDiscounts ? {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 'auto' },
-      3: { cellWidth: 10, halign: 'center' },
-      4: { cellWidth: 18, halign: 'right' },
-      5: { cellWidth: 12, halign: 'center' },
-      6: { cellWidth: 20, halign: 'right' },
-    } : {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 20 },
-      2: { cellWidth: 'auto' },
-      3: { cellWidth: 12, halign: 'center' },
-      4: { cellWidth: 20, halign: 'right' },
-      5: { cellWidth: 22, halign: 'right' },
-    }) : {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 'auto' },
-      3: { cellWidth: 10, halign: 'center' },
-      4: { cellWidth: 10, halign: 'center' },
-      5: { cellWidth: 18, halign: 'right' },
-      6: { cellWidth: 20, halign: 'right' },
-    },
+    columnStyles,
   });
 
   // Get the final Y position after the table

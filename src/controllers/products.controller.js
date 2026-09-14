@@ -63,6 +63,7 @@ class ProductsController {
         order,
         limit,
         offset,
+        ...(req.isSaleRep && { attributes: { exclude: ['costPrice'] } }),
       });
 
       const pagination = {
@@ -132,6 +133,7 @@ class ProductsController {
       const product = await Product.findOne({
         where: whereClause,
         include: [{ model: Inventory, as: 'inventory' }],
+        ...(req.isSaleRep && { attributes: { exclude: ['costPrice'] } }),
       });
 
       if (!product) {
@@ -366,7 +368,11 @@ class ProductsController {
         order: [['name', 'ASC']],
       });
 
-      const headers = ['ID', 'SKU', 'Name', 'Description', 'Category', 'Unit', 'Cost Price', 'Selling Price', 'Stock', 'Min Stock Level', 'Status', 'Created At'];
+      const headers = [
+        'ID', 'SKU', 'Name', 'Description', 'Category', 'Unit',
+        ...(req.isSaleRep ? [] : ['Cost Price']),
+        'Selling Price', 'Stock', 'Min Stock Level', 'Status', 'Created At',
+      ];
       const rows = products.map((product) => [
         product.id,
         product.sku,
@@ -374,7 +380,7 @@ class ProductsController {
         product.description || '',
         product.category || '',
         product.unit || '',
-        parseFloat(product.costPrice).toFixed(2),
+        ...(req.isSaleRep ? [] : [parseFloat(product.costPrice).toFixed(2)]),
         parseFloat(product.sellingPrice).toFixed(2),
         product.inventory?.quantity ?? '',
         product.inventory?.minStockLevel ?? '',
