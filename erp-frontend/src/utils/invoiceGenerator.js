@@ -260,7 +260,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   yPos = doc.lastAutoTable.finalY + 8;
 
   const pageHeight = doc.internal.pageSize.getHeight();
-  const FOOTER_HEIGHT = 20; // matches the footer's own layout below (line at pageHeight-20, text through pageHeight-11)
+  const FOOTER_HEIGHT = 15; // matches the footer's own layout below (line at pageHeight-15, text through pageHeight-6)
 
   // Starts a new page (resetting yPos to the top margin) if the next block of
   // `neededHeight` wouldn't fit above the footer's reserved zone - without this,
@@ -276,8 +276,12 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   // Totals section
   const totalsX = pageWidth - margin - 55;
 
-  // Worst case: subtotal + discount + tax + separator/gap + TOTAL line
-  ensureSpace(5 + 5 + 5 + 4 + 10);
+  // Actual height of the block about to be drawn: Subtotal + Tax [+ Discount]
+  // lines, the separator gap, and a small buffer for the TOTAL line's own
+  // text height (not the full trailing spacing after it, which is just
+  // breathing room for a Notes section that may not exist).
+  const totalsLines = 2 + (type === 'sale' && order.discountPercent > 0 ? 1 : 0);
+  ensureSpace(totalsLines * 5 + 4 + 3);
 
   addText('Subtotal:', totalsX, yPos, { fontSize: 9 });
   addText(formatCurrency(order.subtotal, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
@@ -315,7 +319,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   }
 
   // Footer
-  const footerY = doc.internal.pageSize.getHeight() - 15;
+  const footerY = doc.internal.pageSize.getHeight() - 10;
   doc.setDrawColor(200);
   doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
 
@@ -334,7 +338,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
  */
 const IMAGE_LOAD_TIMEOUT_MS = 8000;
 
-const loadImage = (url) => {
+export const loadImage = (url) => {
   return new Promise((resolve) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -396,7 +400,7 @@ const loadImage = (url) => {
  * Draw a placeholder logo badge (filled circle + first initial) when the real
  * logo image can't be loaded - never depends on network/CORS, so it can't fail.
  */
-const drawLogoPlaceholder = (doc, name, x, y, size) => {
+export const drawLogoPlaceholder = (doc, name, x, y, size) => {
   const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
   const centerX = x + size / 2;
   const centerY = y + size / 2;

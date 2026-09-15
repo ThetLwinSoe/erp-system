@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaFileExport, FaFilePdf, FaSearch, FaChartLine } from 'react-icons/fa';
-import { reportsAPI, companiesAPI } from '../services/api';
+import { reportsAPI, companiesAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
@@ -85,18 +85,19 @@ const ProfitLossReport = () => {
     }
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
       setGeneratingPdf(true);
       const company = selectedCompany ? {
         name: selectedCompany.name,
+        logo: selectedCompany.logo ? getStaticUrl(selectedCompany.logo) : null,
         address: selectedCompany.address,
         phone: selectedCompany.phone,
         email: selectedCompany.email,
         currency: selectedCompany.currency,
       } : null;
 
-      generateProfitLossPDF({
+      await generateProfitLossPDF({
         company,
         summary,
         products,
