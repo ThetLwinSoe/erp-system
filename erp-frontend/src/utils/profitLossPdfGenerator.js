@@ -1,7 +1,8 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency } from './currency';
-import { setupMyanmarFont, getFontForText, containsMyanmarText } from './pdfFonts';
+import { containsMyanmarText } from './pdfFonts';
+import { renderMyanmarTextToImage } from './textRasterizer';
 import { loadImage, drawLogoPlaceholder } from './invoiceGenerator';
 
 /**
@@ -20,18 +21,30 @@ export const generateProfitLossPDF = async ({ company, summary, products, startD
   let yPos = 18;
   const currency = company?.currency;
 
-  const myanmarFontLoaded = setupMyanmarFont(doc);
-  if (!myanmarFontLoaded && containsMyanmarText(company?.name)) {
-    console.warn('Myanmar text detected but Myanmar font not loaded. Text may not display correctly.');
-  }
-
-  const addText = (text, x, y, options = {}) => {
+  // Draws one line of text. jsPDF has no complex-script text-shaping engine,
+  // so Myanmar text is rasterized via the browser's own (correct) shaping
+  // instead of being drawn directly - see textRasterizer.js. Everything else
+  // stays real vector PDF text, same as before.
+  const addText = async (text, x, y, options = {}) => {
     const { fontSize = 10, fontStyle = 'normal', align = 'left' } = options;
+    const str = String(text ?? '');
+    if (!str) return;
+
+    if (containsMyanmarText(str)) {
+      const { dataUri, widthMM, heightMM, baselineFromTopMM } = renderMyanmarTextToImage(str, { fontSizePt: fontSize, fontStyle });
+      let drawX = x;
+      if (align === 'center') drawX -= widthMM / 2;
+      else if (align === 'right') drawX -= widthMM;
+      // doc.text()'s y is a baseline; addImage's y is a top-left corner -
+      // baselineFromTopMM is the exact (measured, not approximated) distance
+      // from the image top to where the text's own baseline sits.
+      doc.addImage(dataUri, 'PNG', drawX, y - baselineFromTopMM, widthMM, heightMM);
+      return;
+    }
+
     doc.setFontSize(fontSize);
-    const fontName = getFontForText(text, myanmarFontLoaded);
-    const actualFontStyle = fontName === 'NotoSansMyanmar' ? 'normal' : fontStyle;
-    doc.setFont(fontName, actualFontStyle);
-    doc.text(String(text ?? ''), x, y, { align });
+    doc.setFont('helvetica', fontStyle);
+    doc.text(str, x, y, { align });
   };
 
   // Header: logo (if any) with company name/address/contact wrapped next to
@@ -67,37 +80,63 @@ export const generateProfitLossPDF = async ({ company, summary, products, startD
 
   const nameX = hasLogo ? margin + logoWidth + 3 : margin;
   const headerMaxWidth = pageWidth - nameX - margin;
-  const addWrappedText = (text, x, y, { fontSize, fontStyle = 'normal', lineHeight }) => {
-    const fontName = getFontForText(text, myanmarFontLoaded);
-    const actualFontStyle = fontName === 'NotoSansMyanmar' ? 'normal' : fontStyle;
-    doc.setFontSize(fontSize);
-    doc.setFont(fontName, actualFontStyle);
-    const lines = doc.splitTextToSize(text, headerMaxWidth);
-    lines.forEach((line, i) => {
-      addText(line, x, y + i * lineHeight, { fontSize, fontStyle });
-    });
+
+  // Splits `str` into lines that fit `maxWidthMM`. Plain text is measured by
+  // jsPDF directly; Myanmar text can't be measured that way (it's no longer
+  // registered as a jsPDF font), so it's wrapped by rasterizing candidate
+  // substrings word-by-word against the available width instead.
+  const wrapText = async (str, maxWidthMM, fontSize, fontStyle) => {
+    if (!containsMyanmarText(str)) {
+      doc.setFontSize(fontSize);
+      doc.setFont('helvetica', fontStyle);
+      return doc.splitTextToSize(str, maxWidthMM);
+    }
+    const words = str.split(' ');
+    const lines = [];
+    let currentLine = '';
+    for (const word of words) {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+      const { widthMM } = await renderMyanmarTextToImage(candidate, { fontSizePt: fontSize, fontStyle });
+      if (currentLine && widthMM > maxWidthMM) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = candidate;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines;
+  };
+
+  const addWrappedText = async (text, x, y, { fontSize, fontStyle = 'normal', lineHeight }) => {
+    const str = String(text || '');
+    if (!str) return y;
+    const lines = await wrapText(str, headerMaxWidth, fontSize, fontStyle);
+    for (let i = 0; i < lines.length; i++) {
+      await addText(lines[i], x, y + i * lineHeight, { fontSize, fontStyle });
+    }
     return y + lines.length * lineHeight;
   };
 
   let textBottom = yPos + 3;
   if (company?.name) {
-    textBottom = addWrappedText(company.name, nameX, textBottom, { fontSize: 14, fontStyle: 'bold', lineHeight: 5 });
+    textBottom = await addWrappedText(company.name, nameX, textBottom, { fontSize: 14, fontStyle: 'bold', lineHeight: 5 });
   }
   if (company?.address) {
-    textBottom = addWrappedText(company.address, nameX, textBottom, { fontSize: 8, lineHeight: 3.5 });
+    textBottom = await addWrappedText(company.address, nameX, textBottom, { fontSize: 8, lineHeight: 3.5 });
   }
   const phoneEmail = [company?.phone, company?.email].filter(Boolean).join(' | ');
   if (phoneEmail) {
-    textBottom = addWrappedText(phoneEmail, nameX, textBottom, { fontSize: 8, lineHeight: 3.5 });
+    textBottom = await addWrappedText(phoneEmail, nameX, textBottom, { fontSize: 8, lineHeight: 3.5 });
   }
 
   yPos = Math.max(yPos + logoHeight + 3, textBottom + 2) + 5;
 
-  addText('PROFIT & LOSS REPORT', pageWidth / 2, yPos, { fontSize: 13, fontStyle: 'bold', align: 'center' });
+  await addText('PROFIT & LOSS REPORT', pageWidth / 2, yPos, { fontSize: 13, fontStyle: 'bold', align: 'center' });
   yPos += 7;
 
-  addText(`Period: ${startDate || 'All time'} to ${endDate || 'All time'}`, margin, yPos, { fontSize: 9 });
-  addText(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+  await addText(`Period: ${startDate || 'All time'} to ${endDate || 'All time'}`, margin, yPos, { fontSize: 9 });
+  await addText(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
   yPos += 4;
 
   doc.setDrawColor(200, 200, 200);
@@ -139,44 +178,97 @@ export const generateProfitLossPDF = async ({ company, summary, products, startD
   yPos = doc.lastAutoTable.finalY + 8;
 
   // Product breakdown
-  addText('Product Breakdown', margin, yPos, { fontSize: 11, fontStyle: 'bold' });
+  await addText('Product Breakdown', margin, yPos, { fontSize: 11, fontStyle: 'bold' });
   yPos += 3;
 
+  // Fixed widths for every column (not 'auto') - Myanmar product names are
+  // drawn as an image overlay (see didDrawCell below) rather than as cell
+  // text, so autotable can't auto-size the Product column from that cell's
+  // content; the other columns are fixed too for a predictable layout.
+  const PRODUCT_COLUMN_INDEX = 1;
+  const otherColumnWidths = { sku: 25, qty: 20, revenue: 25, cogs: 25, grossProfit: 25, margin: 20 };
+  const fixedColumnsWidth = Object.values(otherColumnWidths).reduce((sum, w) => sum + w, 0);
+  const productColumnWidth = pageWidth - margin * 2 - fixedColumnsWidth;
+
   const productColumns = ['SKU', 'Product', 'Qty Sold', 'Revenue', 'COGS', 'Gross Profit', 'Margin %'];
-  const productRows = (products || []).map((p) => [
-    p.sku || '-',
-    p.name || '-',
-    p.qtySold,
-    fmt(p.revenue),
-    fmt(p.cogs),
-    fmt(p.grossProfit),
-    `${(p.marginPercent || 0).toFixed(2)}%`,
-  ]);
+
+  // Product names containing Myanmar text are rasterized up front (autotable
+  // itself is synchronous and can't await inside its draw hooks) and drawn
+  // via didDrawCell below; the cell's own text is left blank for those rows.
+  const productImages = {};
+  const productRows = (products || []).map((p, index) => {
+    const name = p.name || '-';
+    let displayName = name;
+    if (containsMyanmarText(name)) {
+      // Rasterization itself is async but productImages is populated via the
+      // .map() side effect below through a follow-up Promise.all pass.
+      displayName = '';
+    }
+    return {
+      row: [
+        p.sku || '-',
+        displayName,
+        p.qtySold,
+        fmt(p.revenue),
+        fmt(p.cogs),
+        fmt(p.grossProfit),
+        `${(p.marginPercent || 0).toFixed(2)}%`,
+      ],
+      index,
+      name,
+      needsRaster: name !== displayName,
+    };
+  });
+
+  await Promise.all(
+    productRows
+      .filter((r) => r.needsRaster)
+      .map(async (r) => {
+        productImages[r.index] = await renderMyanmarTextToImage(r.name, { fontSizePt: 8, fontStyle: 'normal' });
+      })
+  );
 
   autoTable(doc, {
     startY: yPos,
     head: [productColumns],
-    body: productRows,
+    body: productRows.map((r) => r.row),
     margin: { left: margin, right: margin },
     styles: {
       fontSize: 8,
       cellPadding: 2,
       textColor: [0, 0, 0],
-      font: myanmarFontLoaded ? 'NotoSansMyanmar' : 'helvetica',
+      font: 'helvetica',
     },
     headStyles: {
       fillColor: [51, 51, 51],
       textColor: 255,
-      // Myanmar font only has 'normal' style, use normal for headers too
-      fontStyle: myanmarFontLoaded ? 'normal' : 'bold',
-      font: myanmarFontLoaded ? 'NotoSansMyanmar' : 'helvetica',
+      fontStyle: 'bold',
+      font: 'helvetica',
     },
     columnStyles: {
-      2: { halign: 'right' },
-      3: { halign: 'right' },
-      4: { halign: 'right' },
-      5: { halign: 'right' },
-      6: { halign: 'right' },
+      0: { cellWidth: otherColumnWidths.sku },
+      1: { cellWidth: productColumnWidth },
+      2: { cellWidth: otherColumnWidths.qty, halign: 'right' },
+      3: { cellWidth: otherColumnWidths.revenue, halign: 'right' },
+      4: { cellWidth: otherColumnWidths.cogs, halign: 'right' },
+      5: { cellWidth: otherColumnWidths.grossProfit, halign: 'right' },
+      6: { cellWidth: otherColumnWidths.margin, halign: 'right' },
+    },
+    didDrawCell: (data) => {
+      if (data.section !== 'body' || data.column.index !== PRODUCT_COLUMN_INDEX) return;
+      const img = productImages[data.row.index];
+      if (!img) return;
+
+      const padX = 2;
+      let { widthMM, heightMM } = img;
+      const maxWidth = data.cell.width - padX * 2;
+      if (widthMM > maxWidth) {
+        const scale = maxWidth / widthMM;
+        widthMM *= scale;
+        heightMM *= scale;
+      }
+      const imgY = data.cell.y + (data.cell.height - heightMM) / 2;
+      doc.addImage(img.dataUri, 'PNG', data.cell.x + padX, imgY, widthMM, heightMM);
     },
   });
 
