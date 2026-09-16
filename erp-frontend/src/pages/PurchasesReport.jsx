@@ -3,6 +3,7 @@ import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'reac
 import { FaFileExport, FaSearch, FaChartBar } from 'react-icons/fa';
 import { reportsAPI, customersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { fetchAllPages } from '../utils/fetchAll';
 import StatusBadge from '../components/common/StatusBadge';
 import { PURCHASE_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
@@ -33,8 +34,8 @@ const PurchasesReport = () => {
 
   const fetchSuppliers = async () => {
     try {
-      const response = await customersAPI.getAll({ limit: 100, type: 'supplier' });
-      setSuppliers(response.data.data || []);
+      const suppliersData = await fetchAllPages(customersAPI.getAll, { type: 'supplier' });
+      setSuppliers(suppliersData);
     } catch (err) {
       console.error('Error fetching suppliers:', err);
     }

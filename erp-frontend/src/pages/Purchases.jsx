@@ -4,6 +4,7 @@ import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { purchasesAPI, customersAPI, productsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { fetchAllPages } from '../utils/fetchAll';
 import SearchBar from '../components/common/SearchBar';
 import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
@@ -65,12 +66,12 @@ const Purchases = () => {
 
   const fetchFormData = async () => {
     try {
-      const [suppliersRes, productsRes] = await Promise.all([
-        customersAPI.getAll({ limit: 100, type: 'supplier' }),
-        productsAPI.getAll({ limit: 100 }),
+      const [suppliersData, productsData] = await Promise.all([
+        fetchAllPages(customersAPI.getAll, { type: 'supplier' }),
+        fetchAllPages(productsAPI.getAll),
       ]);
-      setSuppliers(suppliersRes.data.data || []);
-      setProducts(productsRes.data.data || []);
+      setSuppliers(suppliersData);
+      setProducts(productsData);
     } catch (error) {
       console.error('Error fetching form data:', error);
     }
