@@ -49,30 +49,37 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     doc.text(str, x, y, { align });
   };
 
-  // Splits `str` into lines that fit `maxWidthMM`. Plain text is measured by
-  // jsPDF directly; Myanmar text can't be measured that way anymore (it's no
-  // longer registered as a jsPDF font), so it's wrapped by rasterizing
-  // candidate substrings word-by-word against the available width instead.
+  // Splits `str` into lines that fit `maxWidthMM`, each with the line's own
+  // measured height (Myanmar only - null for plain text, see below). Plain
+  // text is measured by jsPDF directly; Myanmar text can't be measured that
+  // way anymore (it's no longer registered as a jsPDF font), so it's wrapped
+  // by rasterizing candidate substrings word-by-word against the available
+  // width instead - which also gives each line's real rendered height for
+  // free, needed so addWrappedText can space rasterized lines correctly
+  // (their real ink can be taller than a generic fixed line-height guess).
   const wrapText = async (str, maxWidthMM, fontSize, fontStyle) => {
     if (!containsMyanmarText(str)) {
       doc.setFontSize(fontSize);
       doc.setFont('helvetica', fontStyle);
-      return doc.splitTextToSize(str, maxWidthMM);
+      return doc.splitTextToSize(str, maxWidthMM).map((text) => ({ text, heightMM: null }));
     }
     const words = str.split(' ');
     const lines = [];
     let currentLine = '';
+    let currentImg = null;
     for (const word of words) {
       const candidate = currentLine ? `${currentLine} ${word}` : word;
-      const { widthMM } = await renderMyanmarTextToImage(candidate, { fontSizePt: fontSize, fontStyle });
-      if (currentLine && widthMM > maxWidthMM) {
-        lines.push(currentLine);
+      const img = renderMyanmarTextToImage(candidate, { fontSizePt: fontSize, fontStyle });
+      if (currentLine && img.widthMM > maxWidthMM) {
+        lines.push({ text: currentLine, heightMM: currentImg.heightMM });
         currentLine = word;
+        currentImg = renderMyanmarTextToImage(word, { fontSizePt: fontSize, fontStyle });
       } else {
         currentLine = candidate;
+        currentImg = img;
       }
     }
-    if (currentLine) lines.push(currentLine);
+    if (currentLine) lines.push({ text: currentLine, heightMM: currentImg.heightMM });
     return lines;
   };
 
@@ -121,10 +128,16 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     const str = String(text || '');
     if (!str) return y;
     const lines = await wrapText(str, headerMaxWidth, fontSize, fontStyle);
-    for (let i = 0; i < lines.length; i++) {
-      await addText(lines[i], x, y + i * lineHeight, { fontSize, fontStyle });
+    let cursorY = y;
+    for (const line of lines) {
+      await addText(line.text, x, cursorY, { fontSize, fontStyle });
+      // A rasterized Myanmar line's real ink can be taller than the fixed
+      // lineHeight - advance by whichever is larger so consecutive wrapped
+      // lines never overlap. Plain text has no measured height (null), so
+      // this is a no-op there - identical spacing to before.
+      cursorY += Math.max(lineHeight, line.heightMM || 0);
     }
-    return y + lines.length * lineHeight;
+    return cursorY;
   };
 
   let contactY = yPos + 8;
@@ -366,8 +379,10 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     await addText('Notes:', margin, yPos, { fontSize: 9, fontStyle: 'bold' });
     yPos += 4;
 
-    for (let i = 0; i < splitNotes.length; i++) {
-      await addText(splitNotes[i], margin, yPos + i * 3.5, { fontSize: 8 });
+    let notesY = yPos;
+    for (const line of splitNotes) {
+      await addText(line.text, margin, notesY, { fontSize: 8 });
+      notesY += Math.max(3.5, line.heightMM || 0);
     }
   }
 
