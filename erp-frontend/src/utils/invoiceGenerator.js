@@ -177,6 +177,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   yPos += 5;
 
   await addText(`Status: ${(order.status || 'N/A').toUpperCase()}`, col1X, yPos, { fontSize: 9 });
+  await addText(`Created By: ${order.user?.name || 'N/A'}`, col2X, yPos, { fontSize: 9 });
   yPos += 8;
 
   // Customer/Supplier info
