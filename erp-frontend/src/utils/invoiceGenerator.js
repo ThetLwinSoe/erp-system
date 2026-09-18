@@ -1,7 +1,8 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency } from './currency';
-import { setupMyanmarFont, getFontForText, containsMyanmarText } from './pdfFonts';
+import { containsMyanmarText } from './pdfFonts';
+import { renderMyanmarTextToImage } from './textRasterizer';
 
 /**
  * Generate and download invoice PDF
@@ -22,36 +23,64 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   const margin = 10;
   let yPos = 15;
 
-  // Try to load Myanmar font for Unicode support
-  const myanmarFontLoaded = setupMyanmarFont(doc);
-
-  // Show warning if Myanmar text detected but font not available
-  if (!myanmarFontLoaded) {
-    const hasMyanmar =
-      containsMyanmarText(company?.name) ||
-      containsMyanmarText(company?.address) ||
-      containsMyanmarText(order.customer?.name || order.supplier?.name) ||
-      (order.items || []).some(item => containsMyanmarText(item.product?.name));
-
-    if (hasMyanmar) {
-      console.warn('Myanmar text detected but Myanmar font not loaded. Text may not display correctly.');
-      console.warn('See pdfFonts.js for instructions on adding Myanmar font support.');
-    }
-  }
-
-  // Helper function to add text with automatic font selection
-  const addText = (text, x, y, options = {}) => {
+  // Draws one line of text. jsPDF has no complex-script text-shaping engine,
+  // so Myanmar text is rasterized via the browser's own (correct) shaping
+  // instead of being drawn directly - see textRasterizer.js. Everything else
+  // stays real vector PDF text, same as before.
+  const addText = async (text, x, y, options = {}) => {
     const { fontSize = 10, fontStyle = 'normal', align = 'left' } = options;
+    const str = String(text || '');
+    if (!str) return;
+
+    if (containsMyanmarText(str)) {
+      const { dataUri, widthMM, heightMM, baselineFromTopMM } = renderMyanmarTextToImage(str, { fontSizePt: fontSize, fontStyle });
+      let drawX = x;
+      if (align === 'center') drawX -= widthMM / 2;
+      else if (align === 'right') drawX -= widthMM;
+      // doc.text()'s y is a baseline; addImage's y is a top-left corner -
+      // baselineFromTopMM is the exact (measured, not approximated) distance
+      // from the image top to where the text's own baseline sits.
+      doc.addImage(dataUri, 'PNG', drawX, y - baselineFromTopMM, widthMM, heightMM);
+      return;
+    }
+
     doc.setFontSize(fontSize);
+    doc.setFont('helvetica', fontStyle);
+    doc.text(str, x, y, { align });
+  };
 
-    // Use Myanmar font if available and text contains Myanmar characters
-    const fontName = getFontForText(text, myanmarFontLoaded);
-
-    // Myanmar font only has 'normal' style - use normal even for bold requests
-    const actualFontStyle = fontName === 'NotoSansMyanmar' ? 'normal' : fontStyle;
-    doc.setFont(fontName, actualFontStyle);
-
-    doc.text(String(text || ''), x, y, { align });
+  // Splits `str` into lines that fit `maxWidthMM`, each with the line's own
+  // measured height (Myanmar only - null for plain text, see below). Plain
+  // text is measured by jsPDF directly; Myanmar text can't be measured that
+  // way anymore (it's no longer registered as a jsPDF font), so it's wrapped
+  // by rasterizing candidate substrings word-by-word against the available
+  // width instead - which also gives each line's real rendered height for
+  // free, needed so addWrappedText can space rasterized lines correctly
+  // (their real ink can be taller than a generic fixed line-height guess).
+  const wrapText = async (str, maxWidthMM, fontSize, fontStyle) => {
+    if (!containsMyanmarText(str)) {
+      doc.setFontSize(fontSize);
+      doc.setFont('helvetica', fontStyle);
+      return doc.splitTextToSize(str, maxWidthMM).map((text) => ({ text, heightMM: null }));
+    }
+    const words = str.split(' ');
+    const lines = [];
+    let currentLine = '';
+    let currentImg = null;
+    for (const word of words) {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+      const img = renderMyanmarTextToImage(candidate, { fontSizePt: fontSize, fontStyle });
+      if (currentLine && img.widthMM > maxWidthMM) {
+        lines.push({ text: currentLine, heightMM: currentImg.heightMM });
+        currentLine = word;
+        currentImg = renderMyanmarTextToImage(word, { fontSizePt: fontSize, fontStyle });
+      } else {
+        currentLine = candidate;
+        currentImg = img;
+      }
+    }
+    if (currentLine) lines.push({ text: currentLine, heightMM: currentImg.heightMM });
+    return lines;
   };
 
   // Company header with logo and name side by side
@@ -95,29 +124,32 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   // position just after the last line, so the next block can start there.
   const nameX = hasLogo ? margin + logoWidth + 3 : margin;
   const headerMaxWidth = pageWidth - nameX - margin;
-  const addWrappedText = (text, x, y, { fontSize, fontStyle = 'normal', lineHeight }) => {
-    const fontName = getFontForText(text, myanmarFontLoaded);
-    // Myanmar font only has 'normal' style - use normal even for bold requests
-    const actualFontStyle = fontName === 'NotoSansMyanmar' ? 'normal' : fontStyle;
-    doc.setFontSize(fontSize);
-    doc.setFont(fontName, actualFontStyle);
-    const lines = doc.splitTextToSize(text, headerMaxWidth);
-    lines.forEach((line, i) => {
-      addText(line, x, y + i * lineHeight, { fontSize, fontStyle });
-    });
-    return y + lines.length * lineHeight;
+  const addWrappedText = async (text, x, y, { fontSize, fontStyle = 'normal', lineHeight }) => {
+    const str = String(text || '');
+    if (!str) return y;
+    const lines = await wrapText(str, headerMaxWidth, fontSize, fontStyle);
+    let cursorY = y;
+    for (const line of lines) {
+      await addText(line.text, x, cursorY, { fontSize, fontStyle });
+      // A rasterized Myanmar line's real ink can be taller than the fixed
+      // lineHeight - advance by whichever is larger so consecutive wrapped
+      // lines never overlap. Plain text has no measured height (null), so
+      // this is a no-op there - identical spacing to before.
+      cursorY += Math.max(lineHeight, line.heightMM || 0);
+    }
+    return cursorY;
   };
 
   let contactY = yPos + 8;
   if (company?.name) {
-    contactY = addWrappedText(company.name, nameX, yPos + 3, { fontSize: 14, fontStyle: 'bold', lineHeight: 5 });
+    contactY = await addWrappedText(company.name, nameX, yPos + 3, { fontSize: 14, fontStyle: 'bold', lineHeight: 5 });
   }
   if (company?.address) {
-    contactY = addWrappedText(company.address, nameX, contactY, { fontSize: 8, lineHeight: 3 });
+    contactY = await addWrappedText(company.address, nameX, contactY, { fontSize: 8, lineHeight: 3 });
   }
   if (company?.phone || company?.email) {
     const contactInfo = [company?.phone, company?.email].filter(Boolean).join(' | ');
-    contactY = addWrappedText(contactInfo, nameX, contactY, { fontSize: 8, lineHeight: 3 });
+    contactY = await addWrappedText(contactInfo, nameX, contactY, { fontSize: 8, lineHeight: 3 });
   }
 
   // Move yPos to after the header section with spacing
@@ -126,7 +158,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
 
   // Invoice title
   const invoiceTitle = type === 'sale' ? 'SALES INVOICE' : 'PURCHASE ORDER';
-  addText(invoiceTitle, pageWidth / 2, yPos, { fontSize: 14, fontStyle: 'bold', align: 'center' });
+  await addText(invoiceTitle, pageWidth / 2, yPos, { fontSize: 14, fontStyle: 'bold', align: 'center' });
   yPos += 8;
 
   // Order info section
@@ -140,11 +172,12 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   const col2X = pageWidth / 2 + 5;
 
   // Left column - Order details
-  addText(`Order #: ${order.orderNumber || 'N/A'}`, col1X, yPos, { fontSize: 9, fontStyle: 'bold' });
-  addText(`Date: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}`, col2X, yPos, { fontSize: 9 });
+  await addText(`Order #: ${order.orderNumber || 'N/A'}`, col1X, yPos, { fontSize: 9, fontStyle: 'bold' });
+  await addText(`Date: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}`, col2X, yPos, { fontSize: 9 });
   yPos += 5;
 
-  addText(`Status: ${(order.status || 'N/A').toUpperCase()}`, col1X, yPos, { fontSize: 9 });
+  await addText(`Status: ${(order.status || 'N/A').toUpperCase()}`, col1X, yPos, { fontSize: 9 });
+  await addText(`Created By: ${order.user?.name || 'N/A'}`, col2X, yPos, { fontSize: 9 });
   yPos += 8;
 
   // Customer/Supplier info
@@ -152,21 +185,21 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   const party = type === 'sale' ? order.customer : order.supplier;
   const partyCode = type === 'sale' ? party?.customerCode : party?.supplierCode;
 
-  addText(partyLabel, col1X, yPos, { fontSize: 9, fontStyle: 'bold' });
+  await addText(partyLabel, col1X, yPos, { fontSize: 9, fontStyle: 'bold' });
   yPos += 4;
-  addText(partyCode ? `${party?.name || 'N/A'} (${partyCode})` : (party?.name || 'N/A'), col1X, yPos, { fontSize: 9 });
+  await addText(partyCode ? `${party?.name || 'N/A'} (${partyCode})` : (party?.name || 'N/A'), col1X, yPos, { fontSize: 9 });
   yPos += 4;
   if (party?.email) {
-    addText(party.email, col1X, yPos, { fontSize: 8 });
+    await addText(party.email, col1X, yPos, { fontSize: 8 });
     yPos += 3;
   }
   if (party?.phone) {
-    addText(party.phone, col1X, yPos, { fontSize: 8 });
+    await addText(party.phone, col1X, yPos, { fontSize: 8 });
     yPos += 3;
   }
   if (party?.address || party?.city) {
     const address = [party?.address, party?.city, party?.country].filter(Boolean).join(', ');
-    addText(address, col1X, yPos, { fontSize: 8 });
+    await addText(address, col1X, yPos, { fontSize: 8 });
   }
 
   yPos += 10;
@@ -179,12 +212,16 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   // the same conditional order as the row values below (Qty, [FOC], [Recv],
   // Price, [Disc %], Total), so header/row/width can never drift out of sync
   // regardless of which optional columns (FOC, Recv, Disc %) are present.
+  // Product uses a fixed (not 'auto') width - Myanmar product names are
+  // drawn as an image overlay (see didDrawCell below) rather than as cell
+  // text, so autotable can't auto-size the column from that cell's content.
   const itemColumns = [
     { label: '#', width: 8 },
     { label: 'SKU', width: 18 },
-    { label: 'Product', width: 'auto' },
+    { label: 'Product', width: null }, // resolved below
     { label: 'Qty', width: 10, halign: 'center' },
   ];
+  const PRODUCT_COLUMN_INDEX = 2;
   if (hasFocQty) {
     itemColumns.push({ label: 'FOC', width: 10, halign: 'center' });
   }
@@ -197,17 +234,31 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   }
   itemColumns.push({ label: 'Total', width: 20, halign: 'right' });
 
+  const fixedColumnsWidth = itemColumns.reduce((sum, col) => sum + (col.width || 0), 0);
+  itemColumns[PRODUCT_COLUMN_INDEX].width = pageWidth - margin * 2 - fixedColumnsWidth;
+
   const tableColumns = itemColumns.map((col) => col.label);
   const columnStyles = itemColumns.reduce((styles, col, index) => {
     styles[index] = { cellWidth: col.width, ...(col.halign && { halign: col.halign }) };
     return styles;
   }, {});
 
-  const tableData = (order.items || []).map((item, index) => {
+  // Product names containing Myanmar text are rasterized up front (autotable
+  // itself is synchronous and can't await inside its draw hooks) and drawn
+  // via didDrawCell below; the cell's own text is left blank for those rows.
+  const productImages = {};
+  const tableData = await Promise.all((order.items || []).map(async (item, index) => {
+    const productName = item.product?.name || 'Unknown';
+    let displayName = productName;
+    if (containsMyanmarText(productName)) {
+      productImages[index] = await renderMyanmarTextToImage(productName, { fontSizePt: 8, fontStyle: 'normal' });
+      displayName = '';
+    }
+
     const row = [
       index + 1,
       item.product?.sku || '-',
-      item.product?.name || 'Unknown',
+      displayName,
       item.quantity || 0,
     ];
 
@@ -229,7 +280,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     row.push(formatCurrency(item.total, company?.currency));
 
     return row;
-  });
+  }));
 
   // Use autoTable function directly
   autoTable(doc, {
@@ -240,20 +291,35 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     styles: {
       fontSize: 8,
       cellPadding: 2,
-      font: myanmarFontLoaded ? 'NotoSansMyanmar' : 'helvetica',
+      font: 'helvetica',
       textColor: [0, 0, 0],
     },
     headStyles: {
       fillColor: [66, 66, 66],
       textColor: 255,
-      // Myanmar font only has 'normal' style, use normal for headers too
-      fontStyle: myanmarFontLoaded ? 'normal' : 'bold',
-      font: myanmarFontLoaded ? 'NotoSansMyanmar' : 'helvetica',
+      fontStyle: 'bold',
+      font: 'helvetica',
     },
     alternateRowStyles: {
       fillColor: [245, 245, 245],
     },
     columnStyles,
+    didDrawCell: (data) => {
+      if (data.section !== 'body' || data.column.index !== PRODUCT_COLUMN_INDEX) return;
+      const img = productImages[data.row.index];
+      if (!img) return;
+
+      const padX = 2;
+      let { widthMM, heightMM } = img;
+      const maxWidth = data.cell.width - padX * 2;
+      if (widthMM > maxWidth) {
+        const scale = maxWidth / widthMM;
+        widthMM *= scale;
+        heightMM *= scale;
+      }
+      const imgY = data.cell.y + (data.cell.height - heightMM) / 2;
+      doc.addImage(img.dataUri, 'PNG', data.cell.x + padX, imgY, widthMM, heightMM);
+    },
   });
 
   // Get the final Y position after the table
@@ -283,39 +349,42 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   const totalsLines = 2 + (type === 'sale' && order.discountPercent > 0 ? 1 : 0);
   ensureSpace(totalsLines * 5 + 4 + 3);
 
-  addText('Subtotal:', totalsX, yPos, { fontSize: 9 });
-  addText(formatCurrency(order.subtotal, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+  await addText('Subtotal:', totalsX, yPos, { fontSize: 9 });
+  await addText(formatCurrency(order.subtotal, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
   yPos += 5;
 
   // Add order discount if applicable (for sales)
   if (type === 'sale' && order.discountPercent > 0) {
-    addText(`Order Discount % (${order.discountPercent}):`, totalsX, yPos, { fontSize: 9 });
-    addText(`-${formatCurrency(order.discountAmount, company?.currency)}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+    await addText(`Order Discount % (${order.discountPercent}):`, totalsX, yPos, { fontSize: 9 });
+    await addText(`-${formatCurrency(order.discountAmount, company?.currency)}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
     yPos += 5;
   }
 
-  addText('Tax:', totalsX, yPos, { fontSize: 9 });
-  addText(formatCurrency(order.tax, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+  await addText('Tax:', totalsX, yPos, { fontSize: 9 });
+  await addText(formatCurrency(order.tax, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
   yPos += 5;
 
   doc.setLineWidth(0.3);
   doc.line(totalsX, yPos, pageWidth - margin, yPos);
   yPos += 4;
 
-  addText('TOTAL:', totalsX, yPos, { fontSize: 10, fontStyle: 'bold' });
-  addText(formatCurrency(order.total, company?.currency), pageWidth - margin, yPos, { fontSize: 10, fontStyle: 'bold', align: 'right' });
+  await addText('TOTAL:', totalsX, yPos, { fontSize: 10, fontStyle: 'bold' });
+  await addText(formatCurrency(order.total, company?.currency), pageWidth - margin, yPos, { fontSize: 10, fontStyle: 'bold', align: 'right' });
   yPos += 10;
 
   // Notes section
   if (order.notes) {
-    const splitNotes = doc.splitTextToSize(String(order.notes), pageWidth - 2 * margin);
+    const splitNotes = await wrapText(String(order.notes), pageWidth - 2 * margin, 8, 'normal');
     ensureSpace(4 + splitNotes.length * 3.5);
 
-    addText('Notes:', margin, yPos, { fontSize: 9, fontStyle: 'bold' });
+    await addText('Notes:', margin, yPos, { fontSize: 9, fontStyle: 'bold' });
     yPos += 4;
 
-    doc.setFontSize(8);
-    doc.text(splitNotes, margin, yPos);
+    let notesY = yPos;
+    for (const line of splitNotes) {
+      await addText(line.text, margin, notesY, { fontSize: 8 });
+      notesY += Math.max(3.5, line.heightMM || 0);
+    }
   }
 
   // Footer
@@ -323,8 +392,8 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   doc.setDrawColor(200);
   doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
 
-  addText('Thank you for your business!', pageWidth / 2, footerY, { fontSize: 8, align: 'center' });
-  addText(`Generated on ${new Date().toLocaleString()}`, pageWidth / 2, footerY + 4, { fontSize: 7, align: 'center' });
+  await addText('Thank you for your business!', pageWidth / 2, footerY, { fontSize: 8, align: 'center' });
+  await addText(`Generated on ${new Date().toLocaleString()}`, pageWidth / 2, footerY + 4, { fontSize: 7, align: 'center' });
 
   // Download the PDF
   const fileName = `${type === 'sale' ? 'Invoice' : 'PurchaseOrder'}_${order.orderNumber || 'unknown'}.pdf`;
