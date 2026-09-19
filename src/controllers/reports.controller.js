@@ -2,7 +2,7 @@ const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, Pu
 const ApiResponse = require('../utils/apiResponse');
 const { toCSV } = require('../utils/csv');
 const { Op } = require('sequelize');
-const { ROLES } = require('../utils/constants');
+const { ROLES, CUSTOMER_TYPE } = require('../utils/constants');
 
 class ReportsController {
   /**
@@ -1143,6 +1143,177 @@ class ReportsController {
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=profit-loss-report-${Date.now()}.csv`);
       return res.send(csvContent);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Computes customers who placed no qualifying Sale (status not pending or
+   * cancelled - mirrors the Sales Report's own default status filter) within
+   * [startDate, endDate], plus each one's most recent qualifying sale ever
+   * (lastOrderDate, null if they've never ordered) for context - without it,
+   * "no orders this period" can't be told apart from "never bought at all".
+   * For a Sale Rep, "bought" is scoped to sales they personally created,
+   * matching how the Sales Report already scopes for that role; the
+   * candidate customer list itself stays company-wide (customers aren't
+   * rep-owned in this schema).
+   *
+   * `userId` (optional) lets a non-Sale-Rep caller (superadmin/admin/manager/
+   * staff - the same set of roles that see full company data on the Sales
+   * Report) filter down to one specific creator's sales, e.g. "which
+   * customers has this rep not sold to?" A Sale Rep's own id always
+   * overrides it, regardless of what's passed - a Sale Rep must never be
+   * able to view another user's scoped data via a crafted query param.
+   */
+  static async _computeNotBuyingCustomers(req, startDate, endDate, userId) {
+    const companyFilter = { ...req.companyFilter };
+    const effectiveUserId = req.isSaleRep ? req.user.id : (userId ? parseInt(userId) : null);
+
+    // Candidate pool: active customers capable of buying from us
+    const customers = await Customer.findAll({
+      where: {
+        ...companyFilter,
+        type: { [Op.in]: [CUSTOMER_TYPE.CUSTOMER, CUSTOMER_TYPE.BOTH] },
+        status: 'active',
+      },
+      attributes: ['id', 'name', 'customerCode', 'phone', 'email', 'city'],
+      raw: true,
+    });
+
+    // Sales that count as "bought" within the selected period
+    const periodSaleWhere = {
+      ...companyFilter,
+      createdAt: {},
+      status: { [Op.notIn]: ['pending', 'cancelled'] },
+    };
+    if (startDate) periodSaleWhere.createdAt[Op.gte] = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      periodSaleWhere.createdAt[Op.lte] = end;
+    }
+    if (effectiveUserId) periodSaleWhere.userId = effectiveUserId;
+
+    const buyingRows = await Sale.findAll({
+      where: periodSaleWhere,
+      attributes: ['customerId'],
+      group: ['customerId'],
+      raw: true,
+    });
+    const buyingIds = new Set(buyingRows.map((row) => row.customerId));
+
+    const notBuying = customers.filter((customer) => !buyingIds.has(customer.id));
+
+    // Most recent qualifying order ever (no date bound) for the not-buying
+    // customers, so the report can show how long they've been dormant.
+    let lastOrderByCustomerId = {};
+    if (notBuying.length > 0) {
+      const lastOrderWhere = {
+        ...companyFilter,
+        customerId: { [Op.in]: notBuying.map((customer) => customer.id) },
+        status: { [Op.notIn]: ['pending', 'cancelled'] },
+      };
+      if (effectiveUserId) lastOrderWhere.userId = effectiveUserId;
+
+      const lastOrderRows = await Sale.findAll({
+        where: lastOrderWhere,
+        attributes: ['customerId', [sequelize.fn('MAX', sequelize.col('createdAt')), 'lastOrderDate']],
+        group: ['customerId'],
+        raw: true,
+      });
+      lastOrderByCustomerId = lastOrderRows.reduce((map, row) => {
+        map[row.customerId] = row.lastOrderDate;
+        return map;
+      }, {});
+    }
+
+    // Most-recently-active first (nulls/never-ordered last) - surfaces the
+    // most recoverable, recently-lapsed customers at the top.
+    const result = notBuying
+      .map((customer) => ({ ...customer, lastOrderDate: lastOrderByCustomerId[customer.id] || null }))
+      .sort((a, b) => {
+        if (!a.lastOrderDate && !b.lastOrderDate) return 0;
+        if (!a.lastOrderDate) return 1;
+        if (!b.lastOrderDate) return -1;
+        return new Date(b.lastOrderDate) - new Date(a.lastOrderDate);
+      });
+
+    return {
+      customers: result,
+      summary: { totalNotBuying: result.length, totalCandidates: customers.length },
+    };
+  }
+
+  /**
+   * Get customers who placed no qualifying orders within the selected period
+   * GET /api/reports/not-buying-customers
+   * Query params: startDate, endDate, userId
+   */
+  static async getNotBuyingCustomersReport(req, res, next) {
+    try {
+      const { startDate, endDate, userId } = req.query;
+      const { customers, summary } = await ReportsController._computeNotBuyingCustomers(req, startDate, endDate, userId);
+      return ApiResponse.success(res, { customers, summary }, 'Not buying customers report retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export not buying customers report to CSV
+   * GET /api/reports/not-buying-customers/export
+   * Query params: startDate, endDate, userId
+   */
+  static async exportNotBuyingCustomersReport(req, res, next) {
+    try {
+      const { startDate, endDate, userId } = req.query;
+      const { customers } = await ReportsController._computeNotBuyingCustomers(req, startDate, endDate, userId);
+
+      const headers = ['Customer Code', 'Name', 'Phone', 'Email', 'City', 'Last Order Date', 'Days Since Last Order'];
+      const rows = customers.map((customer) => {
+        const daysSince = customer.lastOrderDate
+          ? Math.floor((Date.now() - new Date(customer.lastOrderDate)) / (1000 * 60 * 60 * 24))
+          : '';
+        return [
+          customer.customerCode || '',
+          customer.name || '',
+          customer.phone || '',
+          customer.email || '',
+          customer.city || '',
+          customer.lastOrderDate ? new Date(customer.lastOrderDate).toISOString().split('T')[0] : 'Never',
+          daysSince,
+        ];
+      });
+
+      const csvContent = toCSV(headers, rows);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=not-buying-customers-${Date.now()}.csv`);
+      return res.send(csvContent);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Lightweight user list (id/name only) for the Not Buying Customers
+   * report's "Created By" filter. Deliberately not the full /api/users
+   * endpoint - that one is admin-only and returns fuller records (email,
+   * role, etc.); this is available to every role except Sale Rep (route
+   * already blocks Sale Rep via restrictSaleRep) and exposes nothing beyond
+   * what the filter dropdown needs.
+   * GET /api/reports/report-users
+   */
+  static async getReportUsers(req, res, next) {
+    try {
+      const users = await User.findAll({
+        where: { ...req.companyFilter },
+        attributes: ['id', 'name'],
+        order: [['name', 'ASC']],
+        raw: true,
+      });
+      return ApiResponse.success(res, users, 'Users retrieved successfully');
     } catch (error) {
       next(error);
     }
