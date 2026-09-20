@@ -378,11 +378,23 @@ class CustomersController {
         order: [['name', 'ASC']],
       });
 
-      const headers = ['ID', 'Customer Code', 'Supplier Code', 'Name', 'Email', 'Phone', 'Address', 'City', 'Country', 'Type', 'Status', 'Created At'];
+      // A single, contextual "Code" column when the list is filtered to one
+      // type - matching how the same page's table and Add/Edit modal already
+      // show it (type === 'customer' ? customerCode : supplierCode). Falls
+      // back to showing both columns when unfiltered (not reachable from the
+      // UI today, but a contact of type 'both' has both codes, and this
+      // endpoint doesn't require a type param), so no code is silently lost.
+      const codeHeaders = type === 'customer' || type === 'supplier' ? ['Code'] : ['Customer Code', 'Supplier Code'];
+      const codeValues = (customer) => {
+        if (type === 'customer') return [customer.customerCode || ''];
+        if (type === 'supplier') return [customer.supplierCode || ''];
+        return [customer.customerCode || '', customer.supplierCode || ''];
+      };
+
+      const headers = ['ID', ...codeHeaders, 'Name', 'Email', 'Phone', 'Address', 'City', 'Country', 'Type', 'Status', 'Created At'];
       const rows = customers.map((customer) => [
         customer.id,
-        customer.customerCode || '',
-        customer.supplierCode || '',
+        ...codeValues(customer),
         customer.name,
         customer.email || '',
         customer.phone || '',

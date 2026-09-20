@@ -56,6 +56,7 @@ const Sidebar = () => {
 
   const reportItems = [
     { path: '/reports/sales', label: 'Sales Report' },
+    { path: '/reports/not-buying-customers', label: 'Not Buying Customers' },
     { path: '/reports/purchases', label: 'Purchases Report', requiresPurchases: true },
     { path: '/reports/profit-loss', label: 'Profit & Loss', requiresPurchases: true },
   ];
