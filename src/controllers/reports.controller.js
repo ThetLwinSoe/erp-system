@@ -1184,15 +1184,22 @@ class ReportsController {
     // Sales that count as "bought" within the selected period
     const periodSaleWhere = {
       ...companyFilter,
-      createdAt: {},
       status: { [Op.notIn]: ['pending', 'cancelled'] },
     };
-    if (startDate) periodSaleWhere.createdAt[Op.gte] = new Date(startDate);
+    // Built separately and only attached if at least one bound is present -
+    // an empty {} isn't "no constraint" to Sequelize, it generates
+    // `createdAt = <the exact instant this query runs>`, silently matching
+    // zero sales (routes always provide both dates via reportsValidation, so
+    // this only matters if this shared helper is ever called without that
+    // validation in front).
+    const createdAtFilter = {};
+    if (startDate) createdAtFilter[Op.gte] = new Date(startDate);
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      periodSaleWhere.createdAt[Op.lte] = end;
+      createdAtFilter[Op.lte] = end;
     }
+    if (startDate || endDate) periodSaleWhere.createdAt = createdAtFilter;
     if (effectiveUserId) periodSaleWhere.userId = effectiveUserId;
 
     const buyingRows = await Sale.findAll({
