@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatCurrency } from './currency';
+import { formatCurrencyForPDF } from './currency';
 import { containsMyanmarText } from './pdfFonts';
 import { renderMyanmarTextToImage } from './textRasterizer';
 
@@ -21,7 +21,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
-  let yPos = 15;
+  let yPos = 10;
 
   // Draws one line of text. jsPDF has no complex-script text-shaping engine,
   // so Myanmar text is rasterized via the browser's own (correct) shaping
@@ -153,19 +153,19 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   }
 
   // Move yPos to after the header section with spacing
-  yPos = Math.max(yPos + logoHeight + 3, contactY + 2);
-  yPos += 8; // Add spacing between company info and invoice title
+  yPos = Math.max(yPos + logoHeight + 2, contactY + 1);
+  yPos += 3; // Add spacing between company info and invoice title
 
   // Invoice title
   const invoiceTitle = type === 'sale' ? 'SALES INVOICE' : 'PURCHASE ORDER';
   await addText(invoiceTitle, pageWidth / 2, yPos, { fontSize: 14, fontStyle: 'bold', align: 'center' });
-  yPos += 8;
+  yPos += 4;
 
   // Order info section
   doc.setDrawColor(200);
   doc.setLineWidth(0.5);
   doc.line(margin, yPos, pageWidth - margin, yPos);
-  yPos += 5;
+  yPos += 3;
 
   // Two column layout for order info
   const col1X = margin;
@@ -178,7 +178,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
 
   await addText(`Status: ${(order.status || 'N/A').toUpperCase()}`, col1X, yPos, { fontSize: 9 });
   await addText(`Created By: ${order.user?.name || 'N/A'}`, col2X, yPos, { fontSize: 9 });
-  yPos += 8;
+  yPos += 5;
 
   // Customer/Supplier info
   const partyLabel = type === 'sale' ? 'Bill To:' : 'Supplier:';
@@ -202,7 +202,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
     await addText(address, col1X, yPos, { fontSize: 8 });
   }
 
-  yPos += 10;
+  yPos += 4;
 
   // Check if any item has a discount for sales type, or a FOC quantity (either type)
   const hasItemDiscounts = type === 'sale' && (order.items || []).some(item => item.discountPercent > 0);
@@ -270,14 +270,14 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
       row.push(item.receivedQuantity || 0);
     }
 
-    row.push(formatCurrency(item.unitPrice, company?.currency));
+    row.push(formatCurrencyForPDF(item.unitPrice, company?.currency));
 
     // Add discount column for sales if any item has discount
     if (type === 'sale' && hasItemDiscounts) {
       row.push(item.discountPercent > 0 ? `${item.discountPercent}` : '-');
     }
 
-    row.push(formatCurrency(item.total, company?.currency));
+    row.push(formatCurrencyForPDF(item.total, company?.currency));
 
     return row;
   }));
@@ -323,7 +323,7 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   });
 
   // Get the final Y position after the table
-  yPos = doc.lastAutoTable.finalY + 8;
+  yPos = doc.lastAutoTable.finalY + 5;
 
   const pageHeight = doc.internal.pageSize.getHeight();
   const FOOTER_HEIGHT = 15; // matches the footer's own layout below (line at pageHeight-15, text through pageHeight-6)
@@ -347,29 +347,29 @@ export const generateInvoicePDF = async ({ type, order, company }) => {
   // text height (not the full trailing spacing after it, which is just
   // breathing room for a Notes section that may not exist).
   const totalsLines = 2 + (type === 'sale' && order.discountPercent > 0 ? 1 : 0);
-  ensureSpace(totalsLines * 5 + 4 + 3);
+  ensureSpace(totalsLines * 4 + 3 + 1);
 
   await addText('Subtotal:', totalsX, yPos, { fontSize: 9 });
-  await addText(formatCurrency(order.subtotal, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
-  yPos += 5;
+  await addText(formatCurrencyForPDF(order.subtotal, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+  yPos += 4;
 
   // Add order discount if applicable (for sales)
   if (type === 'sale' && order.discountPercent > 0) {
     await addText(`Order Discount % (${order.discountPercent}):`, totalsX, yPos, { fontSize: 9 });
-    await addText(`-${formatCurrency(order.discountAmount, company?.currency)}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
-    yPos += 5;
+    await addText(`-${formatCurrencyForPDF(order.discountAmount, company?.currency)}`, pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+    yPos += 4;
   }
 
   await addText('Tax:', totalsX, yPos, { fontSize: 9 });
-  await addText(formatCurrency(order.tax, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
-  yPos += 5;
+  await addText(formatCurrencyForPDF(order.tax, company?.currency), pageWidth - margin, yPos, { fontSize: 9, align: 'right' });
+  yPos += 4;
 
   doc.setLineWidth(0.3);
   doc.line(totalsX, yPos, pageWidth - margin, yPos);
-  yPos += 4;
+  yPos += 3;
 
   await addText('TOTAL:', totalsX, yPos, { fontSize: 10, fontStyle: 'bold' });
-  await addText(formatCurrency(order.total, company?.currency), pageWidth - margin, yPos, { fontSize: 10, fontStyle: 'bold', align: 'right' });
+  await addText(formatCurrencyForPDF(order.total, company?.currency), pageWidth - margin, yPos, { fontSize: 10, fontStyle: 'bold', align: 'right' });
   yPos += 10;
 
   // Notes section
