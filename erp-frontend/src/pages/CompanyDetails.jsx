@@ -244,6 +244,7 @@ const CompanyDetails = () => {
                 onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
               >
                 <option value={ROLES.STAFF}>Staff</option>
+                <option value={ROLES.SALE_REP}>Sale Rep</option>
                 <option value={ROLES.MANAGER}>Manager</option>
                 <option value={ROLES.ADMIN}>Admin</option>
               </Form.Select>

@@ -160,7 +160,7 @@ export const reportsAPI = {
   exportProfitLossCSV: (params) => api.get('/reports/profit-loss/export', { params, responseType: 'text' }),
   getNotBuyingCustomersReport: (params) => api.get('/reports/not-buying-customers', { params }),
   exportNotBuyingCustomersCSV: (params) => api.get('/reports/not-buying-customers/export', { params, responseType: 'text' }),
-  getReportUsers: () => api.get('/reports/report-users'),
+  getReportUsers: (params) => api.get('/reports/report-users', { params }),
 };
 
 // Companies API (Super Admin only)

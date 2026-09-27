@@ -1,4 +1,4 @@
-const { InventoryAdjustment, InventoryAdjustmentItem, Product, Inventory, User, sequelize } = require('../models');
+const { InventoryAdjustment, InventoryAdjustmentItem, Product, Inventory, User, Company, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, INVENTORY_ADJUSTMENT_STATUS, ADJUSTMENT_TYPE } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
@@ -32,14 +32,19 @@ class InventoryAdjustmentsController {
 
       const sortBy = req.query.sortBy || 'createdAt';
       const sortOrder = req.query.sortOrder || 'DESC';
-      const order = sortBy === 'user'
-        ? [[{ model: User, as: 'user' }, 'name', sortOrder]]
+      const JOIN_SORT_MAP = {
+        user: [{ model: User, as: 'user' }, 'name'],
+        company: [{ model: Company, as: 'company' }, 'name'],
+      };
+      const order = JOIN_SORT_MAP[sortBy]
+        ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
         : [[sortBy, sortOrder]];
 
       const { count, rows } = await InventoryAdjustment.findAndCountAll({
         where: whereClause,
         include: [
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
+          { model: Company, as: 'company' },
         ],
         order,
         limit,

@@ -28,6 +28,9 @@ class ReportsController {
    */
   static async getSalesReport(req, res, next) {
     try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
       const { startDate, endDate, customerId, status } = req.query;
 
       // Add company filter
@@ -227,6 +230,9 @@ class ReportsController {
    */
   static async exportSalesReport(req, res, next) {
     try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
       const { startDate, endDate, customerId, status } = req.query;
 
       // Add company filter
@@ -482,6 +488,9 @@ class ReportsController {
    */
   static async getPurchasesReport(req, res, next) {
     try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
       const { startDate, endDate, supplierId, status } = req.query;
 
       // Add company filter
@@ -670,6 +679,9 @@ class ReportsController {
    */
   static async exportPurchasesReport(req, res, next) {
     try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
       const { startDate, endDate, supplierId, status } = req.query;
 
       // Add company filter
@@ -1259,6 +1271,9 @@ class ReportsController {
    */
   static async getNotBuyingCustomersReport(req, res, next) {
     try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
       const { startDate, endDate, userId } = req.query;
       const { customers, summary } = await ReportsController._computeNotBuyingCustomers(req, startDate, endDate, userId);
       return ApiResponse.success(res, { customers, summary }, 'Not buying customers report retrieved successfully');
@@ -1274,6 +1289,9 @@ class ReportsController {
    */
   static async exportNotBuyingCustomersReport(req, res, next) {
     try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
       const { startDate, endDate, userId } = req.query;
       const { customers } = await ReportsController._computeNotBuyingCustomers(req, startDate, endDate, userId);
 

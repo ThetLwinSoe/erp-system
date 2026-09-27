@@ -3,6 +3,7 @@ import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'reac
 import { FaFileExport, FaFilePdf, FaSearch, FaChartLine } from 'react-icons/fa';
 import { reportsAPI, companiesAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { fetchAllPages } from '../utils/fetchAll';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
@@ -22,8 +23,8 @@ const ProfitLossReport = () => {
 
   useEffect(() => {
     if (isSuperAdmin()) {
-      companiesAPI.getAll({ limit: 100 })
-        .then((res) => setCompanies(res.data.data || []))
+      fetchAllPages(companiesAPI.getAll)
+        .then((companiesData) => setCompanies(companiesData))
         .catch(() => setCompanies([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

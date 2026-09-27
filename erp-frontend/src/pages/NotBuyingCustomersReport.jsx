@@ -1,32 +1,55 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaFileExport, FaSearch, FaUserSlash } from 'react-icons/fa';
-import { reportsAPI } from '../services/api';
+import { reportsAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { fetchAllPages } from '../utils/fetchAll';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 
 const NotBuyingCustomersReport = () => {
-  const { isSaleRep } = useAuth();
+  const { isSaleRep, isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [summary, setSummary] = useState(null);
   const [users, setUsers] = useState([]);
+  const [companies, setCompanies] = useState([]);
 
-  const [filters, setFilters] = useState({ startDate: '', endDate: '', userId: '' });
+  const [filters, setFilters] = useState({ startDate: '', endDate: '', userId: '', companyId: '' });
+
+  const selectedCompany = isSuperAdmin()
+    ? companies.find((c) => String(c.id) === String(filters.companyId))
+    : null;
+
+  useEffect(() => {
+    if (isSuperAdmin()) {
+      fetchAllPages(companiesAPI.getAll)
+        .then((companiesData) => setCompanies(companiesData))
+        .catch(() => setCompanies([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sale Rep is always scoped to their own sales server-side regardless of
   // this filter, so there's nothing useful for them to pick here - and the
-  // backend endpoint that lists users blocks that role outright anyway.
+  // backend endpoint that lists users blocks that role outright anyway. For
+  // superadmin, the user list is scoped to whichever company is selected -
+  // until one is picked there's nothing valid to show, and switching
+  // companies invalidates any previously chosen user.
   useEffect(() => {
     if (isSaleRep()) return;
-    reportsAPI.getReportUsers()
+    if (isSuperAdmin() && !filters.companyId) {
+      setUsers([]);
+      return;
+    }
+    const params = isSuperAdmin() && filters.companyId ? { companyId: filters.companyId } : {};
+    reportsAPI.getReportUsers(params)
       .then((response) => setUsers(response.data.data || []))
       .catch(() => setUsers([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [filters.companyId]);
 
   const fetchReport = async () => {
     try {
@@ -75,7 +98,7 @@ const NotBuyingCustomersReport = () => {
     fetchReport();
   };
 
-  const canGenerate = !!filters.startDate && !!filters.endDate;
+  const canGenerate = (!isSuperAdmin() || !!filters.companyId) && !!filters.startDate && !!filters.endDate;
 
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : 'Never');
 
@@ -90,6 +113,9 @@ const NotBuyingCustomersReport = () => {
         <h2>
           <FaUserSlash className="me-2" />
           Not Buying Customers
+          {isSuperAdmin() && summary && selectedCompany && (
+            <small className="text-muted ms-2">— {selectedCompany.name}</small>
+          )}
         </h2>
         {customers.length > 0 && (
           <Button variant="success" onClick={handleExport} disabled={exporting || !canGenerate}>
@@ -107,6 +133,22 @@ const NotBuyingCustomersReport = () => {
         <Card.Body>
           <Form onSubmit={handleSubmit}>
             <Row className="g-3" style={{ margin: 0 }}>
+              {isSuperAdmin() && (
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Company *</Form.Label>
+                    <Form.Select
+                      value={filters.companyId}
+                      onChange={(e) => setFilters({ ...filters, companyId: e.target.value, userId: '' })}
+                    >
+                      <option value="">Select a company...</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              )}
               <Col md={3}>
                 <Form.Group>
                   <Form.Label>Start Date</Form.Label>
@@ -154,7 +196,11 @@ const NotBuyingCustomersReport = () => {
                 {loading ? 'Loading...' : 'Generate Report'}
               </Button>
               {!canGenerate && (
-                <small className="text-muted ms-2">Select a start and end date to generate this report.</small>
+                <small className="text-muted ms-2">
+                  {isSuperAdmin() && !filters.companyId
+                    ? 'Select a company, start date, and end date to generate this report.'
+                    : 'Select a start and end date to generate this report.'}
+                </small>
               )}
             </div>
           </Form>

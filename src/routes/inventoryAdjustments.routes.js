@@ -4,7 +4,7 @@ const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { paginationValidation, sortValidation } = require('../middleware/validate');
 
-const INVENTORY_ADJUSTMENT_SORT_FIELDS = ['adjustmentNumber', 'reason', 'status', 'createdAt', 'user'];
+const INVENTORY_ADJUSTMENT_SORT_FIELDS = ['adjustmentNumber', 'reason', 'status', 'createdAt', 'user', 'company'];
 
 const router = express.Router();
 

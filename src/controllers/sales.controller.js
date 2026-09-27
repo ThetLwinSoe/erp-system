@@ -1,4 +1,4 @@
-const { Sale, SaleItem, Customer, User, Product } = require('../models');
+const { Sale, SaleItem, Customer, User, Product, Company } = require('../models');
 const SalesService = require('../services/sales.service');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, ORDER_STATUS } = require('../utils/constants');
@@ -56,6 +56,7 @@ class SalesController {
       const JOIN_SORT_MAP = {
         customer: [{ model: Customer, as: 'customer' }, 'name'],
         user: [{ model: User, as: 'user' }, 'name'],
+        company: [{ model: Company, as: 'company' }, 'name'],
       };
       const order = JOIN_SORT_MAP[sortBy]
         ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
@@ -66,6 +67,7 @@ class SalesController {
         include: [
           { model: Customer, as: 'customer' },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
+          { model: Company, as: 'company' },
         ],
         order,
         limit,

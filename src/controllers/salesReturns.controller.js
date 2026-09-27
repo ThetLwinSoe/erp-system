@@ -1,4 +1,4 @@
-const { SalesReturn, SalesReturnItem, Sale, SaleItem, Product, Customer, User, Inventory, sequelize } = require('../models');
+const { SalesReturn, SalesReturnItem, Sale, SaleItem, Product, Customer, User, Inventory, Company, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, SALES_RETURN_STATUS } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
@@ -35,6 +35,7 @@ class SalesReturnsController {
       const JOIN_SORT_MAP = {
         orderNumber: [{ model: Sale, as: 'sale' }, 'orderNumber'],
         customer: [{ model: Sale, as: 'sale' }, { model: Customer, as: 'customer' }, 'name'],
+        company: [{ model: Company, as: 'company' }, 'name'],
       };
       const order = JOIN_SORT_MAP[sortBy]
         ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
@@ -49,6 +50,7 @@ class SalesReturnsController {
             include: [{ model: Customer, as: 'customer' }],
           },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
+          { model: Company, as: 'company' },
         ],
         order,
         limit,

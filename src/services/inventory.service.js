@@ -1,4 +1,4 @@
-const { Inventory, Product, sequelize } = require('../models');
+const { Inventory, Product, Company, sequelize } = require('../models');
 const { ADJUSTMENT_TYPE } = require('../utils/constants');
 const { Op } = require('sequelize');
 
@@ -158,7 +158,7 @@ class InventoryService {
 
     const inventory = await Inventory.findAll({
       where: whereClause,
-      include: [{ model: Product, as: 'product' }],
+      include: [{ model: Product, as: 'product' }, { model: Company, as: 'company' }],
       order: [['quantity', 'ASC']],
     });
 

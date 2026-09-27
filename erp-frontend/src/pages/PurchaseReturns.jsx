@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Spinner, Form } from 'react-bootstrap';
+import { Card, Table, Button, Spinner, Form, Badge } from 'react-bootstrap';
 import { FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { purchaseReturnsAPI } from '../services/api';
@@ -110,6 +110,9 @@ const PurchaseReturns = () => {
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Total" field="total" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Date" field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {isSuperAdmin() && (
+                    <SortableHeader label="Company" field="company" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -122,6 +125,15 @@ const PurchaseReturns = () => {
                     <td><StatusBadge status={ret.status} /></td>
                     <td><strong>{formatCurrency(ret.total, currency)}</strong></td>
                     <td>{new Date(ret.createdAt).toLocaleDateString()}</td>
+                    {isSuperAdmin() && (
+                      <td>
+                        {ret.company ? (
+                          <Badge bg="info" style={{ whiteSpace: 'normal', maxWidth: '140px' }}>{ret.company.name}</Badge>
+                        ) : (
+                          <Badge bg="secondary">No Company</Badge>
+                        )}
+                      </td>
+                    )}
                     <td>
                       <Button variant="outline-info" size="sm" className="me-2" onClick={() => navigate(`/purchase-returns/${ret.id}`)}>
                         <FaEye />

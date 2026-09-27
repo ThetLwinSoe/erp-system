@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
+import { Card, Table, Button, Modal, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { salesAPI, customersAPI, productsAPI } from '../services/api';
@@ -246,6 +246,9 @@ const Sales = () => {
                   <SortableHeader label="Total" field="total" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Created By" field="user" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Date" field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {isSuperAdmin() && (
+                    <SortableHeader label="Company" field="company" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -260,6 +263,15 @@ const Sales = () => {
                     <td><strong>{formatCurrency(sale.total, currency)}</strong></td>
                     <td>{sale.user?.name || '-'}</td>
                     <td>{new Date(sale.createdAt).toLocaleDateString()}</td>
+                    {isSuperAdmin() && (
+                      <td>
+                        {sale.company ? (
+                          <Badge bg="info" style={{ whiteSpace: 'normal', maxWidth: '140px' }}>{sale.company.name}</Badge>
+                        ) : (
+                          <Badge bg="secondary">No Company</Badge>
+                        )}
+                      </td>
+                    )}
                     <td>
                       <Button variant="outline-info" size="sm" className="me-2" onClick={() => navigate(`/sales/${sale.id}`)}>
                         <FaEye />
