@@ -4,6 +4,7 @@ import { Card, Table, Button, Spinner, Row, Col, Form } from 'react-bootstrap';
 import { FaArrowLeft, FaTimes, FaPlus } from 'react-icons/fa';
 import { inventoryAdjustmentsAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { fetchAllPages } from '../utils/fetchAll';
 import { INVENTORY_ADJUSTMENT_REASONS } from '../utils/constants';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
@@ -27,8 +28,8 @@ const CreateInventoryAdjustment = () => {
 
   useEffect(() => {
     if (isSuperAdmin()) {
-      companiesAPI.getAll({ limit: 100 })
-        .then((res) => setCompanies(res.data.data || []))
+      fetchAllPages(companiesAPI.getAll)
+        .then((companiesData) => setCompanies(companiesData))
         .catch(() => setCompanies([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

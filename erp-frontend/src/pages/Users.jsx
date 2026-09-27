@@ -3,6 +3,7 @@ import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstra
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { usersAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { fetchAllPages } from '../utils/fetchAll';
 import SearchBar from '../components/common/SearchBar';
 import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
@@ -54,8 +55,8 @@ const Users = () => {
   const fetchCompanies = async () => {
     if (!isSuperAdmin()) return;
     try {
-      const response = await companiesAPI.getAll({ limit: 100 });
-      setCompanies(response.data.data || []);
+      const companiesData = await fetchAllPages(companiesAPI.getAll);
+      setCompanies(companiesData);
     } catch (error) {
       console.error('Error fetching companies:', error);
     }

@@ -36,8 +36,8 @@ const PurchasesReport = () => {
 
   useEffect(() => {
     if (isSuperAdmin()) {
-      companiesAPI.getAll({ limit: 100 })
-        .then((res) => setCompanies(res.data.data || []))
+      fetchAllPages(companiesAPI.getAll)
+        .then((companiesData) => setCompanies(companiesData))
         .catch(() => setCompanies([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

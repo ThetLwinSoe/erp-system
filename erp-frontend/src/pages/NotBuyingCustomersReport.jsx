@@ -3,6 +3,7 @@ import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'reac
 import { FaFileExport, FaSearch, FaUserSlash } from 'react-icons/fa';
 import { reportsAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { fetchAllPages } from '../utils/fetchAll';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 
@@ -24,8 +25,8 @@ const NotBuyingCustomersReport = () => {
 
   useEffect(() => {
     if (isSuperAdmin()) {
-      companiesAPI.getAll({ limit: 100 })
-        .then((res) => setCompanies(res.data.data || []))
+      fetchAllPages(companiesAPI.getAll)
+        .then((companiesData) => setCompanies(companiesData))
         .catch(() => setCompanies([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
