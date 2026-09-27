@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Spinner, Form } from 'react-bootstrap';
+import { Card, Table, Button, Spinner, Form, Badge } from 'react-bootstrap';
 import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { inventoryAdjustmentsAPI } from '../services/api';
@@ -122,6 +122,9 @@ const InventoryAdjustments = () => {
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Created By" field="user" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Date" field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {isSuperAdmin() && (
+                    <SortableHeader label="Company" field="company" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -137,6 +140,15 @@ const InventoryAdjustments = () => {
                     </td>
                     <td>{adjustment.user?.name || '-'}</td>
                     <td>{new Date(adjustment.createdAt).toLocaleDateString()}</td>
+                    {isSuperAdmin() && (
+                      <td>
+                        {adjustment.company ? (
+                          <Badge bg="info" style={{ whiteSpace: 'normal', maxWidth: '140px' }}>{adjustment.company.name}</Badge>
+                        ) : (
+                          <Badge bg="secondary">No Company</Badge>
+                        )}
+                      </td>
+                    )}
                     <td>
                       <Button
                         variant="outline-info"

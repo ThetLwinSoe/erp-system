@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, Table, Button, Spinner, Alert, Badge, Tab, Tabs } from 'react-bootstrap';
 import { FaExclamationTriangle, FaFileExport } from 'react-icons/fa';
 import { inventoryAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/common/Pagination';
 import SortableHeader from '../components/common/SortableHeader';
 
@@ -14,6 +15,7 @@ const getSortValue = (item, field) => {
     case 'category': return item.product?.category ?? null;
     case 'location': return item.location ?? null;
     case 'lastRestocked': return item.lastRestocked ? new Date(item.lastRestocked).getTime() : null;
+    case 'company': return item.company?.name ?? null;
     default: return item[field];
   }
 };
@@ -37,6 +39,7 @@ const sortItems = (items, sortBy, sortOrder) => {
 };
 
 const Inventory = () => {
+  const { isSuperAdmin } = useAuth();
   const [inventory, setInventory] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +127,9 @@ const Inventory = () => {
               <SortableHeader label="Min Level" field="minStockLevel" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
               <SortableHeader label="Location" field="location" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
               <SortableHeader label="Last Restocked" field="lastRestocked" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+              {isSuperAdmin() && (
+                <SortableHeader label="Company" field="company" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+              )}
             </>
           ) : (
             <>
@@ -134,6 +140,7 @@ const Inventory = () => {
               <th>Min Level</th>
               <th>Location</th>
               <th>Last Restocked</th>
+              {isSuperAdmin() && <th>Company</th>}
             </>
           )}
         </tr>
@@ -148,6 +155,15 @@ const Inventory = () => {
             <td>{item.minStockLevel}</td>
             <td>{item.location || '-'}</td>
             <td>{item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString() : '-'}</td>
+            {isSuperAdmin() && (
+              <td>
+                {item.company ? (
+                  <Badge bg="info" style={{ whiteSpace: 'normal', maxWidth: '140px' }}>{item.company.name}</Badge>
+                ) : (
+                  <Badge bg="secondary">No Company</Badge>
+                )}
+              </td>
+            )}
           </tr>
         ))}
       </tbody>

@@ -5,7 +5,7 @@ const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { paginationValidation, sortValidation } = require('../middleware/validate');
 
-const PURCHASE_RETURN_SORT_FIELDS = ['returnNumber', 'status', 'total', 'createdAt', 'orderNumber', 'supplier'];
+const PURCHASE_RETURN_SORT_FIELDS = ['returnNumber', 'status', 'total', 'createdAt', 'orderNumber', 'supplier', 'company'];
 
 // Apply authentication and company scope to all routes
 // Sale Rep cannot access purchase returns module

@@ -210,6 +210,9 @@ const ContactsPage = ({ type, label, labelPlural }) => {
                   <SortableHeader label="Phone" field="phone" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="City" field="city" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {isSuperAdmin() && (
+                    <SortableHeader label="Company" field="company" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -226,6 +229,15 @@ const ContactsPage = ({ type, label, labelPlural }) => {
                         {contact.status === 'active' ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
+                    {isSuperAdmin() && (
+                      <td>
+                        {contact.company ? (
+                          <Badge bg="info" style={{ whiteSpace: 'normal', maxWidth: '140px' }}>{contact.company.name}</Badge>
+                        ) : (
+                          <Badge bg="secondary">No Company</Badge>
+                        )}
+                      </td>
+                    )}
                     <td>
                       {!isSaleRep() && (
                         <>

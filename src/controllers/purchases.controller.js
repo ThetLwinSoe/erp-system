@@ -1,4 +1,4 @@
-const { Purchase, PurchaseItem, Customer, User, Product, sequelize } = require('../models');
+const { Purchase, PurchaseItem, Customer, User, Product, Company, sequelize } = require('../models');
 const InventoryService = require('../services/inventory.service');
 const PurchasesService = require('../services/purchases.service');
 const ApiResponse = require('../utils/apiResponse');
@@ -35,8 +35,12 @@ class PurchasesController {
 
       const sortBy = req.query.sortBy || 'createdAt';
       const sortOrder = req.query.sortOrder || 'DESC';
-      const order = sortBy === 'supplier'
-        ? [[{ model: Customer, as: 'supplier' }, 'name', sortOrder]]
+      const JOIN_SORT_MAP = {
+        supplier: [{ model: Customer, as: 'supplier' }, 'name'],
+        company: [{ model: Company, as: 'company' }, 'name'],
+      };
+      const order = JOIN_SORT_MAP[sortBy]
+        ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
         : [[sortBy, sortOrder]];
 
       const { count, rows } = await Purchase.findAndCountAll({
@@ -44,6 +48,7 @@ class PurchasesController {
         include: [
           { model: Customer, as: 'supplier' },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
+          { model: Company, as: 'company' },
         ],
         order,
         limit,

@@ -5,7 +5,7 @@ const { companyScope } = require('../middleware/companyScope');
 const { productValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { uploadCSV } = require('../middleware/upload');
 
-const PRODUCT_SORT_FIELDS = ['sku', 'name', 'category', 'costPrice', 'sellingPrice', 'stock', 'status', 'createdAt'];
+const PRODUCT_SORT_FIELDS = ['sku', 'name', 'category', 'costPrice', 'sellingPrice', 'stock', 'status', 'createdAt', 'company'];
 
 const router = express.Router();
 
