@@ -1,4 +1,4 @@
-const { Inventory, Product } = require('../models');
+const { Inventory, Product, Company } = require('../models');
 const InventoryService = require('../services/inventory.service');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION } = require('../utils/constants');
@@ -23,13 +23,15 @@ class InventoryController {
       const sortBy = req.query.sortBy || 'updatedAt';
       const sortOrder = req.query.sortOrder || 'DESC';
       const PRODUCT_FIELDS = ['sku', 'name', 'category'];
-      const order = PRODUCT_FIELDS.includes(sortBy)
+      const order = sortBy === 'company'
+        ? [[{ model: Company, as: 'company' }, 'name', sortOrder]]
+        : PRODUCT_FIELDS.includes(sortBy)
         ? [[{ model: Product, as: 'product' }, sortBy, sortOrder]]
         : [[sortBy, sortOrder]];
 
       const { count, rows } = await Inventory.findAndCountAll({
         where: whereClause,
-        include: [{ model: Product, as: 'product' }],
+        include: [{ model: Product, as: 'product' }, { model: Company, as: 'company' }],
         order,
         limit,
         offset,

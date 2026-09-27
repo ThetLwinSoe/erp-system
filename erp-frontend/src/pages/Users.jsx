@@ -195,7 +195,7 @@ const Users = () => {
                     {isSuperAdmin() && (
                       <td>
                         {user.company ? (
-                          <Badge bg="info">{user.company.name}</Badge>
+                          <Badge bg="info" style={{ whiteSpace: 'normal', maxWidth: '140px' }}>{user.company.name}</Badge>
                         ) : (
                           <Badge bg="secondary">No Company</Badge>
                         )}

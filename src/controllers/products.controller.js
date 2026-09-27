@@ -6,6 +6,7 @@ const {
   SalesReturnItem,
   PurchaseReturnItem,
   InventoryAdjustmentItem,
+  Company,
   sequelize,
 } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
@@ -53,13 +54,17 @@ class ProductsController {
 
       const sortBy = req.query.sortBy || 'createdAt';
       const sortOrder = req.query.sortOrder || 'DESC';
-      const order = sortBy === 'stock'
-        ? [[{ model: Inventory, as: 'inventory' }, 'quantity', sortOrder]]
+      const JOIN_SORT_MAP = {
+        stock: [{ model: Inventory, as: 'inventory' }, 'quantity'],
+        company: [{ model: Company, as: 'company' }, 'name'],
+      };
+      const order = JOIN_SORT_MAP[sortBy]
+        ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
         : [[sortBy, sortOrder]];
 
       const { count, rows } = await Product.findAndCountAll({
         where: whereClause,
-        include: [{ model: Inventory, as: 'inventory' }],
+        include: [{ model: Inventory, as: 'inventory' }, { model: Company, as: 'company' }],
         order,
         limit,
         offset,

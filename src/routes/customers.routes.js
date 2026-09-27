@@ -5,7 +5,7 @@ const { companyScope } = require('../middleware/companyScope');
 const { customerValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { uploadCSV } = require('../middleware/upload');
 
-const CUSTOMER_SORT_FIELDS = ['name', 'email', 'phone', 'city', 'type', 'status', 'createdAt'];
+const CUSTOMER_SORT_FIELDS = ['name', 'email', 'phone', 'city', 'type', 'status', 'createdAt', 'company'];
 
 const router = express.Router();
 

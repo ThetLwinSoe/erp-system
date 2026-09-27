@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaFileExport, FaSearch, FaChartBar } from 'react-icons/fa';
-import { reportsAPI, customersAPI } from '../services/api';
+import { reportsAPI, customersAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { fetchAllPages } from '../utils/fetchAll';
 import StatusBadge from '../components/common/StatusBadge';
@@ -11,14 +11,14 @@ import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 
 const SalesReport = () => {
-  const { user } = useAuth();
-  const currency = user?.company?.currency || 'USD';
+  const { user, isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
   const [sales, setSales] = useState([]);
   const [summary, setSummary] = useState(null);
   const [customers, setCustomers] = useState([]);
+  const [companies, setCompanies] = useState([]);
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -26,15 +26,40 @@ const SalesReport = () => {
     endDate: '',
     customerId: '',
     status: '',
+    companyId: '',
   });
 
+  const selectedCompany = isSuperAdmin()
+    ? companies.find((c) => String(c.id) === String(filters.companyId))
+    : user?.company;
+  const currency = selectedCompany?.currency || 'USD';
+
   useEffect(() => {
-    fetchCustomers();
+    if (isSuperAdmin()) {
+      companiesAPI.getAll({ limit: 100 })
+        .then((res) => setCompanies(res.data.data || []))
+        .catch(() => setCompanies([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // For superadmin, the customer list is scoped to whichever company is
+  // selected - until one is picked there's nothing valid to show, and
+  // switching companies invalidates any previously chosen customer.
+  useEffect(() => {
+    if (isSuperAdmin() && !filters.companyId) {
+      setCustomers([]);
+      return;
+    }
+    fetchCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.companyId]);
 
   const fetchCustomers = async () => {
     try {
-      const customersData = await fetchAllPages(customersAPI.getAll, { type: 'customer' });
+      const params = { type: 'customer' };
+      if (isSuperAdmin() && filters.companyId) params.companyId = filters.companyId;
+      const customersData = await fetchAllPages(customersAPI.getAll, params);
       setCustomers(customersData);
     } catch (err) {
       console.error('Error fetching customers:', err);
@@ -51,6 +76,7 @@ const SalesReport = () => {
       if (filters.endDate) params.endDate = filters.endDate;
       if (filters.customerId) params.customerId = filters.customerId;
       if (filters.status) params.status = filters.status;
+      if (isSuperAdmin() && filters.companyId) params.companyId = filters.companyId;
 
       const response = await reportsAPI.getSalesReport(params);
       setSales(response.data.data.sales || []);
@@ -71,6 +97,7 @@ const SalesReport = () => {
       if (filters.endDate) params.endDate = filters.endDate;
       if (filters.customerId) params.customerId = filters.customerId;
       if (filters.status) params.status = filters.status;
+      if (isSuperAdmin() && filters.companyId) params.companyId = filters.companyId;
 
       const response = await reportsAPI.exportSalesCSV(params);
 
@@ -100,7 +127,7 @@ const SalesReport = () => {
     fetchReport();
   };
 
-  const canGenerate = !!filters.startDate && !!filters.endDate;
+  const canGenerate = (!isSuperAdmin() || !!filters.companyId) && !!filters.startDate && !!filters.endDate;
 
   const formatAmount = (value) => {
     return formatCurrency(value, currency);
@@ -112,6 +139,9 @@ const SalesReport = () => {
         <h2>
           <FaChartBar className="me-2" />
           Sales Report
+          {isSuperAdmin() && summary && selectedCompany && (
+            <small className="text-muted ms-2">— {selectedCompany.name}</small>
+          )}
         </h2>
         {sales.length > 0 && (
           <Button variant="success" onClick={handleExport} disabled={exporting || !canGenerate}>
@@ -129,6 +159,22 @@ const SalesReport = () => {
         <Card.Body>
           <Form onSubmit={handleSubmit}>
             <Row className="g-3" style={{ margin: 0 }}>
+              {isSuperAdmin() && (
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Company *</Form.Label>
+                    <Form.Select
+                      value={filters.companyId}
+                      onChange={(e) => setFilters({ ...filters, companyId: e.target.value, customerId: '' })}
+                    >
+                      <option value="">Select a company...</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              )}
               <Col md={3}>
                 <Form.Group>
                   <Form.Label>Start Date</Form.Label>
@@ -190,7 +236,11 @@ const SalesReport = () => {
                 {loading ? 'Loading...' : 'Generate Report'}
               </Button>
               {!canGenerate && (
-                <small className="text-muted ms-2">Select a start and end date to generate this report.</small>
+                <small className="text-muted ms-2">
+                  {isSuperAdmin() && !filters.companyId
+                    ? 'Select a company, start date, and end date to generate this report.'
+                    : 'Select a start and end date to generate this report.'}
+                </small>
               )}
             </div>
           </Form>

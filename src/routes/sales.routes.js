@@ -4,7 +4,7 @@ const { authenticate, checkSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { salesValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 
-const SALES_SORT_FIELDS = ['orderNumber', 'status', 'subtotal', 'tax', 'total', 'createdAt', 'customer', 'user'];
+const SALES_SORT_FIELDS = ['orderNumber', 'status', 'subtotal', 'tax', 'total', 'createdAt', 'customer', 'user', 'company'];
 
 const router = express.Router();
 

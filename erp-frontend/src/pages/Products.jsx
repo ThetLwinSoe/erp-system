@@ -220,6 +220,9 @@ const Products = () => {
                   <SortableHeader label="Selling Price" field="sellingPrice" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Stock" field="stock" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {isSuperAdmin() && (
+                    <SortableHeader label="Company" field="company" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -237,6 +240,15 @@ const Products = () => {
                         {product.status === 'active' ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
+                    {isSuperAdmin() && (
+                      <td>
+                        {product.company ? (
+                          <Badge bg="info" style={{ whiteSpace: 'normal', maxWidth: '140px' }}>{product.company.name}</Badge>
+                        ) : (
+                          <Badge bg="secondary">No Company</Badge>
+                        )}
+                      </td>
+                    )}
                     <td>
                       {!isSaleRep() && (
                         <>

@@ -1,4 +1,4 @@
-const { PurchaseReturn, PurchaseReturnItem, Purchase, PurchaseItem, Product, Customer, User, Inventory, sequelize } = require('../models');
+const { PurchaseReturn, PurchaseReturnItem, Purchase, PurchaseItem, Product, Customer, User, Inventory, Company, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, PURCHASE_RETURN_STATUS } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
@@ -35,6 +35,7 @@ class PurchaseReturnsController {
       const JOIN_SORT_MAP = {
         orderNumber: [{ model: Purchase, as: 'purchase' }, 'orderNumber'],
         supplier: [{ model: Purchase, as: 'purchase' }, { model: Customer, as: 'supplier' }, 'name'],
+        company: [{ model: Company, as: 'company' }, 'name'],
       };
       const order = JOIN_SORT_MAP[sortBy]
         ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
@@ -49,6 +50,7 @@ class PurchaseReturnsController {
             include: [{ model: Customer, as: 'supplier' }],
           },
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
+          { model: Company, as: 'company' },
         ],
         order,
         limit,

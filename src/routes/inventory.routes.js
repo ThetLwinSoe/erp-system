@@ -4,7 +4,7 @@ const { authenticate, restrictSaleRep } = require('../middleware/auth');
 const { companyScope } = require('../middleware/companyScope');
 const { inventoryValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 
-const INVENTORY_SORT_FIELDS = ['sku', 'name', 'category', 'quantity', 'minStockLevel', 'location', 'lastRestocked', 'updatedAt'];
+const INVENTORY_SORT_FIELDS = ['sku', 'name', 'category', 'quantity', 'minStockLevel', 'location', 'lastRestocked', 'updatedAt', 'company'];
 
 const router = express.Router();
 
