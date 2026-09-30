@@ -69,6 +69,15 @@ export const customersAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  getCreditStatus: (id, params) => api.get(`/customers/${id}/credit-status`, { params }),
+};
+
+// Payments API (Credit Control)
+export const paymentsAPI = {
+  getAll: (params) => api.get('/payments', { params }),
+  create: (data) => api.post('/payments', data),
+  settleBulk: (data) => api.post('/payments/settle', data),
+  delete: (id) => api.delete(`/payments/${id}`),
 };
 
 // Products API

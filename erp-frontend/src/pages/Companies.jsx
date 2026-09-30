@@ -46,6 +46,7 @@ const Companies = () => {
     status: COMPANY_STATUS.ACTIVE,
     currency: CURRENCIES.USD,
     subscriptionEndDate: '',
+    creditControlEnabled: false,
     createAdmin: false,
     adminName: '',
     adminEmail: '',
@@ -89,6 +90,7 @@ const Companies = () => {
         status: company.status,
         currency: company.currency || CURRENCIES.USD,
         subscriptionEndDate: company.subscriptionEndDate || '',
+        creditControlEnabled: !!company.creditControlEnabled,
         createAdmin: false,
         adminName: '',
         adminEmail: '',
@@ -105,6 +107,7 @@ const Companies = () => {
         status: COMPANY_STATUS.ACTIVE,
         currency: CURRENCIES.USD,
         subscriptionEndDate: '',
+        creditControlEnabled: false,
         createAdmin: false,
         adminName: '',
         adminEmail: '',
@@ -180,6 +183,7 @@ const Companies = () => {
         status: formData.status,
         currency: formData.currency,
         subscriptionEndDate: formData.subscriptionEndDate || null,
+        creditControlEnabled: formData.creditControlEnabled,
       };
 
       if (!selectedCompany && formData.createAdmin) {
@@ -420,6 +424,18 @@ const Companies = () => {
               />
               <Form.Text className="text-muted">
                 Optional. Users at this company (and superadmin) see a warning starting {SUBSCRIPTION_ALERT_DAYS} days before this date.
+              </Form.Text>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                id="creditControlEnabled"
+                label="Credit Control Enabled"
+                checked={formData.creditControlEnabled}
+                onChange={(e) => setFormData({ ...formData, creditControlEnabled: e.target.checked })}
+              />
+              <Form.Text className="text-muted">
+                Lets this company set customer/supplier credit limits and warns (without blocking) when a Sale or Purchase would go over. Once on, that company's own Admin decides per user (on the Users page) who else can use it.
               </Form.Text>
             </Form.Group>
 

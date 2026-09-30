@@ -1,9 +1,32 @@
-const { Sale, SaleItem, Customer, User, Product, Company } = require('../models');
+const { Sale, SaleItem, Customer, User, Product, Company, Payment, sequelize } = require('../models');
 const SalesService = require('../services/sales.service');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, ORDER_STATUS } = require('../utils/constants');
-const { getCompanyIdForCreate } = require('../middleware/companyScope');
+const { getCompanyIdForCreate, evaluateCreditControlAccess } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
+
+/**
+ * unpaid/partial/paid, derived from paidAmount vs order total - not
+ * meaningful for a cancelled order, so callers skip it there.
+ */
+const paymentStatusFor = (paidAmount, total) => {
+  if (paidAmount <= 0) return 'unpaid';
+  if (paidAmount >= parseFloat(total)) return 'paid';
+  return 'partial';
+};
+
+// Used only for `ORDER BY` when sorting by the computed Payment column - a
+// 3-bucket rank (0=unpaid, 1=partial, 2=paid), not the raw paid amount, so a
+// small partial payment doesn't outrank a fully-paid smaller order. Needed
+// because sorting by a computed value means ranking the whole matching set,
+// not just the current page.
+const PAYMENT_STATUS_SORT_SQL = `(
+  CASE
+    WHEN COALESCE((SELECT SUM(amount) FROM payments WHERE payments."saleId" = "Sale"."id"), 0) <= 0 THEN 0
+    WHEN COALESCE((SELECT SUM(amount) FROM payments WHERE payments."saleId" = "Sale"."id"), 0) >= "Sale"."total" THEN 2
+    ELSE 1
+  END
+)`;
 
 class SalesController {
   /**
@@ -33,6 +56,10 @@ class SalesController {
         whereClause.status = status;
       }
 
+      if (req.query.customerId) {
+        whereClause.customerId = parseInt(req.query.customerId);
+      }
+
       if (search) {
         whereClause.orderNumber = { [Op.iLike]: `%${search}%` };
       }
@@ -58,9 +85,21 @@ class SalesController {
         user: [{ model: User, as: 'user' }, 'name'],
         company: [{ model: Company, as: 'company' }, 'name'],
       };
-      const order = JOIN_SORT_MAP[sortBy]
-        ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
-        : [[sortBy, sortOrder]];
+
+      // Payment status is computed, not a real column - only honored with
+      // Credit Control access (the column isn't shown otherwise), falling
+      // back to the default sort rather than erroring.
+      const { allowed } = await evaluateCreditControlAccess(req);
+      let order;
+      if (sortBy === 'paymentStatus' && allowed) {
+        order = [[sequelize.literal(PAYMENT_STATUS_SORT_SQL), sortOrder]];
+      } else if (JOIN_SORT_MAP[sortBy]) {
+        order = [[...JOIN_SORT_MAP[sortBy], sortOrder]];
+      } else if (sortBy === 'paymentStatus') {
+        order = [['createdAt', 'DESC']];
+      } else {
+        order = [[sortBy, sortOrder]];
+      }
 
       const { count, rows } = await Sale.findAndCountAll({
         where: whereClause,
@@ -74,6 +113,28 @@ class SalesController {
         offset,
       });
 
+      // Attach each row's payment status (unpaid/partial/paid), in one
+      // batched query for the whole page - not per row - and only when the
+      // caller has Credit Control access, so this costs nothing otherwise.
+      let responseRows = rows;
+      if (allowed && rows.length > 0) {
+        const paidRows = await Payment.findAll({
+          attributes: ['saleId', [sequelize.fn('SUM', sequelize.col('amount')), 'paidAmount']],
+          where: { saleId: { [Op.in]: rows.map((r) => r.id) } },
+          group: ['saleId'],
+          raw: true,
+        });
+        const paidBySaleId = new Map(paidRows.map((r) => [r.saleId, parseFloat(r.paidAmount) || 0]));
+        responseRows = rows.map((r) => {
+          const paidAmount = paidBySaleId.get(r.id) || 0;
+          return {
+            ...r.toJSON(),
+            paidAmount,
+            paymentStatus: r.status === 'cancelled' ? null : paymentStatusFor(paidAmount, r.total),
+          };
+        });
+      }
+
       const pagination = {
         total: count,
         page,
@@ -81,7 +142,7 @@ class SalesController {
         totalPages: Math.ceil(count / limit),
       };
 
-      return ApiResponse.paginated(res, rows, pagination, 'Sales retrieved successfully');
+      return ApiResponse.paginated(res, responseRows, pagination, 'Sales retrieved successfully');
     } catch (error) {
       next(error);
     }

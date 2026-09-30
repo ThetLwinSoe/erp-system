@@ -66,6 +66,8 @@ export const STATUS_COLORS = {
   partial: 'warning',
   received: 'success',
   completed: 'success',
+  unpaid: 'secondary',
+  paid: 'success',
 };
 
 export const ADJUSTMENT_TYPES = {

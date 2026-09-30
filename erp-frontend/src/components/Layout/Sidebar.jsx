@@ -15,11 +15,12 @@ import {
   FaChevronRight,
   FaBuilding,
   FaClipboardList,
+  FaMoneyBillWave,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = () => {
-  const { isAdmin, isSuperAdmin, canAccessInventory, canAccessPurchases, canAccessSalesReturns } = useAuth();
+  const { isAdmin, isSuperAdmin, canAccessInventory, canAccessPurchases, canAccessSalesReturns, canAccessCreditControl } = useAuth();
   const location = useLocation();
   const isSalesSection = location.pathname.startsWith('/sales') || location.pathname.startsWith('/customers');
   const isPurchasesSection = location.pathname.startsWith('/purchase') || location.pathname.startsWith('/suppliers');
@@ -35,6 +36,7 @@ const Sidebar = () => {
     { path: '/companies', icon: FaBuilding, label: 'Companies', superAdminOnly: true },
     { path: '/users', icon: FaUsers, label: 'Users', adminOnly: true },
     { path: '/products', icon: FaBoxes, label: 'Products' },
+    { path: '/payments', icon: FaMoneyBillWave, label: 'Payments', creditControlOnly: true },
   ];
 
   const adjustmentItems = [
@@ -79,6 +81,7 @@ const Sidebar = () => {
         {menuItems.map((item) => {
           if (item.superAdminOnly && !isSuperAdmin()) return null;
           if (item.adminOnly && !isAdmin()) return null;
+          if (item.creditControlOnly && !canAccessCreditControl()) return null;
 
           return (
             <Nav.Link

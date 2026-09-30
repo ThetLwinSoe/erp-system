@@ -34,6 +34,7 @@ const PurchaseReturn = require('./PurchaseReturn')(sequelize);
 const PurchaseReturnItem = require('./PurchaseReturnItem')(sequelize);
 const InventoryAdjustment = require('./InventoryAdjustment')(sequelize);
 const InventoryAdjustmentItem = require('./InventoryAdjustmentItem')(sequelize);
+const Payment = require('./Payment')(sequelize);
 
 // Define associations
 
@@ -161,6 +162,26 @@ InventoryAdjustmentItem.belongsTo(InventoryAdjustment, { foreignKey: 'inventoryA
 Product.hasMany(InventoryAdjustmentItem, { foreignKey: 'productId', as: 'inventoryAdjustmentItems' });
 InventoryAdjustmentItem.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'RESTRICT' });
 
+// Company - Payment (One-to-Many)
+Company.hasMany(Payment, { foreignKey: 'companyId', as: 'payments' });
+Payment.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// Customer - Payment (One-to-Many)
+Customer.hasMany(Payment, { foreignKey: 'customerId', as: 'payments' });
+Payment.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
+
+// User - Payment (One-to-Many)
+User.hasMany(Payment, { foreignKey: 'userId', as: 'payments' });
+Payment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// Sale - Payment (One-to-Many) - payments recorded against a specific sale
+Sale.hasMany(Payment, { foreignKey: 'saleId', as: 'payments' });
+Payment.belongsTo(Sale, { foreignKey: 'saleId', as: 'sale' });
+
+// Purchase - Payment (One-to-Many) - payments recorded against a specific purchase
+Purchase.hasMany(Payment, { foreignKey: 'purchaseId', as: 'payments' });
+Payment.belongsTo(Purchase, { foreignKey: 'purchaseId', as: 'purchase' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -179,4 +200,5 @@ module.exports = {
   PurchaseReturnItem,
   InventoryAdjustment,
   InventoryAdjustmentItem,
+  Payment,
 };

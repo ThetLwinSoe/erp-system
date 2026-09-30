@@ -15,7 +15,7 @@ import SortableHeader from '../components/common/SortableHeader';
 import PasswordInput from '../components/common/PasswordInput';
 
 const Users = () => {
-  const { isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,17 @@ const Users = () => {
     password: '',
     role: 'staff',
     companyId: '',
+    creditControlAccess: false,
   });
+
+  // For superadmin, Credit Control availability depends on whichever company
+  // is picked in the form's own Company dropdown; for everyone else it's
+  // always their own company - matches the `selectedCompany` pattern already
+  // used on the report pages this session.
+  const formCompany = isSuperAdmin()
+    ? companies.find((c) => String(c.id) === String(formData.companyId))
+    : user?.company;
+  const showCreditControlAccess = !!formCompany?.creditControlEnabled;
 
   const fetchUsers = async () => {
     try {
@@ -95,6 +105,7 @@ const Users = () => {
         password: '',
         role: user.role,
         companyId: user.companyId ? String(user.companyId) : '',
+        creditControlAccess: !!user.creditControlAccess,
       });
     } else {
       setSelectedUser(null);
@@ -104,6 +115,7 @@ const Users = () => {
         password: '',
         role: 'staff',
         companyId: companies.length > 0 ? String(companies[0].id) : '',
+        creditControlAccess: false,
       });
     }
     setError(null);
@@ -252,6 +264,20 @@ const Users = () => {
                 <option value={ROLES.ADMIN}>Admin</option>
               </Form.Select>
             </Form.Group>
+            {showCreditControlAccess && formData.role !== ROLES.ADMIN && formData.role !== ROLES.SALE_REP && (
+              <Form.Group className="mb-3">
+                <Form.Check
+                  type="checkbox"
+                  id="creditControlAccess"
+                  label="Credit Control Access"
+                  checked={formData.creditControlAccess}
+                  onChange={(e) => setFormData({ ...formData, creditControlAccess: e.target.checked })}
+                />
+                <Form.Text className="text-muted">
+                  Lets this person see customer/supplier credit limits and record payments.
+                </Form.Text>
+              </Form.Group>
+            )}
             {isSuperAdmin() && (
               <Form.Group className="mb-3">
                 <Form.Label>Company *</Form.Label>

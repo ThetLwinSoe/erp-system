@@ -48,6 +48,15 @@ export const AuthProvider = ({ children }) => {
   const canAccessInventory = () => user?.role !== 'sale_rep';
   const canAccessPurchases = () => user?.role !== 'sale_rep';
   const canAccessSalesReturns = () => user?.role !== 'sale_rep';
+  // Two independent per-tenant knobs: Company.creditControlEnabled
+  // (superadmin-controlled) and User.creditControlAccess (tenant-Admin-
+  // controlled, from the Users page) - admin-role users always pass the
+  // second half, since they're the ones granting it to others; sale_rep
+  // users never pass it, regardless of their own flag's value. Superadmin
+  // always has access. Mirrors evaluateCreditControlAccess on the backend
+  // (src/middleware/companyScope.js) - keep both in sync.
+  const canAccessCreditControl = () =>
+    isSuperAdmin() || (!!user?.company?.creditControlEnabled && user?.role !== 'sale_rep' && (user?.role === 'admin' || !!user?.creditControlAccess));
   const getCompanyId = () => user?.companyId;
   const getCompanyName = () => user?.company?.name;
 
@@ -66,6 +75,7 @@ export const AuthProvider = ({ children }) => {
     canAccessInventory,
     canAccessPurchases,
     canAccessSalesReturns,
+    canAccessCreditControl,
     getCompanyId,
     getCompanyName,
     isAuthenticated: !!user,

@@ -68,7 +68,7 @@ class UsersController {
    */
   static async create(req, res, next) {
     try {
-      const { name, email, password, role } = req.body;
+      const { name, email, password, role, creditControlAccess } = req.body;
 
       // Prevent creating superadmin through API
       if (role === ROLES.SUPERADMIN) {
@@ -92,6 +92,7 @@ class UsersController {
         email,
         password,
         role: role || ROLES.STAFF,
+        creditControlAccess: creditControlAccess === true,
         companyId,
       });
 
@@ -154,7 +155,7 @@ class UsersController {
         return ApiResponse.notFound(res, 'User not found');
       }
 
-      const { name, email, role, password, companyId } = req.body;
+      const { name, email, role, password, companyId, creditControlAccess } = req.body;
       const updates = {};
 
       // Prevent changing role to superadmin
@@ -166,6 +167,7 @@ class UsersController {
       if (email) updates.email = email;
       if (role) updates.role = role;
       if (password) updates.password = password;
+      if (creditControlAccess !== undefined) updates.creditControlAccess = creditControlAccess === true;
 
       // Only superadmin can change companyId
       if (companyId && req.user.role === ROLES.SUPERADMIN) {
