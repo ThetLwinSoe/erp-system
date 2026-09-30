@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
-import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaEye, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { salesAPI, customersAPI, productsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -18,7 +18,7 @@ import SortableHeader from '../components/common/SortableHeader';
 
 const Sales = () => {
   const navigate = useNavigate();
-  const { user, isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin, canAccessCreditControl } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +39,7 @@ const Sales = () => {
   // Form data
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [creditStatus, setCreditStatus] = useState(null);
   const [formData, setFormData] = useState({
     customerId: '',
     items: [{ productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
@@ -80,6 +81,20 @@ const Sales = () => {
   useEffect(() => {
     fetchSales();
   }, [page, debouncedSearch, statusFilter, sortBy, sortOrder]);
+
+  // Live Credit Control check as the customer is picked in the New Sale
+  // modal - informational only (see canAccessCreditControl in AuthContext),
+  // never blocks submission.
+  useEffect(() => {
+    if (!showModal || !canAccessCreditControl() || !formData.customerId) {
+      setCreditStatus(null);
+      return;
+    }
+    customersAPI.getCreditStatus(formData.customerId)
+      .then((res) => setCreditStatus(res.data.data))
+      .catch(() => setCreditStatus(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal, formData.customerId]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -209,6 +224,20 @@ const Sales = () => {
     return subtotal - orderDiscount + tax;
   };
 
+  // null when there's nothing to warn about (under the limit and nothing
+  // overdue) - never blocks Create, purely informational per Credit
+  // Control's design. Two independent triggers: this order would push the
+  // customer over their credit limit, and/or they already have an overdue
+  // balance (from unpaid orders past their credit term) regardless of limit.
+  const creditWarning = (() => {
+    if (!creditStatus) return null;
+    const projected = creditStatus.outstandingReceivable + calculateTotal();
+    const overLimit = creditStatus.creditLimit !== null && projected > creditStatus.creditLimit;
+    const hasOverdue = creditStatus.overdueReceivable !== null && creditStatus.overdueReceivable > 0;
+    if (!overLimit && !hasOverdue) return null;
+    return { ...creditStatus, projected, overLimit, hasOverdue };
+  })();
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -241,6 +270,9 @@ const Sales = () => {
                   <SortableHeader label="Order #" field="orderNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Customer" field="customer" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {canAccessCreditControl() && (
+                    <SortableHeader label="Payment" field="paymentStatus" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   <SortableHeader label="Subtotal" field="subtotal" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Tax" field="tax" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Total" field="total" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -258,6 +290,9 @@ const Sales = () => {
                     <td><code>{sale.orderNumber}</code></td>
                     <td>{sale.customer?.name}</td>
                     <td><StatusBadge status={sale.status} /></td>
+                    {canAccessCreditControl() && (
+                      <td>{sale.paymentStatus ? <StatusBadge status={sale.paymentStatus} /> : '-'}</td>
+                    )}
                     <td>{formatCurrency(sale.subtotal, currency)}</td>
                     <td>{formatCurrency(sale.tax, currency)}</td>
                     <td><strong>{formatCurrency(sale.total, currency)}</strong></td>
@@ -416,6 +451,27 @@ const Sales = () => {
                 <strong>{formatCurrency(calculateTotal(), currency)}</strong>
               </div>
             </Alert>
+
+            {creditWarning && (
+              <Alert variant="warning">
+                <FaExclamationTriangle className="me-2" />
+                {creditWarning.overLimit && (
+                  <div>
+                    This customer's outstanding balance is <strong>{formatCurrency(creditWarning.outstandingReceivable, currency)}</strong> against
+                    a credit limit of <strong>{formatCurrency(creditWarning.creditLimit, currency)}</strong>. This order would bring it to{' '}
+                    <strong>{formatCurrency(creditWarning.projected, currency)}</strong>, over the limit by{' '}
+                    <strong>{formatCurrency(creditWarning.projected - creditWarning.creditLimit, currency)}</strong>.
+                  </div>
+                )}
+                {creditWarning.hasOverdue && (
+                  <div>
+                    This customer already has <strong>{formatCurrency(creditWarning.overdueReceivable, currency)}</strong> overdue
+                    (past their {creditWarning.creditTermDays}-day credit term).
+                  </div>
+                )}
+                You can still create this order.
+              </Alert>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>

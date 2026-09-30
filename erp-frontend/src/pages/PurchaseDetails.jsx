@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Modal, Form, ProgressBar, Badge } from 'react-bootstrap';
-import { FaArrowLeft, FaCheck, FaPrint, FaUndo } from 'react-icons/fa';
-import { purchasesAPI, getStaticUrl } from '../services/api';
+import { FaArrowLeft, FaCheck, FaPrint, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
+import { purchasesAPI, paymentsAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
@@ -10,10 +10,12 @@ import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 
+const emptyPaymentForm = { amount: '', paymentDate: '', method: '', reference: '', notes: '' };
+
 const PurchaseDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, canAccessCreditControl } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [purchase, setPurchase] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,11 @@ const PurchaseDetails = () => {
   const [printing, setPrinting] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [receiveItems, setReceiveItems] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState(emptyPaymentForm);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
 
   const fetchPurchase = async () => {
     try {
@@ -35,10 +42,44 @@ const PurchaseDetails = () => {
     }
   };
 
+  const fetchPayments = async () => {
+    try {
+      const response = await paymentsAPI.getAll({ purchaseId: id, limit: 100 });
+      setPayments(response.data.data || []);
+    } catch {
+      setPayments([]);
+    }
+  };
+
   useEffect(() => {
     fetchPurchase();
+    if (canAccessCreditControl()) fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+  const balanceDue = purchase ? parseFloat(purchase.total) - totalPaid : 0;
+
+  const handleOpenPaymentModal = () => {
+    setPaymentFormData({ ...emptyPaymentForm, amount: balanceDue > 0 ? balanceDue.toFixed(2) : '' });
+    setPaymentError(null);
+    setShowPaymentModal(true);
+  };
+
+  const handleRecordPayment = async (e) => {
+    e.preventDefault();
+    setPaymentError(null);
+    setPaymentSubmitting(true);
+    try {
+      await paymentsAPI.create({ purchaseId: id, ...paymentFormData, amount: parseFloat(paymentFormData.amount) });
+      setShowPaymentModal(false);
+      fetchPayments();
+    } catch (err) {
+      setPaymentError(extractApiError(err, 'Failed to record payment'));
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
 
   const handleStatusChange = async (newStatus) => {
     try {
@@ -121,6 +162,16 @@ const PurchaseDetails = () => {
 
   const canReturn = () => {
     return ['partial', 'received'].includes(purchase?.status);
+  };
+
+  const canRecordPayment = () => {
+    return purchase?.status !== 'pending' && purchase?.status !== 'cancelled' && balanceDue > 0;
+  };
+
+  const recordPaymentDisabledReason = () => {
+    if (purchase?.status === 'pending' || purchase?.status === 'cancelled') return 'Order must be approved before recording payments.';
+    if (balanceDue <= 0) return 'This order is already fully paid.';
+    return '';
   };
 
   const handlePrintInvoice = async () => {
@@ -298,7 +349,7 @@ const PurchaseDetails = () => {
             </Card.Body>
           </Card>
 
-          <Card>
+          <Card className="mb-4">
             <Card.Header>Actions</Card.Header>
             <Card.Body>
               <div className="d-grid gap-2">
@@ -322,8 +373,115 @@ const PurchaseDetails = () => {
               </div>
             </Card.Body>
           </Card>
+
+          {canAccessCreditControl() && (
+            <Card>
+              <Card.Header className="d-flex justify-content-between align-items-center">
+                Payments
+                <span title={canRecordPayment() ? '' : recordPaymentDisabledReason()}>
+                  <Button variant="outline-primary" size="sm" onClick={handleOpenPaymentModal} disabled={!canRecordPayment()}>
+                    <FaMoneyBillWave className="me-1" />
+                    Record Payment
+                  </Button>
+                </span>
+              </Card.Header>
+              <Card.Body>
+                {payments.length === 0 ? (
+                  <p className="text-muted mb-3">No payments recorded yet.</p>
+                ) : (
+                  <Table size="sm" className="mb-3">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((p) => (
+                        <tr key={p.id}>
+                          <td>{new Date(p.paymentDate).toLocaleDateString()}</td>
+                          <td>{formatCurrency(p.amount, currency)}</td>
+                          <td>{p.method || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+                <p className="mb-1"><strong>Paid:</strong> {formatCurrency(totalPaid, currency)}</p>
+                <p className="mb-0">
+                  <strong>Balance Due:</strong>{' '}
+                  <span className={balanceDue > 0 ? 'text-danger' : 'text-success'}>{formatCurrency(balanceDue, currency)}</span>
+                </p>
+              </Card.Body>
+            </Card>
+          )}
         </Col>
       </Row>
+
+      <Modal show={showPaymentModal} onHide={() => setShowPaymentModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Record Payment - {purchase.orderNumber}</Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleRecordPayment}>
+          <Modal.Body>
+            <ErrorAlert error={paymentError} />
+            <Form.Group className="mb-3">
+              <Form.Label>Amount *</Form.Label>
+              <Form.Control
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={paymentFormData.amount}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: e.target.value })}
+                required
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Payment Date</Form.Label>
+              <Form.Control
+                type="date"
+                value={paymentFormData.paymentDate}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, paymentDate: e.target.value })}
+              />
+              <Form.Text className="text-muted">Defaults to today if left blank.</Form.Text>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Method</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Cash, bank transfer, mobile wallet, etc."
+                value={paymentFormData.method}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, method: e.target.value })}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Reference</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Cheque #, transaction ID, etc."
+                value={paymentFormData.reference}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, reference: e.target.value })}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Notes</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                value={paymentFormData.notes}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, notes: e.target.value })}
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={paymentSubmitting}>
+              {paymentSubmitting ? 'Recording...' : 'Record Payment'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
 
       <Modal show={showReceiveModal} onHide={() => setShowReceiveModal(false)}>
         <Modal.Header closeButton>

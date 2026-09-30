@@ -33,6 +33,7 @@ import NotBuyingCustomersReport from './pages/NotBuyingCustomersReport'
 import InventoryAdjustments from './pages/InventoryAdjustments'
 import InventoryAdjustmentDetails from './pages/InventoryAdjustmentDetails'
 import CreateInventoryAdjustment from './pages/CreateInventoryAdjustment'
+import Payments from './pages/Payments'
 
 function App() {
   const { isAuthenticated } = useAuth()
@@ -77,6 +78,7 @@ function App() {
           <Route path="/reports/purchases" element={<PurchasesReport />} />
           <Route path="/reports/profit-loss" element={<ProfitLossReport />} />
           <Route path="/reports/not-buying-customers" element={<NotBuyingCustomersReport />} />
+          <Route path="/payments" element={<Payments />} />
         </Route>
       </Route>
 
