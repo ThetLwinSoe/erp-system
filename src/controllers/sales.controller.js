@@ -28,6 +28,17 @@ const PAYMENT_STATUS_SORT_SQL = `(
   END
 )`;
 
+// Used for the `paymentStatus` query filter - same three buckets as
+// paymentStatusFor, expressed as a WHERE condition against the whole
+// matching set rather than just the current page's rows. Excludes
+// cancelled orders from every bucket, matching the listing, which shows
+// "-" for a cancelled order's payment status rather than a real value.
+const PAYMENT_STATUS_WHERE_SQL = {
+  unpaid: `"Sale"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."saleId" = "Sale"."id"), 0) <= 0`,
+  partial: `"Sale"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."saleId" = "Sale"."id"), 0) > 0 AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."saleId" = "Sale"."id"), 0) < "Sale"."total"`,
+  paid: `"Sale"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."saleId" = "Sale"."id"), 0) >= "Sale"."total"`,
+};
+
 class SalesController {
   /**
    * Get all sales
@@ -64,6 +75,18 @@ class SalesController {
         whereClause.orderNumber = { [Op.iLike]: `%${search}%` };
       }
 
+      // Payment status is computed, not a real column - filtering/sorting by
+      // it is only honored with Credit Control access (the column isn't
+      // shown otherwise); an unrecognized or inaccessible value is ignored
+      // rather than erroring.
+      const { allowed } = await evaluateCreditControlAccess(req);
+      if (allowed && PAYMENT_STATUS_WHERE_SQL[req.query.paymentStatus]) {
+        whereClause[Op.and] = [
+          ...(whereClause[Op.and] || []),
+          sequelize.literal(PAYMENT_STATUS_WHERE_SQL[req.query.paymentStatus]),
+        ];
+      }
+
       // Date range filtering
       const { startDate, endDate } = req.query;
       if (startDate || endDate) {
@@ -86,10 +109,6 @@ class SalesController {
         company: [{ model: Company, as: 'company' }, 'name'],
       };
 
-      // Payment status is computed, not a real column - only honored with
-      // Credit Control access (the column isn't shown otherwise), falling
-      // back to the default sort rather than erroring.
-      const { allowed } = await evaluateCreditControlAccess(req);
       let order;
       if (sortBy === 'paymentStatus' && allowed) {
         order = [[sequelize.literal(PAYMENT_STATUS_SORT_SQL), sortOrder]];

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
-import { FaPlus, FaEye, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
+import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { salesAPI, customersAPI, productsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
+import CreditWarningAlert from '../components/common/CreditWarningAlert';
 import { ORDER_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
@@ -25,6 +26,7 @@ const Sales = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [sortBy, setSortBy] = useState('createdAt');
@@ -54,6 +56,7 @@ const Sales = () => {
       const params = { page, limit: 20, sortBy, sortOrder };
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
+      if (paymentStatusFilter) params.paymentStatus = paymentStatusFilter;
 
       const response = await salesAPI.getAll(params);
       setSales(response.data.data || []);
@@ -80,7 +83,7 @@ const Sales = () => {
 
   useEffect(() => {
     fetchSales();
-  }, [page, debouncedSearch, statusFilter, sortBy, sortOrder]);
+  }, [page, debouncedSearch, statusFilter, paymentStatusFilter, sortBy, sortOrder]);
 
   // Live Credit Control check as the customer is picked in the New Sale
   // modal - informational only (see canAccessCreditControl in AuthContext),
@@ -224,19 +227,6 @@ const Sales = () => {
     return subtotal - orderDiscount + tax;
   };
 
-  // null when there's nothing to warn about (under the limit and nothing
-  // overdue) - never blocks Create, purely informational per Credit
-  // Control's design. Two independent triggers: this order would push the
-  // customer over their credit limit, and/or they already have an overdue
-  // balance (from unpaid orders past their credit term) regardless of limit.
-  const creditWarning = (() => {
-    if (!creditStatus) return null;
-    const projected = creditStatus.outstandingReceivable + calculateTotal();
-    const overLimit = creditStatus.creditLimit !== null && projected > creditStatus.creditLimit;
-    const hasOverdue = creditStatus.overdueReceivable !== null && creditStatus.overdueReceivable > 0;
-    if (!overLimit && !hasOverdue) return null;
-    return { ...creditStatus, projected, overLimit, hasOverdue };
-  })();
 
   return (
     <div>
@@ -257,6 +247,14 @@ const Sales = () => {
               <option key={status} value={status} className="text-capitalize">{status}</option>
             ))}
           </Form.Select>
+          {canAccessCreditControl() && (
+            <Form.Select style={{ maxWidth: '200px' }} value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)}>
+              <option value="">All Payment Statuses</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid</option>
+            </Form.Select>
+          )}
         </Card.Header>
         <Card.Body>
           {loading ? (
@@ -452,26 +450,7 @@ const Sales = () => {
               </div>
             </Alert>
 
-            {creditWarning && (
-              <Alert variant="warning">
-                <FaExclamationTriangle className="me-2" />
-                {creditWarning.overLimit && (
-                  <div>
-                    This customer's outstanding balance is <strong>{formatCurrency(creditWarning.outstandingReceivable, currency)}</strong> against
-                    a credit limit of <strong>{formatCurrency(creditWarning.creditLimit, currency)}</strong>. This order would bring it to{' '}
-                    <strong>{formatCurrency(creditWarning.projected, currency)}</strong>, over the limit by{' '}
-                    <strong>{formatCurrency(creditWarning.projected - creditWarning.creditLimit, currency)}</strong>.
-                  </div>
-                )}
-                {creditWarning.hasOverdue && (
-                  <div>
-                    This customer already has <strong>{formatCurrency(creditWarning.overdueReceivable, currency)}</strong> overdue
-                    (past their {creditWarning.creditTermDays}-day credit term).
-                  </div>
-                )}
-                You can still create this order.
-              </Alert>
-            )}
+            <CreditWarningAlert creditStatus={creditStatus} orderTotal={calculateTotal()} type="customer" currency={currency} />
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>

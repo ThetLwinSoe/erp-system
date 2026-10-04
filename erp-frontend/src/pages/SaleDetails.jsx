@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Form, Badge, Modal } from 'react-bootstrap';
 import { FaArrowLeft, FaPrint, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
-import { salesAPI, paymentsAPI, getStaticUrl } from '../services/api';
+import { salesAPI, paymentsAPI, customersAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { ORDER_STATUS } from '../utils/constants';
@@ -10,6 +10,7 @@ import { generateInvoicePDF } from '../utils/invoiceGenerator';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import CreditWarningAlert from '../components/common/CreditWarningAlert';
 
 const emptyPaymentForm = { amount: '', paymentDate: '', method: '', reference: '', notes: '' };
 
@@ -28,6 +29,7 @@ const SaleDetails = () => {
   const [paymentFormData, setPaymentFormData] = useState(emptyPaymentForm);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
+  const [creditStatus, setCreditStatus] = useState(null);
 
   const fetchSale = async () => {
     try {
@@ -55,6 +57,20 @@ const SaleDetails = () => {
     if (canAccessCreditControl()) fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Only relevant while the order is still Pending - this is the moment an
+  // Admin/Manager/Staff reviews what the Sale Rep created and decides
+  // whether to confirm it, so that's when the credit check matters.
+  useEffect(() => {
+    if (!sale || sale.status !== 'pending' || !canAccessCreditControl()) {
+      setCreditStatus(null);
+      return;
+    }
+    customersAPI.getCreditStatus(sale.customerId)
+      .then((res) => setCreditStatus(res.data.data))
+      .catch(() => setCreditStatus(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sale?.id, sale?.status]);
 
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   const balanceDue = sale ? parseFloat(sale.total) - totalPaid : 0;
@@ -289,6 +305,9 @@ const SaleDetails = () => {
             <Card className="mb-4">
               <Card.Header>Update Status</Card.Header>
               <Card.Body>
+                {sale.status === 'pending' && (
+                  <CreditWarningAlert creditStatus={creditStatus} orderTotal={sale.total} type="customer" currency={currency} />
+                )}
                 <div className="d-grid gap-2">
                   {getNextStatuses().map((status) => (
                     <Button
