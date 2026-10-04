@@ -91,6 +91,13 @@ class PaymentsController {
    * `customerId`/`direction` are derived from the referenced order, not
    * accepted from the client, so a payment can never be mismatched from the
    * order it's meant to settle.
+   *
+   * Status eligibility and the amount-vs-remaining-balance cap mirror
+   * settleBulk's checks (same ineligible-status rule, same
+   * balance-due-plus-epsilon comparison) - the client-side "Record Payment"
+   * button is already disabled for a pending/cancelled order or once an
+   * order is fully paid, but that's a UI-only guard; this is the
+   * server-side backstop a direct/replayed request would otherwise skip.
    * POST /api/payments
    * Body: { saleId | purchaseId, amount, paymentDate?, method?, reference?, notes? }
    */
@@ -113,30 +120,46 @@ class PaymentsController {
 
       let customerId;
       let direction;
+      let order;
+      let orderIdField;
       const attrs = { saleId: null, purchaseId: null };
 
       if (saleId) {
-        const sale = await Sale.findOne({ where: { id: saleId, companyId } });
-        if (!sale) {
+        order = await Sale.findOne({ where: { id: saleId, companyId } });
+        if (!order) {
           return ApiResponse.notFound(res, 'Sale order not found');
         }
-        customerId = sale.customerId;
+        customerId = order.customerId;
         direction = 'received';
-        attrs.saleId = sale.id;
+        orderIdField = 'saleId';
+        attrs.saleId = order.id;
       } else {
-        const purchase = await Purchase.findOne({ where: { id: purchaseId, companyId } });
-        if (!purchase) {
+        order = await Purchase.findOne({ where: { id: purchaseId, companyId } });
+        if (!order) {
           return ApiResponse.notFound(res, 'Purchase order not found');
         }
-        customerId = purchase.supplierId;
+        customerId = order.supplierId;
         direction = 'paid';
-        attrs.purchaseId = purchase.id;
+        orderIdField = 'purchaseId';
+        attrs.purchaseId = order.id;
+      }
+
+      if (order.status === 'pending' || order.status === 'cancelled') {
+        return ApiResponse.badRequest(res, `Order ${order.orderNumber} is not eligible for payment (must be confirmed/approved and not cancelled)`);
+      }
+
+      const existingPaid = (await Payment.sum('amount', { where: { [orderIdField]: order.id } })) || 0;
+      const balanceDue = parseFloat(order.total) - existingPaid;
+      const amountNum = parseFloat(amount);
+
+      if (amountNum > balanceDue + 0.005) {
+        return ApiResponse.badRequest(res, `Amount exceeds the order's remaining balance of ${balanceDue.toFixed(2)}`);
       }
 
       const payment = await Payment.create({
         customerId,
         direction,
-        amount,
+        amount: amountNum,
         paymentDate: paymentDate || new Date(),
         method: method || null,
         reference: reference || null,
