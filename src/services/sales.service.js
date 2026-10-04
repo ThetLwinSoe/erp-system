@@ -1,4 +1,4 @@
-const { Sale, SaleItem, Product, Customer, User, sequelize } = require('../models');
+const { Sale, SaleItem, Product, Customer, User, Payment, sequelize } = require('../models');
 const InventoryService = require('./inventory.service');
 const { ORDER_STATUS } = require('../utils/constants');
 
@@ -174,6 +174,25 @@ class SalesService {
     // If cancelling, restore inventory
     if (status === ORDER_STATUS.CANCELLED) {
       await sequelize.transaction(async (transaction) => {
+        // Lock the order row and re-check under the lock, so a payment or a
+        // status change made since the checks above can't slip through. Same
+        // row lock as the payment and settlement paths, so they serialize.
+        const locked = await Sale.findOne({ where: { id }, lock: transaction.LOCK.UPDATE, transaction });
+        if (!validTransitions[locked.status].includes(status)) {
+          const error = new Error(`Cannot transition from ${locked.status} to ${status}`);
+          error.statusCode = 400;
+          throw error;
+        }
+
+        // A cancelled order can't keep payments: the credit balance counts all
+        // of a customer's received payments, so they'd understate the receivable.
+        const paid = (await Payment.sum('amount', { where: { saleId: id }, transaction })) || 0;
+        if (paid > 0) {
+          const error = new Error(`Order ${sale.orderNumber} has payments of ${paid.toFixed(2)} recorded and can't be cancelled. Remove the payments first.`);
+          error.statusCode = 400;
+          throw error;
+        }
+
         const items = await SaleItem.findAll({
           where: { saleId: id },
           transaction,
@@ -221,6 +240,19 @@ class SalesService {
         updates[field] = updateData[field];
       }
     });
+
+    // Changing tax or discount changes the total, which recorded payments
+    // would no longer match. Unchanged values are fine (the client may resend them).
+    const taxChanged = updates.tax !== undefined && parseFloat(updates.tax) !== parseFloat(sale.tax);
+    const discountChanged = updates.discountPercent !== undefined && parseFloat(updates.discountPercent) !== parseFloat(sale.discountPercent);
+    if (taxChanged || discountChanged) {
+      const paid = (await Payment.sum('amount', { where: { saleId: id } })) || 0;
+      if (paid > 0) {
+        const error = new Error(`Order ${sale.orderNumber} has payments of ${paid.toFixed(2)} recorded, so its tax and discount can't be changed.`);
+        error.statusCode = 400;
+        throw error;
+      }
+    }
 
     // Recalculate totals if tax or discount changed
     if (updates.tax !== undefined || updates.discountPercent !== undefined) {

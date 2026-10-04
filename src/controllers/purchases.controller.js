@@ -255,7 +255,29 @@ class PurchasesController {
         return ApiResponse.badRequest(res, `Cannot transition from ${purchase.status} to ${status}`);
       }
 
-      await purchase.update({ status });
+      if (status === PURCHASE_STATUS.CANCELLED) {
+        // Same guard as the sales cancel (see SalesService.updateSaleStatus):
+        // lock the row, re-check under the lock, and refuse if payments exist.
+        const rejection = await sequelize.transaction(async (transaction) => {
+          const locked = await Purchase.findOne({ where: { id: purchase.id }, lock: transaction.LOCK.UPDATE, transaction });
+          if (!validTransitions[locked.status].includes(status)) {
+            return `Cannot transition from ${locked.status} to ${status}`;
+          }
+
+          const paid = (await Payment.sum('amount', { where: { purchaseId: purchase.id }, transaction })) || 0;
+          if (paid > 0) {
+            return `Order ${purchase.orderNumber} has payments of ${paid.toFixed(2)} recorded and can't be cancelled. Remove the payments first.`;
+          }
+
+          await purchase.update({ status }, { transaction });
+          return null;
+        });
+        if (rejection) {
+          return ApiResponse.badRequest(res, rejection);
+        }
+      } else {
+        await purchase.update({ status });
+      }
 
       const updatedPurchase = await Purchase.findOne({
         where: { id: req.params.id, ...req.companyFilter },

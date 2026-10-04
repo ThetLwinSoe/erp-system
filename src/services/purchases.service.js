@@ -1,4 +1,4 @@
-const { Purchase, PurchaseItem, Product, Customer, User, sequelize } = require('../models');
+const { Purchase, PurchaseItem, Product, Customer, User, Payment, sequelize } = require('../models');
 const InventoryService = require('./inventory.service');
 
 // Purchase order statuses
@@ -166,6 +166,16 @@ class PurchasesService {
       const error = new Error(`Cannot transition from ${purchase.status} to ${status}`);
       error.statusCode = 400;
       throw error;
+    }
+
+    // Same cancel guard as the controller path: no cancelling an order with payments.
+    if (status === PURCHASE_STATUS.CANCELLED) {
+      const paid = (await Payment.sum('amount', { where: { purchaseId: id } })) || 0;
+      if (paid > 0) {
+        const error = new Error(`Order ${purchase.orderNumber} has payments of ${paid.toFixed(2)} recorded and can't be cancelled. Remove the payments first.`);
+        error.statusCode = 400;
+        throw error;
+      }
     }
 
     await purchase.update({ status });

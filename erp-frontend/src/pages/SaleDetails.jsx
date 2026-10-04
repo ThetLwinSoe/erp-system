@@ -119,6 +119,10 @@ const SaleDetails = () => {
     return transitions[sale?.status] || [];
   };
 
+  // Mirrors the server guard in SalesService.updateSaleStatus: an order with
+  // payments recorded can't be cancelled until they're removed.
+  const cancelBlockedByPayments = () => totalPaid > 0;
+
   const canPrint = () => {
     return ['confirmed', 'shipped', 'delivered'].includes(sale?.status);
   };
@@ -314,13 +318,16 @@ const SaleDetails = () => {
                       key={status}
                       variant={status === 'cancelled' ? 'outline-danger' : 'outline-primary'}
                       onClick={() => handleStatusChange(status)}
-                      disabled={updating}
+                      disabled={updating || (status === 'cancelled' && cancelBlockedByPayments())}
                       className="text-capitalize"
                     >
                       {updating ? 'Updating...' : `Mark as ${status}`}
                     </Button>
                   ))}
                 </div>
+                {cancelBlockedByPayments() && getNextStatuses().includes('cancelled') && (
+                  <small className="text-muted d-block mt-2">Cancel is unavailable while payments are recorded on this order.</small>
+                )}
               </Card.Body>
             </Card>
           )}
