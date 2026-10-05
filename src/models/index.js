@@ -67,7 +67,7 @@ Product.hasOne(Inventory, { foreignKey: 'productId', as: 'inventory' });
 Inventory.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
 // Customer - Sales (One-to-Many)
-Customer.hasMany(Sale, { foreignKey: 'customerId', as: 'sales' });
+Customer.hasMany(Sale, { foreignKey: 'customerId', as: 'sales', onDelete: 'RESTRICT' });
 Sale.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
 
 // User - Sales (One-to-Many)
@@ -83,7 +83,7 @@ Product.hasMany(SaleItem, { foreignKey: 'productId', as: 'saleItems' });
 SaleItem.belongsTo(Product, { foreignKey: 'productId', as: 'product', onDelete: 'RESTRICT' });
 
 // Customer (as Supplier) - Purchases (One-to-Many)
-Customer.hasMany(Purchase, { foreignKey: 'supplierId', as: 'purchases' });
+Customer.hasMany(Purchase, { foreignKey: 'supplierId', as: 'purchases', onDelete: 'RESTRICT' });
 Purchase.belongsTo(Customer, { foreignKey: 'supplierId', as: 'supplier' });
 
 // User - Purchases (One-to-Many)

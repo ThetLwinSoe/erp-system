@@ -697,13 +697,36 @@ class CustomersController {
   static async delete(req, res, next) {
     try {
       const whereClause = { id: req.params.id, ...req.companyFilter };
-      const customer = await Customer.findOne({ where: whereClause });
 
-      if (!customer) {
+      // A customer's sales and purchases are ON DELETE CASCADE in the database,
+      // so deleting a customer with history would silently remove those orders
+      // (and not restore their stock). Refuse instead and point to Deactivate.
+      // The row lock stops an order being created for this customer between the
+      // check and the delete, which the cascade would then remove too.
+      const outcome = await sequelize.transaction(async (transaction) => {
+        const customer = await Customer.findOne({ where: whereClause, lock: transaction.LOCK.UPDATE, transaction });
+        if (!customer) return { notFound: true };
+
+        const salesCount = await Sale.count({ where: { customerId: customer.id }, transaction });
+        const purchasesCount = await Purchase.count({ where: { supplierId: customer.id }, transaction });
+        const paymentsCount = await Payment.count({ where: { customerId: customer.id }, transaction });
+
+        if (salesCount + purchasesCount + paymentsCount > 0) {
+          return {
+            blocked: `Customer ${customer.name} has ${salesCount} sale(s), ${purchasesCount} purchase(s) and ${paymentsCount} payment(s) on record. Deactivate the customer instead; deleting would remove their orders.`,
+          };
+        }
+
+        await customer.destroy({ transaction });
+        return { deleted: true };
+      });
+
+      if (outcome.notFound) {
         return ApiResponse.notFound(res, 'Customer not found');
       }
-
-      await customer.destroy();
+      if (outcome.blocked) {
+        return ApiResponse.badRequest(res, outcome.blocked);
+      }
 
       return ApiResponse.success(res, null, 'Customer deleted successfully');
     } catch (error) {
