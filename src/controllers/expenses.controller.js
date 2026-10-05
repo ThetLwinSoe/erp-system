@@ -5,6 +5,19 @@ const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
 const EDITABLE_FIELDS = ['expenseDate', 'category', 'amount', 'paidTo', 'paymentMethod', 'reference', 'notes'];
+const OPTIONAL_TEXT_FIELDS = ['paidTo', 'paymentMethod', 'reference', 'notes'];
+
+// Picks the editable fields that were sent. Optional text fields are stored as null
+// when blank, on create and on update alike, so an empty string never reaches the database.
+const pickEditable = (body) => {
+  const data = {};
+  EDITABLE_FIELDS.forEach((field) => {
+    if (body[field] === undefined) return;
+    data[field] = OPTIONAL_TEXT_FIELDS.includes(field) ? body[field] || null : body[field];
+  });
+  if (data.amount !== undefined) data.amount = parseFloat(data.amount);
+  return data;
+};
 
 const withRecorder = {
   include: [{ model: User, as: 'user', attributes: { exclude: ['password'] } }],
@@ -69,18 +82,8 @@ class ExpensesController {
         return ApiResponse.badRequest(res, 'Company ID is required');
       }
 
-      const data = {};
-      EDITABLE_FIELDS.forEach((field) => {
-        if (req.body[field] !== undefined) data[field] = req.body[field];
-      });
-
       const expense = await Expense.create({
-        ...data,
-        amount: parseFloat(data.amount),
-        paidTo: data.paidTo || null,
-        paymentMethod: data.paymentMethod || null,
-        reference: data.reference || null,
-        notes: data.notes || null,
+        ...pickEditable(req.body),
         companyId,
         userId: req.user.id,
       });
@@ -106,13 +109,7 @@ class ExpensesController {
         return ApiResponse.notFound(res, 'Expense not found');
       }
 
-      const updates = {};
-      EDITABLE_FIELDS.forEach((field) => {
-        if (req.body[field] !== undefined) updates[field] = req.body[field];
-      });
-      if (updates.amount !== undefined) updates.amount = parseFloat(updates.amount);
-
-      await expense.update(updates);
+      await expense.update(pickEditable(req.body));
 
       const updated = await Expense.findByPk(expense.id, withRecorder);
 

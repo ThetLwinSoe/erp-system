@@ -83,7 +83,7 @@ export const paymentsAPI = {
 // Expenses API (Expense Tracker)
 export const expensesAPI = {
   getAll: (params) => api.get('/expenses', { params }),
-  create: (data) => api.post('/expenses', data),
+  create: (data, params) => api.post('/expenses', data, { params }),
   update: (id, data, params) => api.put(`/expenses/${id}`, data, { params }),
   delete: (id, params) => api.delete(`/expenses/${id}`, { params }),
 };

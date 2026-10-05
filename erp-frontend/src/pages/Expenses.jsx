@@ -124,8 +124,11 @@ const Expenses = () => {
         const params = isSuperAdmin() && companyId ? { companyId } : undefined;
         await expensesAPI.update(editingExpense.id, payload, params);
       } else {
+        // Superadmin: the company goes in the body (for the record) and in the query
+        // string (for the access check, which runs before the controller reads the body).
+        const createParams = isSuperAdmin() && companyId ? { companyId } : undefined;
         if (isSuperAdmin()) payload.companyId = parseInt(companyId);
-        await expensesAPI.create(payload);
+        await expensesAPI.create(payload, createParams);
       }
       setShowFormModal(false);
       fetchExpenses();

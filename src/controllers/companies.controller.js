@@ -1,4 +1,4 @@
-const { Company, User, Customer, Product, Sale, Purchase, sequelize } = require('../models');
+const { Company, User, Customer, Product, Sale, Purchase, Expense, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, ROLES, COMPANY_STATUS, SUBSCRIPTION_ALERT_DAYS } = require('../utils/constants');
 const { Op } = require('sequelize');
@@ -287,8 +287,9 @@ class CompaniesController {
       const productCount = await Product.count({ where: { companyId: company.id } });
       const saleCount = await Sale.count({ where: { companyId: company.id } });
       const purchaseCount = await Purchase.count({ where: { companyId: company.id } });
+      const expenseCount = await Expense.count({ where: { companyId: company.id } });
 
-      if (userCount > 0 || customerCount > 0 || productCount > 0 || saleCount > 0 || purchaseCount > 0) {
+      if (userCount > 0 || customerCount > 0 || productCount > 0 || saleCount > 0 || purchaseCount > 0 || expenseCount > 0) {
         return ApiResponse.badRequest(
           res,
           'Cannot delete company with existing data. Please deactivate instead.'

@@ -184,9 +184,11 @@ Purchase.hasMany(Payment, { foreignKey: 'purchaseId', as: 'payments' });
 Payment.belongsTo(Purchase, { foreignKey: 'purchaseId', as: 'purchase' });
 
 // Company / User - Expense (One-to-Many) - operating expenses recorded by a company
-Company.hasMany(Expense, { foreignKey: 'companyId', as: 'expenses' });
+// RESTRICT matches migration 010 (NO ACTION): an expense blocks deleting its company or
+// recorder, instead of Sequelize's default CASCADE silently removing it.
+Company.hasMany(Expense, { foreignKey: 'companyId', as: 'expenses', onDelete: 'RESTRICT' });
 Expense.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
-User.hasMany(Expense, { foreignKey: 'userId', as: 'expenses' });
+User.hasMany(Expense, { foreignKey: 'userId', as: 'expenses', onDelete: 'RESTRICT' });
 Expense.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 module.exports = {
