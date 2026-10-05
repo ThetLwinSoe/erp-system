@@ -12,6 +12,7 @@ const reportsRoutes = require('./reports.routes');
 const companiesRoutes = require('./companies.routes');
 const inventoryAdjustmentsRoutes = require('./inventoryAdjustments.routes');
 const paymentsRoutes = require('./payments.routes');
+const expensesRoutes = require('./expenses.routes');
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ router.use('/reports', reportsRoutes);
 router.use('/companies', companiesRoutes);
 router.use('/inventory-adjustments', inventoryAdjustmentsRoutes);
 router.use('/payments', paymentsRoutes);
+router.use('/expenses', expensesRoutes);
 
 // API Info
 router.get('/', (req, res) => {

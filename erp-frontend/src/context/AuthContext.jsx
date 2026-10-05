@@ -57,6 +57,10 @@ export const AuthProvider = ({ children }) => {
   // (src/middleware/companyScope.js) - keep both in sync.
   const canAccessCreditControl = () =>
     isSuperAdmin() || (!!user?.company?.creditControlEnabled && user?.role !== 'sale_rep' && (user?.role === 'admin' || !!user?.creditControlAccess));
+  // Expense Tracker follows the same two-knob rule as Credit Control (Company.expenseTrackerEnabled
+  // + User.expenseTrackerAccess). Mirrors evaluateExpenseTrackerAccess on the backend - keep in sync.
+  const canAccessExpenseTracker = () =>
+    isSuperAdmin() || (!!user?.company?.expenseTrackerEnabled && user?.role !== 'sale_rep' && (user?.role === 'admin' || !!user?.expenseTrackerAccess));
   const getCompanyId = () => user?.companyId;
   const getCompanyName = () => user?.company?.name;
 
@@ -76,6 +80,7 @@ export const AuthProvider = ({ children }) => {
     canAccessPurchases,
     canAccessSalesReturns,
     canAccessCreditControl,
+    canAccessExpenseTracker,
     getCompanyId,
     getCompanyName,
     isAuthenticated: !!user,

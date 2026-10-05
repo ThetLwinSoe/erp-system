@@ -151,7 +151,7 @@ class CompaniesController {
    */
   static async create(req, res, next) {
     try {
-      const { name, address, phone, email, currency, subscriptionEndDate, creditControlEnabled, adminUser } = req.body;
+      const { name, address, phone, email, currency, subscriptionEndDate, creditControlEnabled, expenseTrackerEnabled, adminUser } = req.body;
 
       const result = await sequelize.transaction(async (transaction) => {
         const company = await Company.create(
@@ -164,6 +164,7 @@ class CompaniesController {
             currency: currency || 'USD',
             subscriptionEndDate: subscriptionEndDate || null,
             creditControlEnabled: creditControlEnabled === true,
+            expenseTrackerEnabled: expenseTrackerEnabled === true,
           },
           { transaction }
         );
@@ -241,7 +242,7 @@ class CompaniesController {
         return ApiResponse.notFound(res, 'Company not found');
       }
 
-      const { name, address, phone, email, status, currency, subscriptionEndDate, creditControlEnabled } = req.body;
+      const { name, address, phone, email, status, currency, subscriptionEndDate, creditControlEnabled, expenseTrackerEnabled } = req.body;
 
       const updates = {};
       if (name !== undefined) updates.name = name;
@@ -252,6 +253,7 @@ class CompaniesController {
       if (currency !== undefined) updates.currency = currency;
       if (subscriptionEndDate !== undefined) updates.subscriptionEndDate = subscriptionEndDate || null;
       if (creditControlEnabled !== undefined) updates.creditControlEnabled = creditControlEnabled === true;
+      if (expenseTrackerEnabled !== undefined) updates.expenseTrackerEnabled = expenseTrackerEnabled === true;
 
       await company.update(updates);
 

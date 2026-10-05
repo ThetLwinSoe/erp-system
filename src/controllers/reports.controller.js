@@ -1,4 +1,4 @@
-const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem, Customer, User, Product, InventoryAdjustment, InventoryAdjustmentItem, sequelize } = require('../models');
+const { Sale, SaleItem, SalesReturn, SalesReturnItem, Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem, Customer, User, Product, InventoryAdjustment, InventoryAdjustmentItem, Company, Expense, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { toCSV } = require('../utils/csv');
 const { Op } = require('sequelize');
@@ -1051,7 +1051,26 @@ class ReportsController {
       });
     });
 
-    const netProfit = grossProfit + inventoryAdjustmentGainLoss;
+    // Expense Tracker: operating expenses in the same date range reduce net profit,
+    // but only for companies that have the feature switched on. Gross profit is unaffected.
+    let expenseTrackerEnabled = false;
+    if (companyFilter.companyId) {
+      const company = await Company.findByPk(companyFilter.companyId, { attributes: ['expenseTrackerEnabled'] });
+      expenseTrackerEnabled = !!company?.expenseTrackerEnabled;
+    }
+
+    let operatingExpenses = 0;
+    if (expenseTrackerEnabled) {
+      const expenseWhere = { ...companyFilter };
+      if (startDate || endDate) {
+        expenseWhere.expenseDate = {};
+        if (startDate) expenseWhere.expenseDate[Op.gte] = startDate;
+        if (endDate) expenseWhere.expenseDate[Op.lte] = endDate;
+      }
+      operatingExpenses = Number(await Expense.sum('amount', { where: expenseWhere })) || 0;
+    }
+
+    const netProfit = grossProfit + inventoryAdjustmentGainLoss - operatingExpenses;
 
     let taxCollected = 0;
     sales.forEach((sale) => { taxCollected += parseFloat(sale.tax); });
@@ -1081,6 +1100,8 @@ class ReportsController {
         grossProfit,
         grossMarginPercent,
         inventoryAdjustmentGainLoss,
+        operatingExpenses,
+        expenseTrackerEnabled,
         netProfit,
         taxCollected,
         taxPaid,
@@ -1132,6 +1153,7 @@ class ReportsController {
         `Gross Profit,${fmt(summary.grossProfit)}`,
         `Gross Margin %,${fmt(summary.grossMarginPercent)}`,
         `Inventory Adjustment Gain/(Loss),${fmt(summary.inventoryAdjustmentGainLoss)}`,
+        ...(summary.expenseTrackerEnabled ? [`Operating Expenses,${fmt(summary.operatingExpenses)}`] : []),
         `Net Profit,${fmt(summary.netProfit)}`,
         `Tax Collected on Sales,${fmt(summary.taxCollected)}`,
         `Tax Paid on Purchases,${fmt(summary.taxPaid)}`,

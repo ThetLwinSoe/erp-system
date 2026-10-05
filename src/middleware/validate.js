@@ -1,6 +1,6 @@
 const { validationResult, body, param, query } = require('express-validator');
 const ApiResponse = require('../utils/apiResponse');
-const { ROLES, ORDER_STATUS, PURCHASE_STATUS, ADJUSTMENT_TYPE, COMPANY_STATUS, REPORT_MAX_DATE_RANGE_DAYS } = require('../utils/constants');
+const { ROLES, ORDER_STATUS, PURCHASE_STATUS, ADJUSTMENT_TYPE, COMPANY_STATUS, REPORT_MAX_DATE_RANGE_DAYS, EXPENSE_CATEGORY } = require('../utils/constants');
 
 /**
  * Validation result handler
@@ -50,6 +50,7 @@ const userValidation = {
       .withMessage('Invalid role'),
     body('companyId').optional({ checkFalsy: true }).isInt().withMessage('Valid company ID is required'),
     body('creditControlAccess').optional().isBoolean().withMessage('Credit Control access must be true or false'),
+    body('expenseTrackerAccess').optional().isBoolean().withMessage('Expense Tracker access must be true or false'),
     handleValidation,
   ],
   update: [
@@ -61,6 +62,7 @@ const userValidation = {
       .isIn(Object.values(ROLES))
       .withMessage('Invalid role'),
     body('creditControlAccess').optional().isBoolean().withMessage('Credit Control access must be true or false'),
+    body('expenseTrackerAccess').optional().isBoolean().withMessage('Expense Tracker access must be true or false'),
     handleValidation,
   ],
   getById: [
@@ -259,6 +261,7 @@ const companyValidation = {
     body('address').optional().trim(),
     body('subscriptionEndDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid subscription end date is required'),
     body('creditControlEnabled').optional().isBoolean().withMessage('Credit Control enabled must be true or false'),
+    body('expenseTrackerEnabled').optional().isBoolean().withMessage('Expense Tracker enabled must be true or false'),
     handleValidation,
   ],
   update: [
@@ -272,6 +275,7 @@ const companyValidation = {
       .withMessage('Invalid status'),
     body('subscriptionEndDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid subscription end date is required'),
     body('creditControlEnabled').optional().isBoolean().withMessage('Credit Control enabled must be true or false'),
+    body('expenseTrackerEnabled').optional().isBoolean().withMessage('Expense Tracker enabled must be true or false'),
     handleValidation,
   ],
   delete: [
@@ -393,6 +397,26 @@ const paginationValidation = [
   handleValidation,
 ];
 
+// Expense Tracker. Create requires the core fields; update makes every field optional
+// so a partial edit can be sent. The same rules apply to any field that is sent.
+const expenseFields = (required) => {
+  const field = (name) => (required ? body(name) : body(name).optional());
+  return [
+    field('expenseDate').isISO8601().withMessage('Valid expense date is required'),
+    field('category').isIn(Object.values(EXPENSE_CATEGORY)).withMessage('Category must be one of the listed expense categories'),
+    field('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+    body('paidTo').optional({ checkFalsy: true }).trim().isLength({ max: 255 }).withMessage('Paid to must be 255 characters or less'),
+    body('paymentMethod').optional({ checkFalsy: true }).trim().isLength({ max: 50 }).withMessage('Payment method must be 50 characters or less'),
+    body('reference').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Reference must be 100 characters or less'),
+    body('notes').optional().trim(),
+  ];
+};
+
+const expenseValidation = {
+  create: [...expenseFields(true), handleValidation],
+  update: [...expenseFields(false), handleValidation],
+};
+
 module.exports = {
   handleValidation,
   authValidation,
@@ -407,4 +431,5 @@ module.exports = {
   paginationValidation,
   sortValidation,
   paymentValidation,
+  expenseValidation,
 };

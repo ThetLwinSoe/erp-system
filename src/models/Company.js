@@ -61,6 +61,11 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: false,
       },
+      expenseTrackerEnabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       tableName: 'companies',

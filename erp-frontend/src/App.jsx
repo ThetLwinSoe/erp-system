@@ -34,6 +34,7 @@ import InventoryAdjustments from './pages/InventoryAdjustments'
 import InventoryAdjustmentDetails from './pages/InventoryAdjustmentDetails'
 import CreateInventoryAdjustment from './pages/CreateInventoryAdjustment'
 import Payments from './pages/Payments'
+import Expenses from './pages/Expenses'
 
 function App() {
   const { isAuthenticated } = useAuth()
@@ -79,6 +80,7 @@ function App() {
           <Route path="/reports/profit-loss" element={<ProfitLossReport />} />
           <Route path="/reports/not-buying-customers" element={<NotBuyingCustomersReport />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/expenses" element={<Expenses />} />
         </Route>
       </Route>
 
