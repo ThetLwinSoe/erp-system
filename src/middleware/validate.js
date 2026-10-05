@@ -49,6 +49,7 @@ const userValidation = {
       .isIn(Object.values(ROLES))
       .withMessage('Invalid role'),
     body('companyId').optional({ checkFalsy: true }).isInt().withMessage('Valid company ID is required'),
+    body('creditControlAccess').optional().isBoolean().withMessage('Credit Control access must be true or false'),
     handleValidation,
   ],
   update: [
@@ -59,6 +60,7 @@ const userValidation = {
       .optional()
       .isIn(Object.values(ROLES))
       .withMessage('Invalid role'),
+    body('creditControlAccess').optional().isBoolean().withMessage('Credit Control access must be true or false'),
     handleValidation,
   ],
   getById: [
@@ -78,6 +80,8 @@ const customerValidation = {
     body('address').optional().trim(),
     body('city').optional().trim(),
     body('country').optional().trim(),
+    body('creditLimit').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Credit limit must be a positive number'),
+    body('creditTermDays').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Credit term must be a non-negative number of days'),
     handleValidation,
   ],
   update: [
@@ -85,6 +89,8 @@ const customerValidation = {
     body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
     body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('phone').optional().trim().isLength({ max: 150 }).withMessage('Phone must be 150 characters or less'),
+    body('creditLimit').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Credit limit must be a positive number'),
+    body('creditTermDays').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Credit term must be a non-negative number of days'),
     handleValidation,
   ],
 };
@@ -252,6 +258,7 @@ const companyValidation = {
     body('phone').optional().trim().isLength({ max: 150 }).withMessage('Phone must be 150 characters or less'),
     body('address').optional().trim(),
     body('subscriptionEndDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid subscription end date is required'),
+    body('creditControlEnabled').optional().isBoolean().withMessage('Credit Control enabled must be true or false'),
     handleValidation,
   ],
   update: [
@@ -264,6 +271,7 @@ const companyValidation = {
       .isIn(Object.values(COMPANY_STATUS))
       .withMessage('Invalid status'),
     body('subscriptionEndDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid subscription end date is required'),
+    body('creditControlEnabled').optional().isBoolean().withMessage('Credit Control enabled must be true or false'),
     handleValidation,
   ],
   delete: [
@@ -292,6 +300,56 @@ const reportsValidation = {
         }
         return true;
       }),
+    handleValidation,
+  ],
+};
+
+/**
+ * Payment validation rules. A payment is always created against a specific
+ * Sale or Purchase order (exactly one of saleId/purchaseId) - customerId and
+ * direction are derived server-side from that order, not accepted here.
+ */
+const paymentValidation = {
+  create: [
+    body('saleId').optional({ checkFalsy: true }).isInt().withMessage('Valid sale ID is required'),
+    body('purchaseId').optional({ checkFalsy: true }).isInt().withMessage('Valid purchase ID is required'),
+    body().custom((body) => {
+      if (!body.saleId && !body.purchaseId) {
+        throw new Error('Either saleId or purchaseId is required');
+      }
+      if (body.saleId && body.purchaseId) {
+        throw new Error('A payment can only be linked to one order');
+      }
+      return true;
+    }),
+    body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+    body('paymentDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid payment date is required'),
+    body('method').optional().trim().isLength({ max: 50 }).withMessage('Method must be 50 characters or less'),
+    body('reference').optional().trim().isLength({ max: 100 }).withMessage('Reference must be 100 characters or less'),
+    body('notes').optional().trim(),
+    handleValidation,
+  ],
+  settle: [
+    body('saleIds').optional().isArray({ min: 1 }).withMessage('saleIds must be a non-empty array'),
+    body('saleIds.*').optional().isInt().withMessage('Valid sale ID is required'),
+    body('purchaseIds').optional().isArray({ min: 1 }).withMessage('purchaseIds must be a non-empty array'),
+    body('purchaseIds.*').optional().isInt().withMessage('Valid purchase ID is required'),
+    body().custom((body) => {
+      const hasSales = Array.isArray(body.saleIds) && body.saleIds.length > 0;
+      const hasPurchases = Array.isArray(body.purchaseIds) && body.purchaseIds.length > 0;
+      if (!hasSales && !hasPurchases) {
+        throw new Error('Either saleIds or purchaseIds is required');
+      }
+      if (hasSales && hasPurchases) {
+        throw new Error('A settlement can only cover one order type at a time');
+      }
+      return true;
+    }),
+    body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+    body('paymentDate').optional({ checkFalsy: true }).isISO8601().withMessage('Valid payment date is required'),
+    body('method').optional().trim().isLength({ max: 50 }).withMessage('Method must be 50 characters or less'),
+    body('reference').optional().trim().isLength({ max: 100 }).withMessage('Reference must be 100 characters or less'),
+    body('notes').optional().trim(),
     handleValidation,
   ],
 };
@@ -348,4 +406,5 @@ module.exports = {
   reportsValidation,
   paginationValidation,
   sortValidation,
+  paymentValidation,
 };

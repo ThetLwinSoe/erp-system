@@ -10,6 +10,7 @@ import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
+import CreditWarningAlert from '../components/common/CreditWarningAlert';
 import { ORDER_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
@@ -18,13 +19,14 @@ import SortableHeader from '../components/common/SortableHeader';
 
 const Sales = () => {
   const navigate = useNavigate();
-  const { user, isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin, canAccessCreditControl } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [sortBy, setSortBy] = useState('createdAt');
@@ -39,6 +41,7 @@ const Sales = () => {
   // Form data
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [creditStatus, setCreditStatus] = useState(null);
   const [formData, setFormData] = useState({
     customerId: '',
     items: [{ productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
@@ -53,6 +56,7 @@ const Sales = () => {
       const params = { page, limit: 20, sortBy, sortOrder };
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
+      if (paymentStatusFilter) params.paymentStatus = paymentStatusFilter;
 
       const response = await salesAPI.getAll(params);
       setSales(response.data.data || []);
@@ -79,7 +83,21 @@ const Sales = () => {
 
   useEffect(() => {
     fetchSales();
-  }, [page, debouncedSearch, statusFilter, sortBy, sortOrder]);
+  }, [page, debouncedSearch, statusFilter, paymentStatusFilter, sortBy, sortOrder]);
+
+  // Live Credit Control check as the customer is picked in the New Sale
+  // modal - informational only (see canAccessCreditControl in AuthContext),
+  // never blocks submission.
+  useEffect(() => {
+    if (!showModal || !canAccessCreditControl() || !formData.customerId) {
+      setCreditStatus(null);
+      return;
+    }
+    customersAPI.getCreditStatus(formData.customerId)
+      .then((res) => setCreditStatus(res.data.data))
+      .catch(() => setCreditStatus(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal, formData.customerId]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -209,6 +227,7 @@ const Sales = () => {
     return subtotal - orderDiscount + tax;
   };
 
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -228,6 +247,14 @@ const Sales = () => {
               <option key={status} value={status} className="text-capitalize">{status}</option>
             ))}
           </Form.Select>
+          {canAccessCreditControl() && (
+            <Form.Select style={{ maxWidth: '200px' }} value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)}>
+              <option value="">All Payment Statuses</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid</option>
+            </Form.Select>
+          )}
         </Card.Header>
         <Card.Body>
           {loading ? (
@@ -241,6 +268,9 @@ const Sales = () => {
                   <SortableHeader label="Order #" field="orderNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Customer" field="customer" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {canAccessCreditControl() && (
+                    <SortableHeader label="Payment" field="paymentStatus" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   <SortableHeader label="Subtotal" field="subtotal" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Tax" field="tax" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Total" field="total" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -258,6 +288,9 @@ const Sales = () => {
                     <td><code>{sale.orderNumber}</code></td>
                     <td>{sale.customer?.name}</td>
                     <td><StatusBadge status={sale.status} /></td>
+                    {canAccessCreditControl() && (
+                      <td>{sale.paymentStatus ? <StatusBadge status={sale.paymentStatus} /> : '-'}</td>
+                    )}
                     <td>{formatCurrency(sale.subtotal, currency)}</td>
                     <td>{formatCurrency(sale.tax, currency)}</td>
                     <td><strong>{formatCurrency(sale.total, currency)}</strong></td>
@@ -416,6 +449,8 @@ const Sales = () => {
                 <strong>{formatCurrency(calculateTotal(), currency)}</strong>
               </div>
             </Alert>
+
+            <CreditWarningAlert creditStatus={creditStatus} orderTotal={calculateTotal()} type="customer" currency={currency} />
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>

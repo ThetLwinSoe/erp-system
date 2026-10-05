@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Table, Button, Spinner, Alert, Row, Col, Form, Badge } from 'react-bootstrap';
-import { FaArrowLeft, FaPrint, FaUndo } from 'react-icons/fa';
-import { salesAPI, getStaticUrl } from '../services/api';
+import { Card, Table, Button, Spinner, Alert, Row, Col, Form, Badge, Modal } from 'react-bootstrap';
+import { FaArrowLeft, FaPrint, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
+import { salesAPI, paymentsAPI, customersAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { ORDER_STATUS } from '../utils/constants';
@@ -10,17 +10,26 @@ import { generateInvoicePDF } from '../utils/invoiceGenerator';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import CreditWarningAlert from '../components/common/CreditWarningAlert';
+
+const emptyPaymentForm = { amount: '', paymentDate: '', method: '', reference: '', notes: '' };
 
 const SaleDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, canAccessCreditControl } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [sale, setSale] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState(emptyPaymentForm);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
+  const [creditStatus, setCreditStatus] = useState(null);
 
   const fetchSale = async () => {
     try {
@@ -34,10 +43,58 @@ const SaleDetails = () => {
     }
   };
 
+  const fetchPayments = async () => {
+    try {
+      const response = await paymentsAPI.getAll({ saleId: id, limit: 100 });
+      setPayments(response.data.data || []);
+    } catch {
+      setPayments([]);
+    }
+  };
+
   useEffect(() => {
     fetchSale();
+    if (canAccessCreditControl()) fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Only relevant while the order is still Pending - this is the moment an
+  // Admin/Manager/Staff reviews what the Sale Rep created and decides
+  // whether to confirm it, so that's when the credit check matters.
+  useEffect(() => {
+    if (!sale || sale.status !== 'pending' || !canAccessCreditControl()) {
+      setCreditStatus(null);
+      return;
+    }
+    customersAPI.getCreditStatus(sale.customerId)
+      .then((res) => setCreditStatus(res.data.data))
+      .catch(() => setCreditStatus(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sale?.id, sale?.status]);
+
+  const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+  const balanceDue = sale ? parseFloat(sale.total) - totalPaid : 0;
+
+  const handleOpenPaymentModal = () => {
+    setPaymentFormData({ ...emptyPaymentForm, amount: balanceDue > 0 ? balanceDue.toFixed(2) : '' });
+    setPaymentError(null);
+    setShowPaymentModal(true);
+  };
+
+  const handleRecordPayment = async (e) => {
+    e.preventDefault();
+    setPaymentError(null);
+    setPaymentSubmitting(true);
+    try {
+      await paymentsAPI.create({ saleId: id, ...paymentFormData, amount: parseFloat(paymentFormData.amount) });
+      setShowPaymentModal(false);
+      fetchPayments();
+    } catch (err) {
+      setPaymentError(extractApiError(err, 'Failed to record payment'));
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
 
   const handleStatusChange = async (newStatus) => {
     try {
@@ -62,12 +119,26 @@ const SaleDetails = () => {
     return transitions[sale?.status] || [];
   };
 
+  // Mirrors the server guard in SalesService.updateSaleStatus: an order with
+  // payments recorded can't be cancelled until they're removed.
+  const cancelBlockedByPayments = () => totalPaid > 0;
+
   const canPrint = () => {
     return ['confirmed', 'shipped', 'delivered'].includes(sale?.status);
   };
 
   const canReturn = () => {
     return ['confirmed', 'shipped', 'delivered'].includes(sale?.status);
+  };
+
+  const canRecordPayment = () => {
+    return sale?.status !== 'pending' && sale?.status !== 'cancelled' && balanceDue > 0;
+  };
+
+  const recordPaymentDisabledReason = () => {
+    if (sale?.status === 'pending' || sale?.status === 'cancelled') return 'Order must be confirmed before recording payments.';
+    if (balanceDue <= 0) return 'This order is already fully paid.';
+    return '';
   };
 
   const handlePrintInvoice = async () => {
@@ -235,27 +306,140 @@ const SaleDetails = () => {
           </Card>
 
           {getNextStatuses().length > 0 && (
-            <Card>
+            <Card className="mb-4">
               <Card.Header>Update Status</Card.Header>
               <Card.Body>
+                {sale.status === 'pending' && (
+                  <CreditWarningAlert creditStatus={creditStatus} orderTotal={sale.total} type="customer" currency={currency} />
+                )}
                 <div className="d-grid gap-2">
                   {getNextStatuses().map((status) => (
                     <Button
                       key={status}
                       variant={status === 'cancelled' ? 'outline-danger' : 'outline-primary'}
                       onClick={() => handleStatusChange(status)}
-                      disabled={updating}
+                      disabled={updating || (status === 'cancelled' && cancelBlockedByPayments())}
                       className="text-capitalize"
                     >
                       {updating ? 'Updating...' : `Mark as ${status}`}
                     </Button>
                   ))}
                 </div>
+                {cancelBlockedByPayments() && getNextStatuses().includes('cancelled') && (
+                  <small className="text-muted d-block mt-2">Cancel is unavailable while payments are recorded on this order.</small>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
+          {canAccessCreditControl() && (
+            <Card>
+              <Card.Header className="d-flex justify-content-between align-items-center">
+                Payments
+                <span title={canRecordPayment() ? '' : recordPaymentDisabledReason()}>
+                  <Button variant="outline-primary" size="sm" onClick={handleOpenPaymentModal} disabled={!canRecordPayment()}>
+                    <FaMoneyBillWave className="me-1" />
+                    Record Payment
+                  </Button>
+                </span>
+              </Card.Header>
+              <Card.Body>
+                {payments.length === 0 ? (
+                  <p className="text-muted mb-3">No payments recorded yet.</p>
+                ) : (
+                  <Table size="sm" className="mb-3">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((p) => (
+                        <tr key={p.id}>
+                          <td>{new Date(p.paymentDate).toLocaleDateString()}</td>
+                          <td>{formatCurrency(p.amount, currency)}</td>
+                          <td>{p.method || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+                <p className="mb-1"><strong>Paid:</strong> {formatCurrency(totalPaid, currency)}</p>
+                <p className="mb-0">
+                  <strong>Balance Due:</strong>{' '}
+                  <span className={balanceDue > 0 ? 'text-danger' : 'text-success'}>{formatCurrency(balanceDue, currency)}</span>
+                </p>
               </Card.Body>
             </Card>
           )}
         </Col>
       </Row>
+
+      <Modal show={showPaymentModal} onHide={() => setShowPaymentModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Record Payment - {sale.orderNumber}</Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleRecordPayment}>
+          <Modal.Body>
+            <ErrorAlert error={paymentError} />
+            <Form.Group className="mb-3">
+              <Form.Label>Amount *</Form.Label>
+              <Form.Control
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={paymentFormData.amount}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: e.target.value })}
+                required
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Payment Date</Form.Label>
+              <Form.Control
+                type="date"
+                value={paymentFormData.paymentDate}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, paymentDate: e.target.value })}
+              />
+              <Form.Text className="text-muted">Defaults to today if left blank.</Form.Text>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Method</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Cash, bank transfer, mobile wallet, etc."
+                value={paymentFormData.method}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, method: e.target.value })}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Reference</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Cheque #, transaction ID, etc."
+                value={paymentFormData.reference}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, reference: e.target.value })}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Notes</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                value={paymentFormData.notes}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, notes: e.target.value })}
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={paymentSubmitting}>
+              {paymentSubmitting ? 'Recording...' : 'Record Payment'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
     </div>
   );
 };

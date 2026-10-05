@@ -54,6 +54,25 @@ module.exports = (sequelize) => {
         defaultValue: 'active',
         allowNull: false,
       },
+      creditLimit: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        validate: {
+          min: 0,
+        },
+      },
+      // NULL = no fixed credit term - same "opt-in" convention as
+      // creditLimit's NULL meaning "no limit enforced". When set, it's the
+      // number of days after an order before it counts as "overdue" in the
+      // Credit Control overdue calculation (see customers.controller.js's
+      // _computeCreditStatus).
+      creditTermDays: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        validate: {
+          min: 0,
+        },
+      },
       companyId: {
         type: DataTypes.INTEGER,
         allowNull: false,

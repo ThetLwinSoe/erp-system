@@ -41,6 +41,11 @@ module.exports = (sequelize) => {
           key: 'id',
         },
       },
+      creditControlAccess: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       tableName: 'users',
