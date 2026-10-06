@@ -82,6 +82,19 @@ module.exports = {
     OTHER: 'Other',
   },
 
+  // Operating expense categories (Expense Tracker)
+  EXPENSE_CATEGORY: {
+    RENT: 'Rent',
+    SALARIES: 'Salaries & Wages',
+    UTILITIES: 'Utilities',
+    TRANSPORT: 'Transport & Fuel',
+    MARKETING: 'Marketing',
+    OFFICE_SUPPLIES: 'Office Supplies',
+    REPAIRS: 'Repairs & Maintenance',
+    BANK_FEES: 'Bank & Fees',
+    OTHER: 'Other',
+  },
+
   // Customer types
   CUSTOMER_TYPE: {
     CUSTOMER: 'customer',

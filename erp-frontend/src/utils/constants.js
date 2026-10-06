@@ -70,6 +70,19 @@ export const STATUS_COLORS = {
   paid: 'success',
 };
 
+// Operating expense categories (Expense Tracker) - must match EXPENSE_CATEGORY in src/utils/constants.js on the backend
+export const EXPENSE_CATEGORIES = [
+  'Rent',
+  'Salaries & Wages',
+  'Utilities',
+  'Transport & Fuel',
+  'Marketing',
+  'Office Supplies',
+  'Repairs & Maintenance',
+  'Bank & Fees',
+  'Other',
+];
+
 export const ADJUSTMENT_TYPES = {
   ADD: 'add',
   REMOVE: 'remove',

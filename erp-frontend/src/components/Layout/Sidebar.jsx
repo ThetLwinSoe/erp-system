@@ -16,19 +16,23 @@ import {
   FaBuilding,
   FaClipboardList,
   FaMoneyBillWave,
+  FaFileInvoiceDollar,
+  FaCalculator,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = () => {
-  const { isAdmin, isSuperAdmin, canAccessInventory, canAccessPurchases, canAccessSalesReturns, canAccessCreditControl } = useAuth();
+  const { isAdmin, isSuperAdmin, canAccessInventory, canAccessPurchases, canAccessSalesReturns, canAccessCreditControl, canAccessExpenseTracker } = useAuth();
   const location = useLocation();
   const isSalesSection = location.pathname.startsWith('/sales') || location.pathname.startsWith('/customers');
   const isPurchasesSection = location.pathname.startsWith('/purchase') || location.pathname.startsWith('/suppliers');
+  const isAccountingSection = location.pathname.startsWith('/payments') || location.pathname.startsWith('/expenses');
   const [adjustmentOpen, setAdjustmentOpen] = useState(
     location.pathname.startsWith('/inventory')
   );
   const [salesOpen, setSalesOpen] = useState(isSalesSection);
   const [purchasesOpen, setPurchasesOpen] = useState(isPurchasesSection);
+  const [accountingOpen, setAccountingOpen] = useState(isAccountingSection);
   const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith('/reports'));
 
   const menuItems = [
@@ -36,7 +40,6 @@ const Sidebar = () => {
     { path: '/companies', icon: FaBuilding, label: 'Companies', superAdminOnly: true },
     { path: '/users', icon: FaUsers, label: 'Users', adminOnly: true },
     { path: '/products', icon: FaBoxes, label: 'Products' },
-    { path: '/payments', icon: FaMoneyBillWave, label: 'Payments', creditControlOnly: true },
   ];
 
   const adjustmentItems = [
@@ -56,6 +59,13 @@ const Sidebar = () => {
     { path: '/purchase-returns', label: 'Purchase Returns', icon: FaUndo },
   ];
 
+  // Accounting holds the money-movement records. Each item is shown only when the
+  // user has access to its feature; the whole section hides when none are visible.
+  const accountingItems = [
+    { path: '/payments', label: 'Payments', icon: FaMoneyBillWave, visible: () => canAccessCreditControl() },
+    { path: '/expenses', label: 'Expenses', icon: FaFileInvoiceDollar, visible: () => canAccessExpenseTracker() },
+  ];
+
   const reportItems = [
     { path: '/reports/sales', label: 'Sales Report' },
     { path: '/reports/not-buying-customers', label: 'Not Buying Customers' },
@@ -69,6 +79,9 @@ const Sidebar = () => {
     return true;
   });
 
+  const filteredAccountingItems = accountingItems.filter((item) => item.visible());
+  const showAccounting = filteredAccountingItems.length > 0;
+
   // Filter report items for sale_rep (no purchases report)
   const filteredReportItems = reportItems.filter(item => {
     if (item.requiresPurchases && !canAccessPurchases()) return false;
@@ -81,7 +94,6 @@ const Sidebar = () => {
         {menuItems.map((item) => {
           if (item.superAdminOnly && !isSuperAdmin()) return null;
           if (item.adminOnly && !isAdmin()) return null;
-          if (item.creditControlOnly && !canAccessCreditControl()) return null;
 
           return (
             <Nav.Link
@@ -204,6 +216,46 @@ const Sidebar = () => {
                     as={NavLink}
                     to={item.path}
                     end={item.path === '/purchases'}
+                    className="d-flex align-items-center py-2 text-dark ps-4"
+                    style={({ isActive }) => ({
+                      backgroundColor: isActive ? '#e9ecef' : 'transparent',
+                      borderRadius: '5px',
+                    })}
+                  >
+                    <item.icon className="me-2" size={14} />
+                    {item.label}
+                  </Nav.Link>
+                ))}
+              </div>
+            </Collapse>
+          </>
+        )}
+
+        {/* Accounting Submenu - hidden when the user has none of its features */}
+        {showAccounting && (
+          <>
+            <Nav.Link
+              className="d-flex align-items-center justify-content-between py-2 text-dark"
+              onClick={() => setAccountingOpen(!accountingOpen)}
+              style={{
+                backgroundColor: isAccountingSection ? '#e9ecef' : 'transparent',
+                borderRadius: '5px',
+                cursor: 'pointer',
+              }}
+            >
+              <span className="d-flex align-items-center">
+                <FaCalculator className="me-3" />
+                Accounting
+              </span>
+              {accountingOpen ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+            </Nav.Link>
+            <Collapse in={accountingOpen}>
+              <div>
+                {filteredAccountingItems.map((item) => (
+                  <Nav.Link
+                    key={item.path}
+                    as={NavLink}
+                    to={item.path}
                     className="d-flex align-items-center py-2 text-dark ps-4"
                     style={({ isActive }) => ({
                       backgroundColor: isActive ? '#e9ecef' : 'transparent',

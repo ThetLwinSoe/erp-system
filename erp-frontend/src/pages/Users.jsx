@@ -38,6 +38,7 @@ const Users = () => {
     role: 'staff',
     companyId: '',
     creditControlAccess: false,
+    expenseTrackerAccess: false,
   });
 
   // For superadmin, Credit Control availability depends on whichever company
@@ -48,6 +49,7 @@ const Users = () => {
     ? companies.find((c) => String(c.id) === String(formData.companyId))
     : user?.company;
   const showCreditControlAccess = !!formCompany?.creditControlEnabled;
+  const showExpenseTrackerAccess = !!formCompany?.expenseTrackerEnabled;
 
   const fetchUsers = async () => {
     try {
@@ -106,6 +108,7 @@ const Users = () => {
         role: user.role,
         companyId: user.companyId ? String(user.companyId) : '',
         creditControlAccess: !!user.creditControlAccess,
+        expenseTrackerAccess: !!user.expenseTrackerAccess,
       });
     } else {
       setSelectedUser(null);
@@ -116,6 +119,7 @@ const Users = () => {
         role: 'staff',
         companyId: companies.length > 0 ? String(companies[0].id) : '',
         creditControlAccess: false,
+        expenseTrackerAccess: false,
       });
     }
     setError(null);
@@ -275,6 +279,20 @@ const Users = () => {
                 />
                 <Form.Text className="text-muted">
                   Lets this person see customer/supplier credit limits and record payments.
+                </Form.Text>
+              </Form.Group>
+            )}
+            {showExpenseTrackerAccess && formData.role !== ROLES.ADMIN && formData.role !== ROLES.SALE_REP && (
+              <Form.Group className="mb-3">
+                <Form.Check
+                  type="checkbox"
+                  id="expenseTrackerAccess"
+                  label="Expense Tracker Access"
+                  checked={formData.expenseTrackerAccess}
+                  onChange={(e) => setFormData({ ...formData, expenseTrackerAccess: e.target.checked })}
+                />
+                <Form.Text className="text-muted">
+                  Lets this person record and edit operating expenses. Admins always can.
                 </Form.Text>
               </Form.Group>
             )}

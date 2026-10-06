@@ -109,4 +109,65 @@ const requireCreditControlAccess = async (req, res, next) => {
   }
 };
 
-module.exports = { companyScope, getCompanyIdForCreate, requireCreditControlAccess, evaluateCreditControlAccess };
+/**
+ * Expense Tracker access - the same two-knob shape as Credit Control:
+ *   1. Company.expenseTrackerEnabled - superadmin-controlled, for the tenant.
+ *   2. User.expenseTrackerAccess - the tenant admin grants this per user.
+ * Admins always pass the per-user half once the company is enabled. Sale reps are
+ * always denied. Superadmin needs a company selected and that company's flag on.
+ */
+const evaluateExpenseTrackerAccess = async (req) => {
+  const { Company } = require('../models');
+  const isSuperAdmin = req.user.role === ROLES.SUPERADMIN;
+  const companyId = isSuperAdmin ? req.companyFilter?.companyId : req.user.companyId;
+
+  if (!companyId) {
+    return { allowed: false, companyId: null, reason: 'no_company' };
+  }
+
+  const company = await Company.findByPk(companyId);
+
+  if (!company || !company.expenseTrackerEnabled) {
+    return { allowed: false, companyId, reason: 'not_enabled' };
+  }
+
+  if (!isSuperAdmin && req.user.role === ROLES.SALE_REP) {
+    return { allowed: false, companyId, reason: 'no_user_access' };
+  }
+
+  if (!isSuperAdmin && req.user.role !== ROLES.ADMIN && !req.user.expenseTrackerAccess) {
+    return { allowed: false, companyId, reason: 'no_user_access' };
+  }
+
+  return { allowed: true, companyId, reason: null };
+};
+
+const EXPENSE_TRACKER_ERROR_MESSAGES = {
+  no_company: 'Please select a company to access Expense Tracker',
+  not_enabled: 'Expense Tracker is not enabled for this company',
+  no_user_access: "You don't have access to Expense Tracker",
+};
+
+const requireExpenseTrackerAccess = async (req, res, next) => {
+  try {
+    const { allowed, reason } = await evaluateExpenseTrackerAccess(req);
+
+    if (!allowed) {
+      const message = EXPENSE_TRACKER_ERROR_MESSAGES[reason];
+      return reason === 'no_company' ? ApiResponse.badRequest(res, message) : ApiResponse.forbidden(res, message);
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  companyScope,
+  getCompanyIdForCreate,
+  requireCreditControlAccess,
+  evaluateCreditControlAccess,
+  requireExpenseTrackerAccess,
+  evaluateExpenseTrackerAccess,
+};

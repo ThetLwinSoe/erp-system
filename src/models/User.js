@@ -46,6 +46,11 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: false,
       },
+      expenseTrackerAccess: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       tableName: 'users',

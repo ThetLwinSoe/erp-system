@@ -1,4 +1,4 @@
-const { Company, User, Customer, Product, Sale, Purchase, sequelize } = require('../models');
+const { Company, User, Customer, Product, Sale, Purchase, Expense, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, ROLES, COMPANY_STATUS, SUBSCRIPTION_ALERT_DAYS } = require('../utils/constants');
 const { Op } = require('sequelize');
@@ -151,7 +151,7 @@ class CompaniesController {
    */
   static async create(req, res, next) {
     try {
-      const { name, address, phone, email, currency, subscriptionEndDate, creditControlEnabled, adminUser } = req.body;
+      const { name, address, phone, email, currency, subscriptionEndDate, creditControlEnabled, expenseTrackerEnabled, adminUser } = req.body;
 
       const result = await sequelize.transaction(async (transaction) => {
         const company = await Company.create(
@@ -164,6 +164,7 @@ class CompaniesController {
             currency: currency || 'USD',
             subscriptionEndDate: subscriptionEndDate || null,
             creditControlEnabled: creditControlEnabled === true,
+            expenseTrackerEnabled: expenseTrackerEnabled === true,
           },
           { transaction }
         );
@@ -241,7 +242,7 @@ class CompaniesController {
         return ApiResponse.notFound(res, 'Company not found');
       }
 
-      const { name, address, phone, email, status, currency, subscriptionEndDate, creditControlEnabled } = req.body;
+      const { name, address, phone, email, status, currency, subscriptionEndDate, creditControlEnabled, expenseTrackerEnabled } = req.body;
 
       const updates = {};
       if (name !== undefined) updates.name = name;
@@ -252,6 +253,7 @@ class CompaniesController {
       if (currency !== undefined) updates.currency = currency;
       if (subscriptionEndDate !== undefined) updates.subscriptionEndDate = subscriptionEndDate || null;
       if (creditControlEnabled !== undefined) updates.creditControlEnabled = creditControlEnabled === true;
+      if (expenseTrackerEnabled !== undefined) updates.expenseTrackerEnabled = expenseTrackerEnabled === true;
 
       await company.update(updates);
 
@@ -285,8 +287,9 @@ class CompaniesController {
       const productCount = await Product.count({ where: { companyId: company.id } });
       const saleCount = await Sale.count({ where: { companyId: company.id } });
       const purchaseCount = await Purchase.count({ where: { companyId: company.id } });
+      const expenseCount = await Expense.count({ where: { companyId: company.id } });
 
-      if (userCount > 0 || customerCount > 0 || productCount > 0 || saleCount > 0 || purchaseCount > 0) {
+      if (userCount > 0 || customerCount > 0 || productCount > 0 || saleCount > 0 || purchaseCount > 0 || expenseCount > 0) {
         return ApiResponse.badRequest(
           res,
           'Cannot delete company with existing data. Please deactivate instead.'

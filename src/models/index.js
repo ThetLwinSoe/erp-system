@@ -35,6 +35,7 @@ const PurchaseReturnItem = require('./PurchaseReturnItem')(sequelize);
 const InventoryAdjustment = require('./InventoryAdjustment')(sequelize);
 const InventoryAdjustmentItem = require('./InventoryAdjustmentItem')(sequelize);
 const Payment = require('./Payment')(sequelize);
+const Expense = require('./Expense')(sequelize);
 
 // Define associations
 
@@ -182,6 +183,14 @@ Payment.belongsTo(Sale, { foreignKey: 'saleId', as: 'sale' });
 Purchase.hasMany(Payment, { foreignKey: 'purchaseId', as: 'payments' });
 Payment.belongsTo(Purchase, { foreignKey: 'purchaseId', as: 'purchase' });
 
+// Company / User - Expense (One-to-Many) - operating expenses recorded by a company
+// RESTRICT matches migration 010 (NO ACTION): an expense blocks deleting its company or
+// recorder, instead of Sequelize's default CASCADE silently removing it.
+Company.hasMany(Expense, { foreignKey: 'companyId', as: 'expenses', onDelete: 'RESTRICT' });
+Expense.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+User.hasMany(Expense, { foreignKey: 'userId', as: 'expenses', onDelete: 'RESTRICT' });
+Expense.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -201,4 +210,5 @@ module.exports = {
   InventoryAdjustment,
   InventoryAdjustmentItem,
   Payment,
+  Expense,
 };

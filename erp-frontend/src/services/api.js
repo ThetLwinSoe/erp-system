@@ -80,6 +80,14 @@ export const paymentsAPI = {
   delete: (id) => api.delete(`/payments/${id}`),
 };
 
+// Expenses API (Expense Tracker)
+export const expensesAPI = {
+  getAll: (params) => api.get('/expenses', { params }),
+  create: (data, params) => api.post('/expenses', data, { params }),
+  update: (id, data, params) => api.put(`/expenses/${id}`, data, { params }),
+  delete: (id, params) => api.delete(`/expenses/${id}`, { params }),
+};
+
 // Products API
 export const productsAPI = {
   getAll: (params) => api.get('/products', { params }),
