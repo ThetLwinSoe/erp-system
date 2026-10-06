@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useId } from 'react';
 import { Modal, Button, Form, InputGroup, Row, Col } from 'react-bootstrap';
 import { formatCurrency } from '../../utils/currency';
 import { extractApiError } from '../../utils/errorUtils';
@@ -23,6 +23,7 @@ const RecordPaymentModal = ({ show, onHide, title, balanceDue, currency = 'USD',
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const amountRef = useRef(null);
+  const methodListId = useId();
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
   const invalid = amountError(form.amount, balanceDue, currency);
@@ -108,12 +109,12 @@ const RecordPaymentModal = ({ show, onHide, title, balanceDue, currency = 'USD',
                 <Form.Label>Method</Form.Label>
                 <Form.Control
                   type="text"
-                  list="payment-method-options"
+                  list={methodListId}
                   placeholder="Cash, bank transfer..."
                   value={form.method}
                   onChange={set('method')}
                 />
-                <datalist id="payment-method-options">
+                <datalist id={methodListId}>
                   {PAYMENT_METHOD_OPTIONS.map((m) => (
                     <option key={m} value={m} />
                   ))}

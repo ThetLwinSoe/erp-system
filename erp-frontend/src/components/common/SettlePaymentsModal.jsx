@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { Modal, Button, Form, Table, InputGroup, Row, Col } from 'react-bootstrap';
 import { salesAPI, purchasesAPI, paymentsAPI } from '../../services/api';
 import { formatCurrency } from '../../utils/currency';
@@ -23,6 +23,7 @@ const SettlePaymentsModal = ({ show, onHide, contact, type, currency, onSettled 
   const [showMore, setShowMore] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const methodListId = useId();
 
   useEffect(() => {
     if (!show || !contact) return;
@@ -186,12 +187,12 @@ const SettlePaymentsModal = ({ show, onHide, contact, type, currency, onSettled 
                 <Form.Label>Method</Form.Label>
                 <Form.Control
                   type="text"
-                  list="payment-method-options"
+                  list={methodListId}
                   placeholder="Cash, bank transfer..."
                   value={formData.method}
                   onChange={(e) => setFormData({ ...formData, method: e.target.value })}
                 />
-                <datalist id="payment-method-options">
+                <datalist id={methodListId}>
                   {PAYMENT_METHOD_OPTIONS.map((m) => (
                     <option key={m} value={m} />
                   ))}

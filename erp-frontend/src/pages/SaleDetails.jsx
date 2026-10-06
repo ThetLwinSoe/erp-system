@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Table, Button, Spinner, Alert, Row, Col, Form, Badge, Modal } from 'react-bootstrap';
+import { Card, Table, Button, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaArrowLeft, FaPrint, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
 import { salesAPI, paymentsAPI, customersAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
