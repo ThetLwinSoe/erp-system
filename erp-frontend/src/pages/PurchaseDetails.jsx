@@ -10,8 +10,8 @@ import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 import CreditWarningAlert from '../components/common/CreditWarningAlert';
+import RecordPaymentModal from '../components/common/RecordPaymentModal';
 
-const emptyPaymentForm = { amount: '', paymentDate: '', method: '', reference: '', notes: '' };
 
 const PurchaseDetails = () => {
   const { id } = useParams();
@@ -27,9 +27,6 @@ const PurchaseDetails = () => {
   const [receiveItems, setReceiveItems] = useState([]);
   const [payments, setPayments] = useState([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentFormData, setPaymentFormData] = useState(emptyPaymentForm);
-  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
-  const [paymentError, setPaymentError] = useState(null);
   const [creditStatus, setCreditStatus] = useState(null);
 
   const fetchPurchase = async () => {
@@ -76,25 +73,13 @@ const PurchaseDetails = () => {
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   const balanceDue = purchase ? parseFloat(purchase.total) - totalPaid : 0;
 
-  const handleOpenPaymentModal = () => {
-    setPaymentFormData({ ...emptyPaymentForm, amount: balanceDue > 0 ? balanceDue.toFixed(2) : '' });
-    setPaymentError(null);
-    setShowPaymentModal(true);
-  };
+  const handleOpenPaymentModal = () => setShowPaymentModal(true);
 
-  const handleRecordPayment = async (e) => {
-    e.preventDefault();
-    setPaymentError(null);
-    setPaymentSubmitting(true);
-    try {
-      await paymentsAPI.create({ purchaseId: id, ...paymentFormData, amount: parseFloat(paymentFormData.amount) });
-      setShowPaymentModal(false);
-      fetchPayments();
-    } catch (err) {
-      setPaymentError(extractApiError(err, 'Failed to record payment'));
-    } finally {
-      setPaymentSubmitting(false);
-    }
+  // Throws on failure so RecordPaymentModal can show the message.
+  const savePayment = async (data) => {
+    await paymentsAPI.create({ purchaseId: id, ...data });
+    setShowPaymentModal(false);
+    fetchPayments();
   };
 
   const handleStatusChange = async (newStatus) => {
@@ -445,69 +430,14 @@ const PurchaseDetails = () => {
         </Col>
       </Row>
 
-      <Modal show={showPaymentModal} onHide={() => setShowPaymentModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Record Payment - {purchase.orderNumber}</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleRecordPayment}>
-          <Modal.Body>
-            <ErrorAlert error={paymentError} />
-            <Form.Group className="mb-3">
-              <Form.Label>Amount *</Form.Label>
-              <Form.Control
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={paymentFormData.amount}
-                onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: e.target.value })}
-                required
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Payment Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={paymentFormData.paymentDate}
-                onChange={(e) => setPaymentFormData({ ...paymentFormData, paymentDate: e.target.value })}
-              />
-              <Form.Text className="text-muted">Defaults to today if left blank.</Form.Text>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Method</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Cash, bank transfer, mobile wallet, etc."
-                value={paymentFormData.method}
-                onChange={(e) => setPaymentFormData({ ...paymentFormData, method: e.target.value })}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Reference</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Cheque #, transaction ID, etc."
-                value={paymentFormData.reference}
-                onChange={(e) => setPaymentFormData({ ...paymentFormData, reference: e.target.value })}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Notes</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                value={paymentFormData.notes}
-                onChange={(e) => setPaymentFormData({ ...paymentFormData, notes: e.target.value })}
-              />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit" disabled={paymentSubmitting}>
-              {paymentSubmitting ? 'Recording...' : 'Record Payment'}
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
+      <RecordPaymentModal
+        show={showPaymentModal}
+        onHide={() => setShowPaymentModal(false)}
+        title={`Record Payment - ${purchase.orderNumber}`}
+        balanceDue={balanceDue}
+        currency={currency}
+        onSave={savePayment}
+      />
 
       <Modal show={showReceiveModal} onHide={() => setShowReceiveModal(false)}>
         <Modal.Header closeButton>
