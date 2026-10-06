@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Card, Table, Button, Spinner, Form, Row, Col, Modal } from 'react-bootstrap';
+import { useState, useEffect, useRef } from 'react';
+import { Card, Table, Button, Spinner, Form, Row, Col, Modal, InputGroup, Alert } from 'react-bootstrap';
 import { FaTrash, FaEdit, FaPlus, FaFileInvoiceDollar } from 'react-icons/fa';
 import { expensesAPI, companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +44,10 @@ const Expenses = () => {
   const [saving, setSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [savedNotice, setSavedNotice] = useState(null);
+  const formRef = useRef(null);
+  const amountRef = useRef(null);
 
   const selectedCompany = isSuperAdmin()
     ? companies.find((c) => String(c.id) === String(companyId))
@@ -94,14 +98,18 @@ const Expenses = () => {
 
   const openCreate = () => {
     setError(null);
+    setSavedNotice(null);
     setEditingExpense(null);
     setForm(emptyForm());
+    setShowMoreDetails(false);
     setShowFormModal(true);
   };
 
   const openEdit = (expense) => {
     setError(null);
+    setSavedNotice(null);
     setEditingExpense(expense);
+    setShowMoreDetails(!!(expense.paidTo || expense.notes));
     setForm({
       expenseDate: expense.expenseDate,
       category: expense.category,
@@ -114,11 +122,11 @@ const Expenses = () => {
     setShowFormModal(true);
   };
 
-  const handleSave = async (e) => {
-    e.preventDefault();
+  const saveExpense = async (addAnother = false) => {
     try {
       setSaving(true);
       setError(null);
+      setSavedNotice(null);
       const payload = { ...form, amount: parseFloat(form.amount) };
       if (editingExpense) {
         const params = isSuperAdmin() && companyId ? { companyId } : undefined;
@@ -130,13 +138,26 @@ const Expenses = () => {
         if (isSuperAdmin()) payload.companyId = parseInt(companyId);
         await expensesAPI.create(payload, createParams);
       }
-      setShowFormModal(false);
       fetchExpenses();
+      if (addAnother) {
+        // Keep the date and category, which are usually the same across a batch of entries.
+        setForm({ ...emptyForm(), expenseDate: form.expenseDate, category: form.category });
+        setSavedNotice(`Saved ${formatCurrency(payload.amount, currency)}. Add the next one.`);
+        setShowMoreDetails(false);
+        amountRef.current?.focus();
+        return;
+      }
+      setShowFormModal(false);
     } catch (err) {
       setError(extractApiError(err, 'Failed to save expense'));
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    saveExpense(false);
   };
 
   const handleDelete = async () => {
@@ -270,48 +291,98 @@ const Expenses = () => {
         </Card.Footer>
       </Card>
 
-      <Modal show={showFormModal} onHide={() => setShowFormModal(false)} centered>
-        <Form onSubmit={handleSave}>
+      <Modal show={showFormModal} onHide={() => setShowFormModal(false)} centered onEntered={() => amountRef.current?.focus()}>
+        <Form ref={formRef} onSubmit={handleSave}>
           <Modal.Header closeButton>
             <Modal.Title>{editingExpense ? 'Edit Expense' : 'Add Expense'}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <ErrorAlert error={error} dismissible onClose={() => setError(null)} />
-            <Form.Group className="mb-3">
-              <Form.Label>Date *</Form.Label>
-              <Form.Control type="date" required value={form.expenseDate} onChange={setField('expenseDate')} />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Category *</Form.Label>
-              <Form.Select required value={form.category} onChange={setField('category')}>
-                {EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+            {savedNotice && (
+              <Alert variant="success" dismissible onClose={() => setSavedNotice(null)} className="py-2">
+                {savedNotice}
+              </Alert>
+            )}
             <Form.Group className="mb-3">
               <Form.Label>Amount *</Form.Label>
-              <Form.Control type="number" step="0.01" min="0.01" required value={form.amount} onChange={setField('amount')} />
+              <InputGroup>
+                <InputGroup.Text>{currency}</InputGroup.Text>
+                <Form.Control
+                  ref={amountRef}
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  required
+                  value={form.amount}
+                  onChange={setField('amount')}
+                />
+              </InputGroup>
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Paid To</Form.Label>
-              <Form.Control type="text" maxLength={255} value={form.paidTo} onChange={setField('paidTo')} />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Payment Method</Form.Label>
-              <Form.Control type="text" maxLength={50} value={form.paymentMethod} onChange={setField('paymentMethod')} />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Reference</Form.Label>
-              <Form.Control type="text" maxLength={100} value={form.reference} onChange={setField('reference')} />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Notes</Form.Label>
-              <Form.Control as="textarea" rows={2} value={form.notes} onChange={setField('notes')} />
-            </Form.Group>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Date *</Form.Label>
+                  <Form.Control type="date" required value={form.expenseDate} onChange={setField('expenseDate')} />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Category *</Form.Label>
+                  <Form.Select required value={form.category} onChange={setField('category')}>
+                    {EXPENSE_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Payment Method</Form.Label>
+                  <Form.Control type="text" maxLength={50} value={form.paymentMethod} onChange={setField('paymentMethod')} />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Reference</Form.Label>
+                  <Form.Control type="text" maxLength={100} value={form.reference} onChange={setField('reference')} />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Button
+              variant="link"
+              className="p-0 mb-3 text-decoration-none"
+              onClick={() => setShowMoreDetails(!showMoreDetails)}
+              aria-expanded={showMoreDetails}
+            >
+              {showMoreDetails ? '− Hide details' : '+ More details'}
+            </Button>
+            {showMoreDetails && (
+              <>
+                <Form.Group className="mb-3">
+                  <Form.Label>Paid To</Form.Label>
+                  <Form.Control type="text" maxLength={255} value={form.paidTo} onChange={setField('paidTo')} />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Notes</Form.Label>
+                  <Form.Control as="textarea" rows={2} value={form.notes} onChange={setField('notes')} />
+                </Form.Group>
+              </>
+            )}
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className="flex-wrap">
             <Button variant="secondary" onClick={() => setShowFormModal(false)}>Cancel</Button>
+            {!editingExpense && (
+              <Button
+                variant="outline-primary"
+                disabled={saving}
+                onClick={() => formRef.current?.reportValidity() && saveExpense(true)}
+              >
+                Save &amp; add another
+              </Button>
+            )}
             <Button variant="primary" type="submit" disabled={saving}>
               {saving ? 'Saving...' : 'Save'}
             </Button>
