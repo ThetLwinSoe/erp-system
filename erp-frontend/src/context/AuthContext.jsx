@@ -41,6 +41,19 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Patches fields onto the session's user object (state + localStorage) without a
+  // full re-login. For values the server only returns from endpoints other than
+  // /auth/login or /auth/me - e.g. Sales.jsx updates directSalesEnabled right after
+  // a sale create, since that's the only call that changes it.
+  const updateUser = (patch) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const isSuperAdmin = () => user?.role === 'superadmin';
   const isAdmin = () => user?.role === 'admin' || user?.role === 'superadmin';
   const isManager = () => user?.role === 'manager' || user?.role === 'admin' || user?.role === 'superadmin';
@@ -72,6 +85,7 @@ export const AuthProvider = ({ children }) => {
     loading: false,
     login,
     logout,
+    updateUser,
     isSuperAdmin,
     isAdmin,
     isManager,

@@ -51,6 +51,12 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: false,
       },
+      // Last "Direct sale" choice made when creating a sales order (migration 011).
+      directSalesEnabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       tableName: 'users',
