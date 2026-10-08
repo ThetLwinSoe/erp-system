@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ErrorAlert from '../components/common/ErrorAlert';
+import SortableHeader from '../components/common/SortableHeader';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import { EXPENSE_CATEGORIES } from '../utils/constants';
@@ -37,6 +38,8 @@ const Expenses = () => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [sortBy, setSortBy] = useState('expenseDate');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [error, setError] = useState(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
@@ -75,7 +78,7 @@ const Expenses = () => {
     }
     try {
       setLoading(true);
-      const params = { page, limit: 20 };
+      const params = { page, limit: 20, sortBy, sortOrder };
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       if (categoryFilter) params.category = categoryFilter;
@@ -94,7 +97,16 @@ const Expenses = () => {
   useEffect(() => {
     fetchExpenses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, startDate, endDate, categoryFilter, companyId]);
+  }, [page, startDate, endDate, categoryFilter, companyId, sortBy, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder('ASC');
+    }
+  };
 
   const openCreate = () => {
     setError(null);
@@ -237,24 +249,26 @@ const Expenses = () => {
             <Table striped hover responsive className="mb-0">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Category</th>
-                  <th>Paid To</th>
-                  <th>Method</th>
+                  <SortableHeader label="Expense #" field="expenseNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Date" field="expenseDate" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Category" field="category" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Paid To" field="paidTo" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Method" field="paymentMethod" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Reference</th>
-                  <th className="text-end">Amount</th>
-                  <th>Recorded By</th>
+                  <SortableHeader label="Amount" field="amount" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} className="text-end" />
+                  <SortableHeader label="Recorded By" field="user" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted py-4">No expenses recorded</td>
+                    <td colSpan={9} className="text-center text-muted py-4">No expenses recorded</td>
                   </tr>
                 ) : (
                   expenses.map((expense) => (
                     <tr key={expense.id}>
+                      <td><code>{expense.expenseNumber}</code></td>
                       <td>{expense.expenseDate}</td>
                       <td>{expense.category}</td>
                       <td>{expense.paidTo || '-'}</td>
@@ -294,7 +308,10 @@ const Expenses = () => {
       <Modal show={showFormModal} onHide={() => setShowFormModal(false)} centered onEntered={() => amountRef.current?.focus()}>
         <Form ref={formRef} onSubmit={handleSave}>
           <Modal.Header closeButton>
-            <Modal.Title>{editingExpense ? 'Edit Expense' : 'Add Expense'}</Modal.Title>
+            <div>
+              <Modal.Title>{editingExpense ? 'Edit Expense' : 'Add Expense'}</Modal.Title>
+              {editingExpense && <div className="text-muted small mt-1">{editingExpense.expenseNumber}</div>}
+            </div>
           </Modal.Header>
           <Modal.Body>
             <ErrorAlert error={error} dismissible onClose={() => setError(null)} />

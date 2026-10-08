@@ -215,6 +215,7 @@ const Payments = () => {
             <Table striped hover responsive>
               <thead>
                 <tr>
+                  <SortableHeader label="Payment #" field="paymentNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Date" field="paymentDate" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Customer/Supplier" field="customer" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Direction" field="direction" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -232,6 +233,7 @@ const Payments = () => {
               <tbody>
                 {payments.map((payment) => (
                   <tr key={payment.id}>
+                    <td><code>{payment.paymentNumber}</code></td>
                     <td>{new Date(payment.paymentDate).toLocaleDateString()}</td>
                     <td>{payment.customer?.name || '-'}</td>
                     <td>
