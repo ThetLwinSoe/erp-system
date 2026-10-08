@@ -53,7 +53,7 @@ const OrderItemsEditor = ({ items, productOptions, onAddItem, onRemoveItem, onIt
       </Row>
 
       {items.map((item, index) => (
-        <Row key={index} className="mb-2 align-items-end" onKeyDown={(e) => handleRowKeyDown(e, index)}>
+        <Row key={item.id} className="mb-2 align-items-end" onKeyDown={(e) => handleRowKeyDown(e, index)}>
           <Col md={3}>
             <SearchableSelect
               ref={(el) => { rowRefs.current[index] = el; }}

@@ -52,7 +52,7 @@ const Sales = () => {
   const [directSale, setDirectSale] = useState(false);
   const [formData, setFormData] = useState({
     customerId: '',
-    items: [{ productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
+    items: [{ id: crypto.randomUUID(), productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
     tax: 0,
     discountPercent: 0,
     notes: '',
@@ -136,7 +136,7 @@ const Sales = () => {
     setDirectSale(!isSaleRep() && !!user?.directSalesEnabled);
     setFormData({
       customerId: '',
-      items: [{ productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
+      items: [{ id: crypto.randomUUID(), productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
       tax: 0,
       discountPercent: 0,
       notes: '',
@@ -149,7 +149,7 @@ const Sales = () => {
   const handleAddItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
+      items: [...formData.items, { id: crypto.randomUUID(), productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
     });
   };
 
@@ -229,10 +229,13 @@ const Sales = () => {
   };
 
   // Ctrl+Enter (Cmd+Enter on Mac) submits from anywhere in the form, including the Notes textarea.
+  // requestSubmit() (not calling handleSubmit(e) directly) runs the browser's native constraint
+  // validation first, same as clicking the type="submit" Create Order button - so an emptied
+  // required field (e.g. Unit Price) shows the same inline tooltip either way.
   const handleFormKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
-      handleSubmit(e);
+      e.currentTarget.requestSubmit();
     }
   };
 
