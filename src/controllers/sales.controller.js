@@ -179,7 +179,15 @@ class SalesController {
         return ApiResponse.badRequest(res, 'Company ID is required');
       }
 
-      const sale = await SalesService.createSale(req.user.id, req.body, companyId);
+      const directSale = req.body.directSale === true || req.body.directSale === 'true';
+      if (directSale && req.isSaleRep) {
+        return ApiResponse.forbidden(res, 'Direct sales are not available for your role');
+      }
+
+      const sale = await SalesService.createSale(req.user.id, req.body, companyId, {
+        directSale,
+        rememberChoice: !req.isSaleRep,
+      });
       return ApiResponse.created(res, sale, 'Sale created successfully');
     } catch (error) {
       if (error.details) {

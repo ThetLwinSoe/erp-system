@@ -6,8 +6,15 @@ class SalesService {
   /**
    * Create a new sale order
    */
-  static async createSale(userId, saleData, companyId) {
+  /**
+   * options.directSale: skip Pending, Confirmed and Shipped and save the order
+   * as Delivered. Stock is deducted at creation either way.
+   * options.rememberChoice: save directSale as the user's default for next orders.
+   * Both are decided by the controller (Sale Rep never gets directSale or a remembered choice).
+   */
+  static async createSale(userId, saleData, companyId, options = {}) {
     const { customerId, items, tax = 0, discountPercent = 0, notes } = saleData;
+    const { directSale = false, rememberChoice = false } = options;
 
     // Validate customer exists and belongs to the same company
     const customer = await Customer.findOne({
@@ -95,7 +102,7 @@ class SalesService {
           tax,
           total,
           notes,
-          status: ORDER_STATUS.PENDING,
+          status: directSale ? ORDER_STATUS.DELIVERED : ORDER_STATUS.PENDING,
         },
         { transaction }
       );
@@ -109,6 +116,11 @@ class SalesService {
 
       // Deduct inventory (paid + FOC quantity together)
       await InventoryService.deductStock(stockMovements, transaction);
+
+      // Saved in the same transaction, so a failed order leaves the remembered choice unchanged.
+      if (rememberChoice) {
+        await User.update({ directSalesEnabled: directSale }, { where: { id: userId }, transaction });
+      }
 
       return sale;
     });

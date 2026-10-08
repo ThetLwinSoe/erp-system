@@ -188,6 +188,7 @@ const salesValidation = {
     }),
     body('tax').optional().isFloat({ min: 0 }).withMessage('Tax must be a positive number'),
     body('notes').optional().trim(),
+    body('directSale').optional().isBoolean().withMessage('directSale must be true or false'),
     handleValidation,
   ],
   updateStatus: [

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, Table, Button, Modal, Form, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
 import { FaPlus, FaEye, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,8 @@ import Pagination from '../components/common/Pagination';
 import StatusBadge from '../components/common/StatusBadge';
 import ConfirmModal from '../components/common/ConfirmModal';
 import CreditWarningAlert from '../components/common/CreditWarningAlert';
+import SearchableSelect from '../components/common/SearchableSelect';
+import OrderItemsEditor from '../components/common/OrderItemsEditor';
 import { PURCHASE_STATUS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
@@ -37,13 +39,17 @@ const Purchases = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState(null);
   const [error, setError] = useState(null);
+  // Set on every submit attempt, so the Supplier/Product fields show their red
+  // outline only after the user has actually tried to submit, not while typing.
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const supplierFieldRef = useRef(null);
 
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [creditStatus, setCreditStatus] = useState(null);
   const [formData, setFormData] = useState({
     supplierId: '',
-    items: [{ productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
+    items: [{ id: crypto.randomUUID(), productId: '', quantity: 1, unitPrice: '', discountPercent: 0 }],
     tax: 0,
     discountPercent: 0,
     expectedDelivery: '',
@@ -99,6 +105,18 @@ const Purchases = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showModal, formData.supplierId]);
 
+  const supplierOptions = useMemo(() => suppliers.map((s) => ({
+    value: String(s.id),
+    label: s.supplierCode ? `${s.supplierCode} - ${s.name}` : s.name,
+    searchText: `${s.supplierCode || ''} ${s.name}`,
+  })), [suppliers]);
+
+  const productOptions = useMemo(() => products.map((p) => ({
+    value: String(p.id),
+    label: p.name,
+    searchText: `${p.name} ${p.sku || ''}`,
+  })), [products]);
+
   const handleSort = (field) => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
@@ -112,20 +130,21 @@ const Purchases = () => {
     fetchFormData();
     setFormData({
       supplierId: '',
-      items: [{ productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
+      items: [{ id: crypto.randomUUID(), productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
       tax: 0,
       discountPercent: 0,
       expectedDelivery: '',
       notes: '',
     });
     setError(null);
+    setAttemptedSubmit(false);
     setShowModal(true);
   };
 
   const handleAddItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
+      items: [...formData.items, { id: crypto.randomUUID(), productId: '', quantity: 1, focQuantity: 0, unitPrice: '', discountPercent: 0 }],
     });
   };
 
@@ -153,7 +172,17 @@ const Purchases = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setAttemptedSubmit(true);
 
+    if (!formData.supplierId) {
+      setError('Select a supplier');
+      return;
+    }
+    const hasEmptyProduct = formData.items.some((item) => !item.productId);
+    if (hasEmptyProduct) {
+      setError('Select a product for every item');
+      return;
+    }
     const hasEmptyItem = formData.items.some(
       (item) => (parseInt(item.quantity) || 0) + (parseInt(item.focQuantity) || 0) < 1
     );
@@ -189,6 +218,17 @@ const Purchases = () => {
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
+    }
+  };
+
+  // Ctrl+Enter (Cmd+Enter on Mac) submits from anywhere in the form, including the Notes textarea.
+  // requestSubmit() (not calling handleSubmit(e) directly) runs the browser's native constraint
+  // validation first, same as clicking the type="submit" Create Order button - so an emptied
+  // required field (e.g. Unit Price) shows the same inline tooltip either way.
+  const handleFormKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.requestSubmit();
     }
   };
 
@@ -324,11 +364,11 @@ const Purchases = () => {
         </Card.Footer>
       </Card>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" onEntered={() => supplierFieldRef.current?.focus()}>
         <Modal.Header closeButton>
           <Modal.Title>Create Purchase Order</Modal.Title>
         </Modal.Header>
-        <Form onSubmit={handleSubmit}>
+        <Form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
           <Modal.Body>
             <ErrorAlert error={error} />
 
@@ -336,12 +376,14 @@ const Purchases = () => {
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Supplier *</Form.Label>
-                  <Form.Select value={formData.supplierId} onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })} required>
-                    <option value="">Select Supplier</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>{s.supplierCode ? `${s.supplierCode} - ${s.name}` : s.name}</option>
-                    ))}
-                  </Form.Select>
+                  <SearchableSelect
+                    ref={supplierFieldRef}
+                    options={supplierOptions}
+                    value={formData.supplierId}
+                    onChange={(value) => setFormData({ ...formData, supplierId: value })}
+                    placeholder="Search supplier..."
+                    isInvalid={attemptedSubmit && !formData.supplierId}
+                  />
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -352,64 +394,14 @@ const Purchases = () => {
               </Col>
             </Row>
 
-            <div className="mb-3">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <Form.Label className="mb-0">Order Items *</Form.Label>
-                <Button variant="outline-primary" size="sm" onClick={handleAddItem}>+ Add Item</Button>
-              </div>
-
-              {/* Item Headers */}
-              <Row className="mb-2">
-                <Col md={3}>
-                  <small className="text-muted fw-semibold">Product</small>
-                </Col>
-                <Col md={2}>
-                  <small className="text-muted fw-semibold">Quantity</small>
-                </Col>
-                <Col md={2}>
-                  <small className="text-muted fw-semibold">FOC Qty</small>
-                </Col>
-                <Col md={2}>
-                  <small className="text-muted fw-semibold">Unit Price</small>
-                </Col>
-                <Col md={2}>
-                  <small className="text-muted fw-semibold">Disc %</small>
-                </Col>
-                <Col md={1}>
-                  <small className="text-muted fw-semibold">Actions</small>
-                </Col>
-              </Row>
-
-              {formData.items.map((item, index) => (
-                <Row key={index} className="mb-2 align-items-end">
-                  <Col md={3}>
-                    <Form.Select value={item.productId} onChange={(e) => handleItemChange(index, 'productId', e.target.value)} required>
-                      <option value="">Select Product</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </Form.Select>
-                  </Col>
-                  <Col md={2}>
-                    <Form.Control type="number" min="0" placeholder="Qty" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} required />
-                  </Col>
-                  <Col md={2}>
-                    <Form.Control type="number" min="0" placeholder="FOC Qty" value={item.focQuantity || 0} onChange={(e) => handleItemChange(index, 'focQuantity', e.target.value)} />
-                  </Col>
-                  <Col md={2}>
-                    <Form.Control type="number" step="0.01" min="0" placeholder="Price" value={item.unitPrice} onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)} required />
-                  </Col>
-                  <Col md={2}>
-                    <Form.Control type="number" step="0.01" min="0" max="100" placeholder="Disc %" value={item.discountPercent || 0} onChange={(e) => handleItemChange(index, 'discountPercent', e.target.value)} />
-                  </Col>
-                  <Col md={1}>
-                    <Button variant="outline-danger" size="sm" onClick={() => handleRemoveItem(index)} disabled={formData.items.length === 1}>
-                      <FaTrash />
-                    </Button>
-                  </Col>
-                </Row>
-              ))}
-            </div>
+            <OrderItemsEditor
+              items={formData.items}
+              productOptions={productOptions}
+              onAddItem={handleAddItem}
+              onRemoveItem={handleRemoveItem}
+              onItemChange={handleItemChange}
+              attemptedSubmit={attemptedSubmit}
+            />
 
             <Row>
               <Col md={4}>
@@ -458,6 +450,7 @@ const Purchases = () => {
             <CreditWarningAlert creditStatus={creditStatus} orderTotal={calculateTotal()} type="supplier" currency={currency} />
           </Modal.Body>
           <Modal.Footer>
+            <span className="text-muted small me-auto">Ctrl+Enter to save</span>
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
             <Button variant="primary" type="submit" disabled={submitting}>
               {submitting ? 'Creating...' : 'Create Order'}
