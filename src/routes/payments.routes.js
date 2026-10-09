@@ -4,7 +4,7 @@ const { authenticate, requireSuperAdmin } = require('../middleware/auth');
 const { companyScope, requireCreditControlAccess } = require('../middleware/companyScope');
 const { paginationValidation, sortValidation, paymentValidation } = require('../middleware/validate');
 
-const PAYMENT_SORT_FIELDS = ['paymentDate', 'amount', 'direction', 'createdAt', 'customer', 'user', 'company'];
+const PAYMENT_SORT_FIELDS = ['paymentNumber', 'paymentDate', 'amount', 'direction', 'createdAt', 'customer', 'user', 'company'];
 
 const router = express.Router();
 

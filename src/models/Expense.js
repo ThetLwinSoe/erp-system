@@ -10,6 +10,13 @@ module.exports = (sequelize) => {
         primaryKey: true,
         autoIncrement: true,
       },
+      // Generated in expenses.controller.js, not here - see the identical note on
+      // Payment.paymentNumber for why a beforeCreate hook can't do this reliably.
+      expenseNumber: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        unique: true,
+      },
       companyId: {
         type: DataTypes.INTEGER,
         allowNull: false,

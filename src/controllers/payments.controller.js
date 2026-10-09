@@ -4,6 +4,16 @@ const { PAGINATION } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
+// Same "PREFIX-timestamp36-random4" shape as Sale/Purchase/Return/Adjustment order
+// numbers, but generated here rather than in a Payment.beforeCreate hook: Sequelize
+// runs allowNull validation before beforeCreate fires, so a hook can never populate
+// a required field in time (see the comment on Payment.paymentNumber in the model).
+const generatePaymentNumber = () => {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `PAY-${timestamp}-${random}`;
+};
+
 class PaymentsController {
   /**
    * Get all payments
@@ -151,6 +161,7 @@ class PaymentsController {
         }
 
         const payment = await Payment.create({
+          paymentNumber: generatePaymentNumber(),
           customerId: order[customerField],
           direction,
           amount: amountNum,
@@ -289,6 +300,7 @@ class PaymentsController {
         const createdIds = [];
         for (const { order, applied } of allocations) {
           const payment = await Payment.create({
+            paymentNumber: generatePaymentNumber(),
             customerId,
             direction,
             amount: applied,

@@ -1,12 +1,13 @@
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 
-const SortableHeader = ({ label, field, sortBy, sortOrder, onSort }) => {
+const SortableHeader = ({ label, field, sortBy, sortOrder, onSort, className = '' }) => {
   const isActive = sortBy === field;
 
   return (
     <th
       role="button"
       onClick={() => onSort(field)}
+      className={className}
       style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
     >
       {label}{' '}

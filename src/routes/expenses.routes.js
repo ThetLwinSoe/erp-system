@@ -2,7 +2,9 @@ const express = require('express');
 const ExpensesController = require('../controllers/expenses.controller');
 const { authenticate, requireSuperAdmin } = require('../middleware/auth');
 const { companyScope, requireExpenseTrackerAccess } = require('../middleware/companyScope');
-const { paginationValidation, expenseValidation } = require('../middleware/validate');
+const { paginationValidation, sortValidation, expenseValidation } = require('../middleware/validate');
+
+const EXPENSE_SORT_FIELDS = ['expenseNumber', 'expenseDate', 'category', 'paidTo', 'paymentMethod', 'amount', 'user'];
 
 const router = express.Router();
 
@@ -13,7 +15,7 @@ router.use(companyScope);
 router.use(requireExpenseTrackerAccess);
 
 // GET /api/expenses - List expenses (date range and category filters)
-router.get('/', paginationValidation, ExpensesController.getAll);
+router.get('/', paginationValidation, sortValidation(EXPENSE_SORT_FIELDS), ExpensesController.getAll);
 
 // POST /api/expenses - Record an expense
 router.post('/', expenseValidation.create, ExpensesController.create);

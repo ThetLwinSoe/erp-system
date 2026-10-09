@@ -4,6 +4,14 @@ const { PAGINATION } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
+// See the identical comment on generatePaymentNumber in payments.controller.js for
+// why this is generated here rather than in an Expense.beforeCreate hook.
+const generateExpenseNumber = () => {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `EXP-${timestamp}-${random}`;
+};
+
 const EDITABLE_FIELDS = ['expenseDate', 'category', 'amount', 'paidTo', 'paymentMethod', 'reference', 'notes'];
 const OPTIONAL_TEXT_FIELDS = ['paidTo', 'paymentMethod', 'reference', 'notes'];
 
@@ -48,10 +56,19 @@ class ExpensesController {
         whereClause.category = category;
       }
 
+      const sortBy = req.query.sortBy || 'expenseDate';
+      const sortOrder = req.query.sortOrder || 'DESC';
+      const JOIN_SORT_MAP = {
+        user: [{ model: User, as: 'user' }, 'name'],
+      };
+      const order = JOIN_SORT_MAP[sortBy]
+        ? [[...JOIN_SORT_MAP[sortBy], sortOrder], ['id', 'DESC']]
+        : [[sortBy, sortOrder], ['id', 'DESC']];
+
       const { count, rows } = await Expense.findAndCountAll({
         where: whereClause,
         ...withRecorder,
-        order: [['expenseDate', 'DESC'], ['id', 'DESC']],
+        order,
         limit,
         offset,
       });
@@ -83,6 +100,7 @@ class ExpensesController {
       }
 
       const expense = await Expense.create({
+        expenseNumber: generateExpenseNumber(),
         ...pickEditable(req.body),
         companyId,
         userId: req.user.id,

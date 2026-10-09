@@ -9,6 +9,16 @@ module.exports = (sequelize) => {
         primaryKey: true,
         autoIncrement: true,
       },
+      // Generated in payments.controller.js, not here: Sequelize runs allowNull
+      // validation before beforeCreate hooks fire, so a hook can't populate a
+      // required field in time (the pattern Sale/Purchase/etc. appear to use
+      // for orderNumber only works because their service layer already passes
+      // it into .create() explicitly - their hooks are an unreachable no-op).
+      paymentNumber: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        unique: true,
+      },
       customerId: {
         type: DataTypes.INTEGER,
         allowNull: false,
