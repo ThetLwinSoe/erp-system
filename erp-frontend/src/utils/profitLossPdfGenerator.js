@@ -164,6 +164,10 @@ export const generateProfitLossPDF = async ({ company, summary, products, startD
     ['Gross Profit', fmt(summary.grossProfit)],
     ['Gross Margin %', `${(summary.grossMarginPercent || 0).toFixed(2)}%`],
     ['Inventory Adjustment Gain/(Loss)', fmt(summary.inventoryAdjustmentGainLoss)],
+    // Only when the company has Expense Tracker on - mirrors the Operating
+    // Expenses card on ProfitLossReport.jsx, same position (between
+    // inventory adjustments and Net Profit).
+    ...(summary.expenseTrackerEnabled ? [['Operating Expenses', fmt(summary.operatingExpenses)]] : []),
     ['Net Profit', fmt(summary.netProfit)],
     ['Tax Collected on Sales', fmt(summary.taxCollected)],
     ['Tax Paid on Purchases', fmt(summary.taxPaid)],
@@ -180,8 +184,11 @@ export const generateProfitLossPDF = async ({ company, summary, products, startD
       1: { halign: 'right' },
     },
     didParseCell: (data) => {
-      // Highlight the two headline rows
-      if (data.row.index === 2 || data.row.index === 5) {
+      // Highlight the two headline rows - matched by label, not row index,
+      // since the Operating Expenses row above shifts Net Profit's position
+      // depending on whether Expense Tracker is enabled.
+      const label = data.row.raw[0];
+      if (label === 'Gross Profit' || label === 'Net Profit') {
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 11;
       }
