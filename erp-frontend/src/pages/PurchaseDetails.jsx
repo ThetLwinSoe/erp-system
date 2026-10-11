@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Modal, Form, ProgressBar, Badge } from 'react-bootstrap';
 import { FaArrowLeft, FaCheck, FaPrint, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
-import { purchasesAPI, paymentsAPI, customersAPI, getStaticUrl } from '../services/api';
+import { purchasesAPI, paymentsAPI, purchaseReturnsAPI, customersAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
@@ -26,6 +26,7 @@ const PurchaseDetails = () => {
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [receiveItems, setReceiveItems] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [returns, setReturns] = useState([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [creditStatus, setCreditStatus] = useState(null);
 
@@ -50,9 +51,24 @@ const PurchaseDetails = () => {
     }
   };
 
+  // Only Completed returns reduce what's owed - matches when stock is
+  // actually returned to the supplier, so a return still Pending/Approved
+  // doesn't make an order look settled before it's finalized.
+  const fetchReturns = async () => {
+    try {
+      const response = await purchaseReturnsAPI.getAll({ purchaseId: id, status: 'completed', limit: 100 });
+      setReturns(response.data.data || []);
+    } catch {
+      setReturns([]);
+    }
+  };
+
   useEffect(() => {
     fetchPurchase();
-    if (canAccessCreditControl()) fetchPayments();
+    if (canAccessCreditControl()) {
+      fetchPayments();
+      fetchReturns();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -71,7 +87,17 @@ const PurchaseDetails = () => {
   }, [purchase?.id, purchase?.status]);
 
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-  const balanceDue = purchase ? parseFloat(purchase.total) - totalPaid : 0;
+  const returnedAmount = returns.reduce((sum, r) => sum + parseFloat(r.total || 0), 0);
+  // Net of completed returns, floored at 0 so a return that exceeds the
+  // original total (shouldn't happen, but belt-and-suspenders) never shows
+  // a negative "amount due".
+  const netAmountDue = purchase ? Math.max(0, parseFloat(purchase.total) - returnedAmount) : 0;
+  // Floored at 0 rather than going negative - if an order was paid in full
+  // and then returned, a refund may be owed from the supplier, but this app
+  // doesn't track refund payouts, so that's surfaced as "fully settled"
+  // rather than a misleading negative balance.
+  const balanceDue = Math.max(0, netAmountDue - totalPaid);
+  const fullySettledByReturn = returnedAmount > 0 && netAmountDue - totalPaid <= 0;
 
   const handleOpenPaymentModal = () => setShowPaymentModal(true);
 
@@ -175,7 +201,7 @@ const PurchaseDetails = () => {
 
   const recordPaymentDisabledReason = () => {
     if (purchase?.status === 'pending' || purchase?.status === 'cancelled') return 'Order must be approved before recording payments.';
-    if (balanceDue <= 0) return 'This order is already fully paid.';
+    if (balanceDue <= 0) return fullySettledByReturn ? 'This order has no balance due after its return(s).' : 'This order is already fully paid.';
     return '';
   };
 
@@ -419,10 +445,19 @@ const PurchaseDetails = () => {
                     </tbody>
                   </Table>
                 )}
+                {returnedAmount > 0 && (
+                  <>
+                    <p className="mb-1"><strong>Order Total:</strong> {formatCurrency(purchase.total, currency)}</p>
+                    <p className="mb-1 text-danger"><strong>Returned:</strong> -{formatCurrency(returnedAmount, currency)}</p>
+                    <p className="mb-1"><strong>Net Amount Due:</strong> {formatCurrency(netAmountDue, currency)}</p>
+                  </>
+                )}
                 <p className="mb-1"><strong>Paid:</strong> {formatCurrency(totalPaid, currency)}</p>
                 <p className="mb-0">
                   <strong>Balance Due:</strong>{' '}
-                  <span className={balanceDue > 0 ? 'text-danger' : 'text-success'}>{formatCurrency(balanceDue, currency)}</span>
+                  <span className={balanceDue > 0 ? 'text-danger' : 'text-success'}>
+                    {fullySettledByReturn ? 'Fully Settled' : formatCurrency(balanceDue, currency)}
+                  </span>
                 </p>
               </Card.Body>
             </Card>

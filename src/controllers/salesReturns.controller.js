@@ -19,11 +19,16 @@ class SalesReturnsController {
       const offset = (page - 1) * limit;
       const status = req.query.status || '';
       const search = req.query.search || '';
+      const { saleId } = req.query;
 
       const whereClause = { ...req.companyFilter };
 
       if (status && Object.values(SALES_RETURN_STATUS).includes(status)) {
         whereClause.status = status;
+      }
+
+      if (saleId) {
+        whereClause.saleId = parseInt(saleId);
       }
 
       if (search) {

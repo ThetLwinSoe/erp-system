@@ -1,4 +1,4 @@
-const { Purchase, PurchaseItem, Customer, User, Product, Company, Payment, sequelize } = require('../models');
+const { Purchase, PurchaseItem, Customer, User, Product, Company, Payment, PurchaseReturn, sequelize } = require('../models');
 const InventoryService = require('../services/inventory.service');
 const PurchasesService = require('../services/purchases.service');
 const ApiResponse = require('../utils/apiResponse');
@@ -7,14 +7,25 @@ const { getCompanyIdForCreate, evaluateCreditControlAccess } = require('../middl
 const { Op } = require('sequelize');
 
 /**
- * unpaid/partial/paid, derived from paidAmount vs order total - not
- * meaningful for a cancelled order, so callers skip it there.
+ * unpaid/partial/paid, derived from paidAmount vs netTotal (order total less
+ * any completed returns) - not meaningful for a cancelled order, so callers
+ * skip it there. netTotal <= 0 (e.g. a fully-returned order) is treated as
+ * "paid": there is nothing left to collect, which must be checked before the
+ * paidAmount <= 0 case or a fully-returned, never-paid order would wrongly
+ * read as unpaid.
  */
-const paymentStatusFor = (paidAmount, total) => {
+const paymentStatusFor = (paidAmount, netTotal) => {
+  if (netTotal <= 0) return 'paid';
   if (paidAmount <= 0) return 'unpaid';
-  if (paidAmount >= parseFloat(total)) return 'paid';
+  if (paidAmount >= parseFloat(netTotal)) return 'paid';
   return 'partial';
 };
+
+// Net total after completed returns - only completed returns reduce what's
+// owed (matches when stock is actually returned to the supplier), so
+// pending/approved returns don't move this yet.
+const RETURNED_AMOUNT_SQL = `COALESCE((SELECT SUM(total) FROM purchase_returns WHERE purchase_returns."purchaseId" = "Purchase"."id" AND purchase_returns."status" = 'completed'), 0)`;
+const NET_TOTAL_SQL = `("Purchase"."total" - ${RETURNED_AMOUNT_SQL})`;
 
 // Used only for `ORDER BY` when sorting by the computed Payment column - a
 // 3-bucket rank (0=unpaid, 1=partial, 2=paid), not the raw paid amount, so a
@@ -23,8 +34,9 @@ const paymentStatusFor = (paidAmount, total) => {
 // not just the current page.
 const PAYMENT_STATUS_SORT_SQL = `(
   CASE
+    WHEN ${NET_TOTAL_SQL} <= 0 THEN 2
     WHEN COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) <= 0 THEN 0
-    WHEN COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) >= "Purchase"."total" THEN 2
+    WHEN COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) >= ${NET_TOTAL_SQL} THEN 2
     ELSE 1
   END
 )`;
@@ -35,9 +47,9 @@ const PAYMENT_STATUS_SORT_SQL = `(
 // cancelled orders from every bucket, matching the listing, which shows
 // "-" for a cancelled order's payment status rather than a real value.
 const PAYMENT_STATUS_WHERE_SQL = {
-  unpaid: `"Purchase"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) <= 0`,
-  partial: `"Purchase"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) > 0 AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) < "Purchase"."total"`,
-  paid: `"Purchase"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) >= "Purchase"."total"`,
+  unpaid: `"Purchase"."status" != 'cancelled' AND ${NET_TOTAL_SQL} > 0 AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) <= 0`,
+  partial: `"Purchase"."status" != 'cancelled' AND ${NET_TOTAL_SQL} > 0 AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) > 0 AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) < ${NET_TOTAL_SQL}`,
+  paid: `"Purchase"."status" != 'cancelled' AND (${NET_TOTAL_SQL} <= 0 OR COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) >= ${NET_TOTAL_SQL})`,
 };
 
 class PurchasesController {
@@ -118,19 +130,31 @@ class PurchasesController {
       // caller has Credit Control access, so this costs nothing otherwise.
       let responseRows = rows;
       if (allowed && rows.length > 0) {
-        const paidRows = await Payment.findAll({
-          attributes: ['purchaseId', [sequelize.fn('SUM', sequelize.col('amount')), 'paidAmount']],
-          where: { purchaseId: { [Op.in]: rows.map((r) => r.id) } },
-          group: ['purchaseId'],
-          raw: true,
-        });
+        const [paidRows, returnedRows] = await Promise.all([
+          Payment.findAll({
+            attributes: ['purchaseId', [sequelize.fn('SUM', sequelize.col('amount')), 'paidAmount']],
+            where: { purchaseId: { [Op.in]: rows.map((r) => r.id) } },
+            group: ['purchaseId'],
+            raw: true,
+          }),
+          PurchaseReturn.findAll({
+            attributes: ['purchaseId', [sequelize.fn('SUM', sequelize.col('total')), 'returnedAmount']],
+            where: { purchaseId: { [Op.in]: rows.map((r) => r.id) }, status: 'completed' },
+            group: ['purchaseId'],
+            raw: true,
+          }),
+        ]);
         const paidByPurchaseId = new Map(paidRows.map((r) => [r.purchaseId, parseFloat(r.paidAmount) || 0]));
+        const returnedByPurchaseId = new Map(returnedRows.map((r) => [r.purchaseId, parseFloat(r.returnedAmount) || 0]));
         responseRows = rows.map((r) => {
           const paidAmount = paidByPurchaseId.get(r.id) || 0;
+          const returnedAmount = returnedByPurchaseId.get(r.id) || 0;
+          const netTotal = parseFloat(r.total) - returnedAmount;
           return {
             ...r.toJSON(),
             paidAmount,
-            paymentStatus: r.status === 'cancelled' ? null : paymentStatusFor(paidAmount, r.total),
+            returnedAmount,
+            paymentStatus: r.status === 'cancelled' ? null : paymentStatusFor(paidAmount, netTotal),
           };
         });
       }

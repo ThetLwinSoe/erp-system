@@ -19,11 +19,16 @@ class PurchaseReturnsController {
       const offset = (page - 1) * limit;
       const status = req.query.status || '';
       const search = req.query.search || '';
+      const { purchaseId } = req.query;
 
       const whereClause = { ...req.companyFilter };
 
       if (status && Object.values(PURCHASE_RETURN_STATUS).includes(status)) {
         whereClause.status = status;
+      }
+
+      if (purchaseId) {
+        whereClause.purchaseId = parseInt(purchaseId);
       }
 
       if (search) {
