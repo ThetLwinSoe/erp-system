@@ -28,7 +28,7 @@ class SalesReturnsController {
       }
 
       if (saleId) {
-        whereClause.saleId = parseInt(saleId);
+        whereClause.saleId = parseInt(saleId, 10);
       }
 
       if (search) {

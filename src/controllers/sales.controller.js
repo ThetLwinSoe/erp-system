@@ -1,7 +1,7 @@
 const { Sale, SaleItem, Customer, User, Product, Company, Payment, SalesReturn, sequelize } = require('../models');
 const SalesService = require('../services/sales.service');
 const ApiResponse = require('../utils/apiResponse');
-const { PAGINATION, ORDER_STATUS } = require('../utils/constants');
+const { PAGINATION, ORDER_STATUS, SALES_RETURN_STATUS } = require('../utils/constants');
 const { getCompanyIdForCreate, evaluateCreditControlAccess } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
@@ -23,7 +23,7 @@ const paymentStatusFor = (paidAmount, netTotal) => {
 // Net total after completed returns - only completed returns reduce what's
 // owed (matches when stock is actually restored), so pending/approved
 // returns don't move this yet.
-const RETURNED_AMOUNT_SQL = `COALESCE((SELECT SUM(total) FROM sales_returns WHERE sales_returns."saleId" = "Sale"."id" AND sales_returns."status" = 'completed'), 0)`;
+const RETURNED_AMOUNT_SQL = `COALESCE((SELECT SUM(total) FROM sales_returns WHERE sales_returns."saleId" = "Sale"."id" AND sales_returns."status" = '${SALES_RETURN_STATUS.COMPLETED}'), 0)`;
 const NET_TOTAL_SQL = `("Sale"."total" - ${RETURNED_AMOUNT_SQL})`;
 
 // Used only for `ORDER BY` when sorting by the computed Payment column - a
@@ -158,7 +158,7 @@ class SalesController {
           }),
           SalesReturn.findAll({
             attributes: ['saleId', [sequelize.fn('SUM', sequelize.col('total')), 'returnedAmount']],
-            where: { saleId: { [Op.in]: rows.map((r) => r.id) }, status: 'completed' },
+            where: { saleId: { [Op.in]: rows.map((r) => r.id) }, status: SALES_RETURN_STATUS.COMPLETED },
             group: ['saleId'],
             raw: true,
           }),

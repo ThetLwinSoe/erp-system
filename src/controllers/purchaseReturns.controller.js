@@ -28,7 +28,7 @@ class PurchaseReturnsController {
       }
 
       if (purchaseId) {
-        whereClause.purchaseId = parseInt(purchaseId);
+        whereClause.purchaseId = parseInt(purchaseId, 10);
       }
 
       if (search) {

@@ -2,7 +2,7 @@ const { Purchase, PurchaseItem, Customer, User, Product, Company, Payment, Purch
 const InventoryService = require('../services/inventory.service');
 const PurchasesService = require('../services/purchases.service');
 const ApiResponse = require('../utils/apiResponse');
-const { PAGINATION, PURCHASE_STATUS, CUSTOMER_TYPE } = require('../utils/constants');
+const { PAGINATION, PURCHASE_STATUS, CUSTOMER_TYPE, PURCHASE_RETURN_STATUS } = require('../utils/constants');
 const { getCompanyIdForCreate, evaluateCreditControlAccess } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
@@ -24,7 +24,7 @@ const paymentStatusFor = (paidAmount, netTotal) => {
 // Net total after completed returns - only completed returns reduce what's
 // owed (matches when stock is actually returned to the supplier), so
 // pending/approved returns don't move this yet.
-const RETURNED_AMOUNT_SQL = `COALESCE((SELECT SUM(total) FROM purchase_returns WHERE purchase_returns."purchaseId" = "Purchase"."id" AND purchase_returns."status" = 'completed'), 0)`;
+const RETURNED_AMOUNT_SQL = `COALESCE((SELECT SUM(total) FROM purchase_returns WHERE purchase_returns."purchaseId" = "Purchase"."id" AND purchase_returns."status" = '${PURCHASE_RETURN_STATUS.COMPLETED}'), 0)`;
 const NET_TOTAL_SQL = `("Purchase"."total" - ${RETURNED_AMOUNT_SQL})`;
 
 // Used only for `ORDER BY` when sorting by the computed Payment column - a
@@ -139,7 +139,7 @@ class PurchasesController {
           }),
           PurchaseReturn.findAll({
             attributes: ['purchaseId', [sequelize.fn('SUM', sequelize.col('total')), 'returnedAmount']],
-            where: { purchaseId: { [Op.in]: rows.map((r) => r.id) }, status: 'completed' },
+            where: { purchaseId: { [Op.in]: rows.map((r) => r.id) }, status: PURCHASE_RETURN_STATUS.COMPLETED },
             group: ['purchaseId'],
             raw: true,
           }),

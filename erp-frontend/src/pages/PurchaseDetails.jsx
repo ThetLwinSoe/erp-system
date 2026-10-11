@@ -5,8 +5,10 @@ import { FaArrowLeft, FaCheck, FaPrint, FaUndo, FaMoneyBillWave } from 'react-ic
 import { purchasesAPI, paymentsAPI, purchaseReturnsAPI, customersAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
+import { PURCHASE_RETURN_STATUS } from '../utils/constants';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
 import { formatCurrency } from '../utils/currency';
+import { computeOrderBalance } from '../utils/orderBalance';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
 import CreditWarningAlert from '../components/common/CreditWarningAlert';
@@ -56,7 +58,7 @@ const PurchaseDetails = () => {
   // doesn't make an order look settled before it's finalized.
   const fetchReturns = async () => {
     try {
-      const response = await purchaseReturnsAPI.getAll({ purchaseId: id, status: 'completed', limit: 100 });
+      const response = await purchaseReturnsAPI.getAll({ purchaseId: id, status: PURCHASE_RETURN_STATUS.COMPLETED, limit: 100 });
       setReturns(response.data.data || []);
     } catch {
       setReturns([]);
@@ -88,16 +90,7 @@ const PurchaseDetails = () => {
 
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   const returnedAmount = returns.reduce((sum, r) => sum + parseFloat(r.total || 0), 0);
-  // Net of completed returns, floored at 0 so a return that exceeds the
-  // original total (shouldn't happen, but belt-and-suspenders) never shows
-  // a negative "amount due".
-  const netAmountDue = purchase ? Math.max(0, parseFloat(purchase.total) - returnedAmount) : 0;
-  // Floored at 0 rather than going negative - if an order was paid in full
-  // and then returned, a refund may be owed from the supplier, but this app
-  // doesn't track refund payouts, so that's surfaced as "fully settled"
-  // rather than a misleading negative balance.
-  const balanceDue = Math.max(0, netAmountDue - totalPaid);
-  const fullySettledByReturn = returnedAmount > 0 && netAmountDue - totalPaid <= 0;
+  const { netAmountDue, balanceDue, fullySettledByReturn } = computeOrderBalance(purchase?.total, returnedAmount, totalPaid);
 
   const handleOpenPaymentModal = () => setShowPaymentModal(true);
 
