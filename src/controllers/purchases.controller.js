@@ -1,10 +1,44 @@
-const { Purchase, PurchaseItem, Customer, User, Product, Company, sequelize } = require('../models');
+const { Purchase, PurchaseItem, Customer, User, Product, Company, Payment, sequelize } = require('../models');
 const InventoryService = require('../services/inventory.service');
 const PurchasesService = require('../services/purchases.service');
 const ApiResponse = require('../utils/apiResponse');
 const { PAGINATION, PURCHASE_STATUS, CUSTOMER_TYPE } = require('../utils/constants');
-const { getCompanyIdForCreate } = require('../middleware/companyScope');
+const { getCompanyIdForCreate, evaluateCreditControlAccess } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
+
+/**
+ * unpaid/partial/paid, derived from paidAmount vs order total - not
+ * meaningful for a cancelled order, so callers skip it there.
+ */
+const paymentStatusFor = (paidAmount, total) => {
+  if (paidAmount <= 0) return 'unpaid';
+  if (paidAmount >= parseFloat(total)) return 'paid';
+  return 'partial';
+};
+
+// Used only for `ORDER BY` when sorting by the computed Payment column - a
+// 3-bucket rank (0=unpaid, 1=partial, 2=paid), not the raw paid amount, so a
+// small partial payment doesn't outrank a fully-paid smaller order. Needed
+// because sorting by a computed value means ranking the whole matching set,
+// not just the current page.
+const PAYMENT_STATUS_SORT_SQL = `(
+  CASE
+    WHEN COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) <= 0 THEN 0
+    WHEN COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) >= "Purchase"."total" THEN 2
+    ELSE 1
+  END
+)`;
+
+// Used for the `paymentStatus` query filter - same three buckets as
+// paymentStatusFor, expressed as a WHERE condition against the whole
+// matching set rather than just the current page's rows. Excludes
+// cancelled orders from every bucket, matching the listing, which shows
+// "-" for a cancelled order's payment status rather than a real value.
+const PAYMENT_STATUS_WHERE_SQL = {
+  unpaid: `"Purchase"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) <= 0`,
+  partial: `"Purchase"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) > 0 AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) < "Purchase"."total"`,
+  paid: `"Purchase"."status" != 'cancelled' AND COALESCE((SELECT SUM(amount) FROM payments WHERE payments."purchaseId" = "Purchase"."id"), 0) >= "Purchase"."total"`,
+};
 
 class PurchasesController {
   /**
@@ -29,8 +63,24 @@ class PurchasesController {
         whereClause.status = status;
       }
 
+      if (req.query.supplierId) {
+        whereClause.supplierId = parseInt(req.query.supplierId);
+      }
+
       if (search) {
         whereClause.orderNumber = { [Op.iLike]: `%${search}%` };
+      }
+
+      // Payment status is computed, not a real column - filtering/sorting by
+      // it is only honored with Credit Control access (the column isn't
+      // shown otherwise); an unrecognized or inaccessible value is ignored
+      // rather than erroring.
+      const { allowed } = await evaluateCreditControlAccess(req);
+      if (allowed && PAYMENT_STATUS_WHERE_SQL[req.query.paymentStatus]) {
+        whereClause[Op.and] = [
+          ...(whereClause[Op.and] || []),
+          sequelize.literal(PAYMENT_STATUS_WHERE_SQL[req.query.paymentStatus]),
+        ];
       }
 
       const sortBy = req.query.sortBy || 'createdAt';
@@ -39,9 +89,17 @@ class PurchasesController {
         supplier: [{ model: Customer, as: 'supplier' }, 'name'],
         company: [{ model: Company, as: 'company' }, 'name'],
       };
-      const order = JOIN_SORT_MAP[sortBy]
-        ? [[...JOIN_SORT_MAP[sortBy], sortOrder]]
-        : [[sortBy, sortOrder]];
+
+      let order;
+      if (sortBy === 'paymentStatus' && allowed) {
+        order = [[sequelize.literal(PAYMENT_STATUS_SORT_SQL), sortOrder]];
+      } else if (JOIN_SORT_MAP[sortBy]) {
+        order = [[...JOIN_SORT_MAP[sortBy], sortOrder]];
+      } else if (sortBy === 'paymentStatus') {
+        order = [['createdAt', 'DESC']];
+      } else {
+        order = [[sortBy, sortOrder]];
+      }
 
       const { count, rows } = await Purchase.findAndCountAll({
         where: whereClause,
@@ -55,6 +113,28 @@ class PurchasesController {
         offset,
       });
 
+      // Attach each row's payment status (unpaid/partial/paid), in one
+      // batched query for the whole page - not per row - and only when the
+      // caller has Credit Control access, so this costs nothing otherwise.
+      let responseRows = rows;
+      if (allowed && rows.length > 0) {
+        const paidRows = await Payment.findAll({
+          attributes: ['purchaseId', [sequelize.fn('SUM', sequelize.col('amount')), 'paidAmount']],
+          where: { purchaseId: { [Op.in]: rows.map((r) => r.id) } },
+          group: ['purchaseId'],
+          raw: true,
+        });
+        const paidByPurchaseId = new Map(paidRows.map((r) => [r.purchaseId, parseFloat(r.paidAmount) || 0]));
+        responseRows = rows.map((r) => {
+          const paidAmount = paidByPurchaseId.get(r.id) || 0;
+          return {
+            ...r.toJSON(),
+            paidAmount,
+            paymentStatus: r.status === 'cancelled' ? null : paymentStatusFor(paidAmount, r.total),
+          };
+        });
+      }
+
       const pagination = {
         total: count,
         page,
@@ -62,7 +142,7 @@ class PurchasesController {
         totalPages: Math.ceil(count / limit),
       };
 
-      return ApiResponse.paginated(res, rows, pagination, 'Purchases retrieved successfully');
+      return ApiResponse.paginated(res, responseRows, pagination, 'Purchases retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -175,7 +255,29 @@ class PurchasesController {
         return ApiResponse.badRequest(res, `Cannot transition from ${purchase.status} to ${status}`);
       }
 
-      await purchase.update({ status });
+      if (status === PURCHASE_STATUS.CANCELLED) {
+        // Same guard as the sales cancel (see SalesService.updateSaleStatus):
+        // lock the row, re-check under the lock, and refuse if payments exist.
+        const rejection = await sequelize.transaction(async (transaction) => {
+          const locked = await Purchase.findOne({ where: { id: purchase.id }, lock: transaction.LOCK.UPDATE, transaction });
+          if (!validTransitions[locked.status].includes(status)) {
+            return `Cannot transition from ${locked.status} to ${status}`;
+          }
+
+          const paid = (await Payment.sum('amount', { where: { purchaseId: purchase.id }, transaction })) || 0;
+          if (paid > 0) {
+            return `Order ${purchase.orderNumber} has payments of ${paid.toFixed(2)} recorded and can't be cancelled. Remove the payments first.`;
+          }
+
+          await purchase.update({ status }, { transaction });
+          return null;
+        });
+        if (rejection) {
+          return ApiResponse.badRequest(res, rejection);
+        }
+      } else {
+        await purchase.update({ status });
+      }
 
       const updatedPurchase = await Purchase.findOne({
         where: { id: req.params.id, ...req.companyFilter },

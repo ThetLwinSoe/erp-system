@@ -69,6 +69,23 @@ export const customersAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  getCreditStatus: (id, params) => api.get(`/customers/${id}/credit-status`, { params }),
+};
+
+// Payments API (Credit Control)
+export const paymentsAPI = {
+  getAll: (params) => api.get('/payments', { params }),
+  create: (data) => api.post('/payments', data),
+  settleBulk: (data) => api.post('/payments/settle', data),
+  delete: (id) => api.delete(`/payments/${id}`),
+};
+
+// Expenses API (Expense Tracker)
+export const expensesAPI = {
+  getAll: (params) => api.get('/expenses', { params }),
+  create: (data, params) => api.post('/expenses', data, { params }),
+  update: (id, data, params) => api.put(`/expenses/${id}`, data, { params }),
+  delete: (id, params) => api.delete(`/expenses/${id}`, { params }),
 };
 
 // Products API

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Table, Button, Spinner, Alert, Row, Col, Form, Badge } from 'react-bootstrap';
-import { FaArrowLeft, FaPrint, FaUndo } from 'react-icons/fa';
-import { salesAPI, getStaticUrl } from '../services/api';
+import { Card, Table, Button, Spinner, Alert, Row, Col, Badge } from 'react-bootstrap';
+import { FaArrowLeft, FaPrint, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
+import { salesAPI, paymentsAPI, customersAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { ORDER_STATUS } from '../utils/constants';
@@ -10,17 +10,23 @@ import { generateInvoicePDF } from '../utils/invoiceGenerator';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import CreditWarningAlert from '../components/common/CreditWarningAlert';
+import RecordPaymentModal from '../components/common/RecordPaymentModal';
+
 
 const SaleDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, canAccessCreditControl } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [sale, setSale] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [creditStatus, setCreditStatus] = useState(null);
 
   const fetchSale = async () => {
     try {
@@ -34,10 +40,46 @@ const SaleDetails = () => {
     }
   };
 
+  const fetchPayments = async () => {
+    try {
+      const response = await paymentsAPI.getAll({ saleId: id, limit: 100 });
+      setPayments(response.data.data || []);
+    } catch {
+      setPayments([]);
+    }
+  };
+
   useEffect(() => {
     fetchSale();
+    if (canAccessCreditControl()) fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Only relevant while the order is still Pending - this is the moment an
+  // Admin/Manager/Staff reviews what the Sale Rep created and decides
+  // whether to confirm it, so that's when the credit check matters.
+  useEffect(() => {
+    if (!sale || sale.status !== 'pending' || !canAccessCreditControl()) {
+      setCreditStatus(null);
+      return;
+    }
+    customersAPI.getCreditStatus(sale.customerId)
+      .then((res) => setCreditStatus(res.data.data))
+      .catch(() => setCreditStatus(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sale?.id, sale?.status]);
+
+  const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+  const balanceDue = sale ? parseFloat(sale.total) - totalPaid : 0;
+
+  const handleOpenPaymentModal = () => setShowPaymentModal(true);
+
+  // Throws on failure so RecordPaymentModal can show the message.
+  const savePayment = async (data) => {
+    await paymentsAPI.create({ saleId: id, ...data });
+    setShowPaymentModal(false);
+    fetchPayments();
+  };
 
   const handleStatusChange = async (newStatus) => {
     try {
@@ -62,12 +104,26 @@ const SaleDetails = () => {
     return transitions[sale?.status] || [];
   };
 
+  // Mirrors the server guard in SalesService.updateSaleStatus: an order with
+  // payments recorded can't be cancelled until they're removed.
+  const cancelBlockedByPayments = () => totalPaid > 0;
+
   const canPrint = () => {
     return ['confirmed', 'shipped', 'delivered'].includes(sale?.status);
   };
 
   const canReturn = () => {
     return ['confirmed', 'shipped', 'delivered'].includes(sale?.status);
+  };
+
+  const canRecordPayment = () => {
+    return sale?.status !== 'pending' && sale?.status !== 'cancelled' && balanceDue > 0;
+  };
+
+  const recordPaymentDisabledReason = () => {
+    if (sale?.status === 'pending' || sale?.status === 'cancelled') return 'Order must be confirmed before recording payments.';
+    if (balanceDue <= 0) return 'This order is already fully paid.';
+    return '';
   };
 
   const handlePrintInvoice = async () => {
@@ -235,27 +291,85 @@ const SaleDetails = () => {
           </Card>
 
           {getNextStatuses().length > 0 && (
-            <Card>
+            <Card className="mb-4">
               <Card.Header>Update Status</Card.Header>
               <Card.Body>
+                {sale.status === 'pending' && (
+                  <CreditWarningAlert creditStatus={creditStatus} orderTotal={sale.total} type="customer" currency={currency} />
+                )}
                 <div className="d-grid gap-2">
                   {getNextStatuses().map((status) => (
                     <Button
                       key={status}
                       variant={status === 'cancelled' ? 'outline-danger' : 'outline-primary'}
                       onClick={() => handleStatusChange(status)}
-                      disabled={updating}
+                      disabled={updating || (status === 'cancelled' && cancelBlockedByPayments())}
                       className="text-capitalize"
                     >
                       {updating ? 'Updating...' : `Mark as ${status}`}
                     </Button>
                   ))}
                 </div>
+                {cancelBlockedByPayments() && getNextStatuses().includes('cancelled') && (
+                  <small className="text-muted d-block mt-2">Cancel is unavailable while payments are recorded on this order.</small>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
+          {canAccessCreditControl() && (
+            <Card>
+              <Card.Header className="d-flex justify-content-between align-items-center">
+                Payments
+                <span title={canRecordPayment() ? '' : recordPaymentDisabledReason()}>
+                  <Button variant="outline-primary" size="sm" onClick={handleOpenPaymentModal} disabled={!canRecordPayment()}>
+                    <FaMoneyBillWave className="me-1" />
+                    Record Payment
+                  </Button>
+                </span>
+              </Card.Header>
+              <Card.Body>
+                {payments.length === 0 ? (
+                  <p className="text-muted mb-3">No payments recorded yet.</p>
+                ) : (
+                  <Table size="sm" className="mb-3">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((p) => (
+                        <tr key={p.id}>
+                          <td>{new Date(p.paymentDate).toLocaleDateString()}</td>
+                          <td>{formatCurrency(p.amount, currency)}</td>
+                          <td>{p.method || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+                <p className="mb-1"><strong>Paid:</strong> {formatCurrency(totalPaid, currency)}</p>
+                <p className="mb-0">
+                  <strong>Balance Due:</strong>{' '}
+                  <span className={balanceDue > 0 ? 'text-danger' : 'text-success'}>{formatCurrency(balanceDue, currency)}</span>
+                </p>
               </Card.Body>
             </Card>
           )}
         </Col>
       </Row>
+
+      <RecordPaymentModal
+        show={showPaymentModal}
+        onHide={() => setShowPaymentModal(false)}
+        title={`Record Payment - ${sale.orderNumber}`}
+        balanceDue={balanceDue}
+        currency={currency}
+        onSave={savePayment}
+      />
     </div>
   );
 };

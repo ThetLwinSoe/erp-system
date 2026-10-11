@@ -41,6 +41,22 @@ module.exports = (sequelize) => {
           key: 'id',
         },
       },
+      creditControlAccess: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      expenseTrackerAccess: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      // Last "Direct sale" choice made when creating a sales order (migration 011).
+      directSalesEnabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       tableName: 'users',

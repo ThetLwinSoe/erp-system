@@ -1,11 +1,11 @@
 const express = require('express');
 const CustomersController = require('../controllers/customers.controller');
 const { authenticate, restrictSaleRep, requireSuperAdmin } = require('../middleware/auth');
-const { companyScope } = require('../middleware/companyScope');
+const { companyScope, requireCreditControlAccess } = require('../middleware/companyScope');
 const { customerValidation, paginationValidation, sortValidation } = require('../middleware/validate');
 const { uploadCSV } = require('../middleware/upload');
 
-const CUSTOMER_SORT_FIELDS = ['name', 'email', 'phone', 'city', 'type', 'status', 'createdAt', 'company'];
+const CUSTOMER_SORT_FIELDS = ['name', 'email', 'phone', 'city', 'type', 'status', 'createdAt', 'company', 'balance'];
 
 const router = express.Router();
 
@@ -47,6 +47,13 @@ router.post('/import', restrictSaleRep, uploadCSV, CustomersController.importCSV
  * @access Private
  */
 router.get('/:id', CustomersController.getById);
+
+/**
+ * @route GET /api/customers/:id/credit-status
+ * @desc Get Credit Control status (outstanding balance vs limit) for a customer/supplier
+ * @access Private (Credit Control must be enabled for the company, and the caller must have access)
+ */
+router.get('/:id/credit-status', requireCreditControlAccess, CustomersController.getCreditStatus);
 
 /**
  * @route PUT /api/customers/:id

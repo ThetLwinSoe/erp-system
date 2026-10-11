@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, Table, Button, Modal, Form, Spinner, Badge } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFileExport, FaFileImport } from 'react-icons/fa';
+import { Card, Table, Button, Modal, Form, Spinner, Badge, Alert } from 'react-bootstrap';
+import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFileExport, FaFileImport, FaMoneyBillWave } from 'react-icons/fa';
 import { customersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/common/SearchBar';
@@ -8,9 +8,13 @@ import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ImportCsvModal from '../components/common/ImportCsvModal';
+import SettlePaymentsModal from '../components/common/SettlePaymentsModal';
 import SortableHeader from '../components/common/SortableHeader';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import { formatCurrency } from '../utils/currency';
+
+const CREDIT_TERM_OPTIONS = [7, 14, 30, 45, 60, 90];
 
 const TEMPLATE_EXAMPLES = {
   customer: ['Acme Corp', 'contact@acme.com', '+1 555 0100', '123 Main St', 'New York', 'USA'],
@@ -22,7 +26,8 @@ const TEMPLATE_EXAMPLES = {
  * (Customers page passes type="customer", Suppliers page passes type="supplier").
  */
 const ContactsPage = ({ type, label, labelPlural }) => {
-  const { isSaleRep, isSuperAdmin } = useAuth();
+  const { user, isSaleRep, isSuperAdmin, canAccessCreditControl } = useAuth();
+  const currency = user?.company?.currency || 'USD';
   const labelLower = labelPlural.toLowerCase();
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +46,8 @@ const ContactsPage = ({ type, label, labelPlural }) => {
   const [listError, setListError] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showSettleModal, setShowSettleModal] = useState(false);
+  const [settleContact, setSettleContact] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -49,6 +56,8 @@ const ContactsPage = ({ type, label, labelPlural }) => {
     city: '',
     country: '',
     status: 'active',
+    creditLimit: '',
+    creditTermDays: '',
   });
 
   const fetchContacts = async () => {
@@ -90,10 +99,12 @@ const ContactsPage = ({ type, label, labelPlural }) => {
         city: contact.city || '',
         country: contact.country || '',
         status: contact.status || 'active',
+        creditLimit: contact.creditLimit ?? '',
+        creditTermDays: contact.creditTermDays ?? '',
       });
     } else {
       setSelectedContact(null);
-      setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', status: 'active' });
+      setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', status: 'active', creditLimit: '', creditTermDays: '' });
     }
     setError(null);
     setShowModal(true);
@@ -210,6 +221,9 @@ const ContactsPage = ({ type, label, labelPlural }) => {
                   <SortableHeader label="Phone" field="phone" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="City" field="city" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   <SortableHeader label="Status" field="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  {canAccessCreditControl() && (
+                    <SortableHeader label="Balance" field="balance" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                  )}
                   {isSuperAdmin() && (
                     <SortableHeader label="Company" field="company" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                   )}
@@ -229,6 +243,23 @@ const ContactsPage = ({ type, label, labelPlural }) => {
                         {contact.status === 'active' ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
+                    {canAccessCreditControl() && (
+                      <td>
+                        {(() => {
+                          const balance = type === 'customer' ? contact.outstandingReceivable : contact.outstandingPayable;
+                          return balance > 0
+                            ? <Badge bg="warning" text="dark">{formatCurrency(balance, currency)}</Badge>
+                            : formatCurrency(balance, currency);
+                        })()}
+                        {!!(type === 'customer' ? contact.overdueReceivable : contact.overduePayable) && (
+                          <div>
+                            <Badge bg="danger">
+                              Overdue: {formatCurrency(type === 'customer' ? contact.overdueReceivable : contact.overduePayable, currency)}
+                            </Badge>
+                          </div>
+                        )}
+                      </td>
+                    )}
                     {isSuperAdmin() && (
                       <td>
                         {contact.company ? (
@@ -244,6 +275,17 @@ const ContactsPage = ({ type, label, labelPlural }) => {
                           <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenModal(contact)}>
                             <FaEdit />
                           </Button>
+                          {canAccessCreditControl() && (type === 'customer' ? contact.outstandingReceivable : contact.outstandingPayable) > 0 && (
+                            <Button
+                              variant="outline-success"
+                              size="sm"
+                              className="me-2"
+                              onClick={() => { setSettleContact(contact); setShowSettleModal(true); }}
+                              title="Settle Payments"
+                            >
+                              <FaMoneyBillWave />
+                            </Button>
+                          )}
                           <Button
                             variant={contact.status === 'active' ? 'outline-warning' : 'outline-success'}
                             size="sm"
@@ -337,6 +379,54 @@ const ContactsPage = ({ type, label, labelPlural }) => {
                   </div>
                 </Form.Group>
               </div>
+              {canAccessCreditControl() && (
+                <>
+                  <div className="col-md-6">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Credit Limit</Form.Label>
+                      <Form.Control
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.creditLimit}
+                        onChange={(e) => setFormData({ ...formData, creditLimit: e.target.value })}
+                        placeholder="No limit"
+                      />
+                    </Form.Group>
+                  </div>
+                  <div className="col-md-6">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Credit Term</Form.Label>
+                      <Form.Select
+                        value={formData.creditTermDays}
+                        onChange={(e) => setFormData({ ...formData, creditTermDays: e.target.value })}
+                      >
+                        <option value="">No term</option>
+                        <option value={0}>Due on Receipt</option>
+                        {CREDIT_TERM_OPTIONS.map((days) => (
+                          <option key={days} value={days}>{days} Days</option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </div>
+                  {selectedContact && (
+                    <div className="col-12">
+                      <Alert variant="light" className="d-flex gap-4">
+                        <div>
+                          <strong>Current Balance:</strong>{' '}
+                          {formatCurrency(type === 'customer' ? selectedContact.outstandingReceivable : selectedContact.outstandingPayable, currency)}
+                        </div>
+                        {!!(type === 'customer' ? selectedContact.overdueReceivable : selectedContact.overduePayable) && (
+                          <div className="text-danger">
+                            <strong>Overdue:</strong>{' '}
+                            {formatCurrency(type === 'customer' ? selectedContact.overdueReceivable : selectedContact.overduePayable, currency)}
+                          </div>
+                        )}
+                      </Alert>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="col-12">
                 <Form.Group className="mb-3">
                   <Form.Label>Address</Form.Label>
@@ -372,6 +462,15 @@ const ContactsPage = ({ type, label, labelPlural }) => {
         templateFilename={`${labelLower}-template.csv`}
         onImport={(file) => customersAPI.importCSV(file, type)}
         onImported={fetchContacts}
+      />
+
+      <SettlePaymentsModal
+        show={showSettleModal}
+        onHide={() => setShowSettleModal(false)}
+        contact={settleContact}
+        type={type}
+        currency={currency}
+        onSettled={fetchContacts}
       />
     </div>
   );

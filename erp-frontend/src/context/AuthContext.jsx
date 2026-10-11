@@ -41,6 +41,19 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Patches fields onto the session's user object (state + localStorage) without a
+  // full re-login. For values the server only returns from endpoints other than
+  // /auth/login or /auth/me - e.g. Sales.jsx updates directSalesEnabled right after
+  // a sale create, since that's the only call that changes it.
+  const updateUser = (patch) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const isSuperAdmin = () => user?.role === 'superadmin';
   const isAdmin = () => user?.role === 'admin' || user?.role === 'superadmin';
   const isManager = () => user?.role === 'manager' || user?.role === 'admin' || user?.role === 'superadmin';
@@ -48,6 +61,19 @@ export const AuthProvider = ({ children }) => {
   const canAccessInventory = () => user?.role !== 'sale_rep';
   const canAccessPurchases = () => user?.role !== 'sale_rep';
   const canAccessSalesReturns = () => user?.role !== 'sale_rep';
+  // Two independent per-tenant knobs: Company.creditControlEnabled
+  // (superadmin-controlled) and User.creditControlAccess (tenant-Admin-
+  // controlled, from the Users page) - admin-role users always pass the
+  // second half, since they're the ones granting it to others; sale_rep
+  // users never pass it, regardless of their own flag's value. Superadmin
+  // always has access. Mirrors evaluateCreditControlAccess on the backend
+  // (src/middleware/companyScope.js) - keep both in sync.
+  const canAccessCreditControl = () =>
+    isSuperAdmin() || (!!user?.company?.creditControlEnabled && user?.role !== 'sale_rep' && (user?.role === 'admin' || !!user?.creditControlAccess));
+  // Expense Tracker follows the same two-knob rule as Credit Control (Company.expenseTrackerEnabled
+  // + User.expenseTrackerAccess). Mirrors evaluateExpenseTrackerAccess on the backend - keep in sync.
+  const canAccessExpenseTracker = () =>
+    isSuperAdmin() || (!!user?.company?.expenseTrackerEnabled && user?.role !== 'sale_rep' && (user?.role === 'admin' || !!user?.expenseTrackerAccess));
   const getCompanyId = () => user?.companyId;
   const getCompanyName = () => user?.company?.name;
 
@@ -59,6 +85,7 @@ export const AuthProvider = ({ children }) => {
     loading: false,
     login,
     logout,
+    updateUser,
     isSuperAdmin,
     isAdmin,
     isManager,
@@ -66,6 +93,8 @@ export const AuthProvider = ({ children }) => {
     canAccessInventory,
     canAccessPurchases,
     canAccessSalesReturns,
+    canAccessCreditControl,
+    canAccessExpenseTracker,
     getCompanyId,
     getCompanyName,
     isAuthenticated: !!user,

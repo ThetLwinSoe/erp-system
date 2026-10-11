@@ -24,6 +24,8 @@ const CompanyDetails = () => {
     email: '',
     password: '',
     role: 'staff',
+    creditControlAccess: false,
+    expenseTrackerAccess: false,
   });
   const [userError, setUserError] = useState(null);
 
@@ -62,7 +64,7 @@ const CompanyDetails = () => {
         companyId: parseInt(id),
       });
       setShowUserModal(false);
-      setUserFormData({ name: '', email: '', password: '', role: 'staff' });
+      setUserFormData({ name: '', email: '', password: '', role: 'staff', creditControlAccess: false, expenseTrackerAccess: false });
       fetchCompanyData();
     } catch (err) {
       setUserError(extractApiError(err, 'Failed to create user'));
@@ -249,6 +251,34 @@ const CompanyDetails = () => {
                 <option value={ROLES.ADMIN}>Admin</option>
               </Form.Select>
             </Form.Group>
+            {company?.creditControlEnabled && userFormData.role !== ROLES.ADMIN && userFormData.role !== ROLES.SALE_REP && (
+              <Form.Group className="mb-3">
+                <Form.Check
+                  type="checkbox"
+                  id="creditControlAccess"
+                  label="Credit Control Access"
+                  checked={userFormData.creditControlAccess}
+                  onChange={(e) => setUserFormData({ ...userFormData, creditControlAccess: e.target.checked })}
+                />
+                <Form.Text className="text-muted">
+                  Lets this person see customer/supplier credit limits and record payments.
+                </Form.Text>
+              </Form.Group>
+            )}
+            {company?.expenseTrackerEnabled && userFormData.role !== ROLES.ADMIN && userFormData.role !== ROLES.SALE_REP && (
+              <Form.Group className="mb-3">
+                <Form.Check
+                  type="checkbox"
+                  id="expenseTrackerAccess"
+                  label="Expense Tracker Access"
+                  checked={userFormData.expenseTrackerAccess}
+                  onChange={(e) => setUserFormData({ ...userFormData, expenseTrackerAccess: e.target.checked })}
+                />
+                <Form.Text className="text-muted">
+                  Lets this person record and edit operating expenses. Admins always can.
+                </Form.Text>
+              </Form.Group>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowUserModal(false)}>

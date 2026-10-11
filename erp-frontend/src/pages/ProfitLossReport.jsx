@@ -247,7 +247,7 @@ const ProfitLossReport = () => {
 
           {/* Adjustments & Net Profit */}
           <Row className="g-3 mb-3">
-            <Col md={6}>
+            <Col md={summary.expenseTrackerEnabled ? 4 : 6}>
               <Card className="text-center h-100">
                 <Card.Body>
                   <h6 className="text-muted">Inventory Adjustment Gain/(Loss)</h6>
@@ -258,14 +258,31 @@ const ProfitLossReport = () => {
                 </Card.Body>
               </Card>
             </Col>
-            <Col md={6}>
+            {summary.expenseTrackerEnabled && (
+              <Col md={4}>
+                <Card className="text-center h-100">
+                  <Card.Body>
+                    <h6 className="text-muted">Operating Expenses</h6>
+                    <h4 className="text-danger">
+                      {formatAmount(summary.operatingExpenses)}
+                    </h4>
+                    <small className="text-muted">Recorded in the Expenses page for this period</small>
+                  </Card.Body>
+                </Card>
+              </Col>
+            )}
+            <Col md={summary.expenseTrackerEnabled ? 4 : 6}>
               <Card className="text-center h-100 border-primary">
                 <Card.Body>
                   <h6 className="text-muted">Net Profit</h6>
                   <h3 className={summary.netProfit >= 0 ? 'text-success' : 'text-danger'}>
                     {formatAmount(summary.netProfit)}
                   </h3>
-                  <small className="text-muted">Gross Profit + Inventory Adjustments (excludes operating expenses)</small>
+                  <small className="text-muted">
+                    {summary.expenseTrackerEnabled
+                      ? 'Gross Profit + Inventory Adjustments − Operating Expenses'
+                      : 'Gross Profit + Inventory Adjustments (excludes operating expenses)'}
+                  </small>
                 </Card.Body>
               </Card>
             </Col>

@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Spinner, Alert, Row, Col, Modal, Form, ProgressBar, Badge } from 'react-bootstrap';
-import { FaArrowLeft, FaCheck, FaPrint, FaUndo } from 'react-icons/fa';
-import { purchasesAPI, getStaticUrl } from '../services/api';
+import { FaArrowLeft, FaCheck, FaPrint, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
+import { purchasesAPI, paymentsAPI, customersAPI, getStaticUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/common/StatusBadge';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
 import { formatCurrency } from '../utils/currency';
 import { extractApiError } from '../utils/errorUtils';
 import ErrorAlert from '../components/common/ErrorAlert';
+import CreditWarningAlert from '../components/common/CreditWarningAlert';
+import RecordPaymentModal from '../components/common/RecordPaymentModal';
+
 
 const PurchaseDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, canAccessCreditControl } = useAuth();
   const currency = user?.company?.currency || 'USD';
   const [purchase, setPurchase] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +25,9 @@ const PurchaseDetails = () => {
   const [printing, setPrinting] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [receiveItems, setReceiveItems] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [creditStatus, setCreditStatus] = useState(null);
 
   const fetchPurchase = async () => {
     try {
@@ -35,10 +41,46 @@ const PurchaseDetails = () => {
     }
   };
 
+  const fetchPayments = async () => {
+    try {
+      const response = await paymentsAPI.getAll({ purchaseId: id, limit: 100 });
+      setPayments(response.data.data || []);
+    } catch {
+      setPayments([]);
+    }
+  };
+
   useEffect(() => {
     fetchPurchase();
+    if (canAccessCreditControl()) fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Only relevant while the order is still Pending - this is the moment an
+  // Admin/Manager/Staff reviews what the Sale Rep/buyer created and decides
+  // whether to approve it, so that's when the credit check matters.
+  useEffect(() => {
+    if (!purchase || purchase.status !== 'pending' || !canAccessCreditControl()) {
+      setCreditStatus(null);
+      return;
+    }
+    customersAPI.getCreditStatus(purchase.supplierId)
+      .then((res) => setCreditStatus(res.data.data))
+      .catch(() => setCreditStatus(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchase?.id, purchase?.status]);
+
+  const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+  const balanceDue = purchase ? parseFloat(purchase.total) - totalPaid : 0;
+
+  const handleOpenPaymentModal = () => setShowPaymentModal(true);
+
+  // Throws on failure so RecordPaymentModal can show the message.
+  const savePayment = async (data) => {
+    await paymentsAPI.create({ purchaseId: id, ...data });
+    setShowPaymentModal(false);
+    fetchPayments();
+  };
 
   const handleStatusChange = async (newStatus) => {
     try {
@@ -115,12 +157,26 @@ const PurchaseDetails = () => {
     return ['ordered', 'partial'].includes(purchase?.status);
   };
 
+  // Mirrors the server guard on purchase cancellation: an order with payments
+  // recorded can't be cancelled until they're removed.
+  const cancelBlockedByPayments = () => totalPaid > 0;
+
   const canPrint = () => {
     return ['ordered', 'partial', 'received'].includes(purchase?.status);
   };
 
   const canReturn = () => {
     return ['partial', 'received'].includes(purchase?.status);
+  };
+
+  const canRecordPayment = () => {
+    return purchase?.status !== 'pending' && purchase?.status !== 'cancelled' && balanceDue > 0;
+  };
+
+  const recordPaymentDisabledReason = () => {
+    if (purchase?.status === 'pending' || purchase?.status === 'cancelled') return 'Order must be approved before recording payments.';
+    if (balanceDue <= 0) return 'This order is already fully paid.';
+    return '';
   };
 
   const handlePrintInvoice = async () => {
@@ -298,9 +354,12 @@ const PurchaseDetails = () => {
             </Card.Body>
           </Card>
 
-          <Card>
+          <Card className="mb-4">
             <Card.Header>Actions</Card.Header>
             <Card.Body>
+              {purchase.status === 'pending' && (
+                <CreditWarningAlert creditStatus={creditStatus} orderTotal={purchase.total} type="supplier" currency={currency} />
+              )}
               <div className="d-grid gap-2">
                 {canReceive() && (
                   <Button variant="success" onClick={handleOpenReceiveModal}>
@@ -313,17 +372,72 @@ const PurchaseDetails = () => {
                     key={status}
                     variant={status === 'cancelled' ? 'outline-danger' : 'outline-primary'}
                     onClick={() => handleStatusChange(status)}
-                    disabled={updating}
+                    disabled={updating || (status === 'cancelled' && cancelBlockedByPayments())}
                     className="text-capitalize"
                   >
                     {updating ? 'Updating...' : `Mark as ${status}`}
                   </Button>
                 ))}
               </div>
+              {cancelBlockedByPayments() && getNextStatuses().includes('cancelled') && (
+                <small className="text-muted d-block mt-2">Cancel is unavailable while payments are recorded on this order.</small>
+              )}
             </Card.Body>
           </Card>
+
+          {canAccessCreditControl() && (
+            <Card>
+              <Card.Header className="d-flex justify-content-between align-items-center">
+                Payments
+                <span title={canRecordPayment() ? '' : recordPaymentDisabledReason()}>
+                  <Button variant="outline-primary" size="sm" onClick={handleOpenPaymentModal} disabled={!canRecordPayment()}>
+                    <FaMoneyBillWave className="me-1" />
+                    Record Payment
+                  </Button>
+                </span>
+              </Card.Header>
+              <Card.Body>
+                {payments.length === 0 ? (
+                  <p className="text-muted mb-3">No payments recorded yet.</p>
+                ) : (
+                  <Table size="sm" className="mb-3">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((p) => (
+                        <tr key={p.id}>
+                          <td>{new Date(p.paymentDate).toLocaleDateString()}</td>
+                          <td>{formatCurrency(p.amount, currency)}</td>
+                          <td>{p.method || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+                <p className="mb-1"><strong>Paid:</strong> {formatCurrency(totalPaid, currency)}</p>
+                <p className="mb-0">
+                  <strong>Balance Due:</strong>{' '}
+                  <span className={balanceDue > 0 ? 'text-danger' : 'text-success'}>{formatCurrency(balanceDue, currency)}</span>
+                </p>
+              </Card.Body>
+            </Card>
+          )}
         </Col>
       </Row>
+
+      <RecordPaymentModal
+        show={showPaymentModal}
+        onHide={() => setShowPaymentModal(false)}
+        title={`Record Payment - ${purchase.orderNumber}`}
+        balanceDue={balanceDue}
+        currency={currency}
+        onSave={savePayment}
+      />
 
       <Modal show={showReceiveModal} onHide={() => setShowReceiveModal(false)}>
         <Modal.Header closeButton>
