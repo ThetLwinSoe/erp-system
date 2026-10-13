@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Spinner, Form, Badge, Row, Col } from 'react-bootstrap';
 import { FaTrash, FaMoneyBillWave } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
@@ -61,27 +61,47 @@ const Payments = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Guards against an older, slower request (e.g. for a company just
+  // switched away from in the selector below) resolving after a newer one
+  // and clobbering its result with stale data or a stale error banner.
+  const fetchSeq = useRef(0);
+
   const fetchPayments = async () => {
+    // Bumped unconditionally, including on the early-return below - a
+    // deselect-the-company transition must also invalidate any request still
+    // in flight from the previously-selected company, or its late response
+    // can pass the staleness check below and overwrite the state this
+    // early-return just cleared.
+    const seq = ++fetchSeq.current;
     if (!canQuery) {
       setPayments([]);
       setPagination({ total: 0, totalPages: 1 });
+      setError(null);
       setLoading(false);
       return;
     }
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
       const params = { page, limit: 20, sortBy, sortOrder };
       if (directionFilter) params.direction = directionFilter;
       if (customerFilter) params.customerId = customerFilter;
       if (isSuperAdmin() && companyId) params.companyId = companyId;
 
       const response = await paymentsAPI.getAll(params);
+      if (seq !== fetchSeq.current) return;
       setPayments(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
     } catch (err) {
+      if (seq !== fetchSeq.current) return;
+      // Clear the previous company's rows too, or a rejected company (e.g.
+      // one without Credit Control) would show its error banner above a
+      // table still listing the last successfully-loaded company's payments.
+      setPayments([]);
+      setPagination({ total: 0, totalPages: 1 });
       setError(extractApiError(err, 'Failed to load payments'));
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   };
 

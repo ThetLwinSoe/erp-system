@@ -1,6 +1,6 @@
-const { Payment, Customer, User, Company, Sale, Purchase, sequelize } = require('../models');
+const { Payment, Customer, User, Company, Sale, Purchase, SalesReturn, PurchaseReturn, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
-const { PAGINATION } = require('../utils/constants');
+const { PAGINATION, SALES_RETURN_STATUS, PURCHASE_RETURN_STATUS } = require('../utils/constants');
 const { getCompanyIdForCreate } = require('../middleware/companyScope');
 const { Op } = require('sequelize');
 
@@ -104,10 +104,14 @@ class PaymentsController {
    *
    * Status eligibility and the amount-vs-remaining-balance cap mirror
    * settleBulk's checks (same ineligible-status rule, same
-   * balance-due-plus-epsilon comparison) - the client-side "Record Payment"
-   * button is already disabled for a pending/cancelled order or once an
-   * order is fully paid, but that's a UI-only guard; this is the
-   * server-side backstop a direct/replayed request would otherwise skip.
+   * balance-due-plus-epsilon comparison, both net of completed returns) -
+   * the client-side "Record Payment" button is already disabled for a
+   * pending/cancelled order or once an order is fully paid, but that's a
+   * UI-only guard; this is the server-side backstop a direct/replayed
+   * request would otherwise skip. (Previously this backstop didn't net
+   * returns either, so a replayed/direct request - or the old Settle
+   * Payments flow - could still overpay an order a completed return had
+   * already zeroed out; see the Credit Control QA notes for 2026-10-13.)
    * POST /api/payments
    * Body: { saleId | purchaseId, amount, paymentDate?, method?, reference?, notes? }
    */
@@ -130,6 +134,8 @@ class PaymentsController {
 
       const isSale = Boolean(saleId);
       const OrderModel = isSale ? Sale : Purchase;
+      const ReturnModel = isSale ? SalesReturn : PurchaseReturn;
+      const returnStatusCompleted = isSale ? SALES_RETURN_STATUS.COMPLETED : PURCHASE_RETURN_STATUS.COMPLETED;
       const orderId = isSale ? saleId : purchaseId;
       const orderIdField = isSale ? 'saleId' : 'purchaseId';
       const customerField = isSale ? 'customerId' : 'supplierId';
@@ -153,11 +159,19 @@ class PaymentsController {
           return { error: { status: 400, message: `Order ${order.orderNumber} is not eligible for payment (must be confirmed/approved and not cancelled)` } };
         }
 
-        const existingPaid = (await Payment.sum('amount', { where: { [orderIdField]: order.id }, transaction })) || 0;
-        const balanceDue = parseFloat(order.total) - existingPaid;
+        const [existingPaid, returnedAmount] = await Promise.all([
+          Payment.sum('amount', { where: { [orderIdField]: order.id }, transaction }),
+          ReturnModel.sum('total', { where: { [orderIdField]: order.id, status: returnStatusCompleted }, transaction }),
+        ]);
+        // Net of completed returns - an order that's already been fully (or
+        // partially) returned has that much less left to collect, regardless
+        // of what its raw total says. See sales.controller.js/
+        // purchases.controller.js for the read-side equivalent of this.
+        const netTotal = parseFloat(order.total) - (returnedAmount || 0);
+        const balanceDue = netTotal - (existingPaid || 0);
 
         if (amountNum > balanceDue + 0.005) {
-          return { error: { status: 400, message: `Amount exceeds the order's remaining balance of ${balanceDue.toFixed(2)}` } };
+          return { error: { status: 400, message: `Amount exceeds the order's remaining balance of ${Math.max(0, balanceDue).toFixed(2)}` } };
         }
 
         const payment = await Payment.create({
@@ -208,6 +222,8 @@ class PaymentsController {
    * Allocation is oldest-order-first (FIFO), same reasoning as the overdue
    * calculation elsewhere in Credit Control: the amount fills each selected
    * order's remaining balance in date order before moving to the next.
+   * Each order's remaining balance is net of its completed returns, same as
+   * create()'s single-payment path.
    * POST /api/payments/settle
    * Body: { saleIds[] | purchaseIds[], amount, paymentDate?, method?, reference?, notes? }
    */
@@ -222,6 +238,8 @@ class PaymentsController {
       const { saleIds, purchaseIds, amount, paymentDate, method, reference, notes } = req.body;
       const isSales = Array.isArray(saleIds) && saleIds.length > 0;
       const OrderModel = isSales ? Sale : Purchase;
+      const ReturnModel = isSales ? SalesReturn : PurchaseReturn;
+      const returnStatusCompleted = isSales ? SALES_RETURN_STATUS.COMPLETED : PURCHASE_RETURN_STATUS.COMPLETED;
       const orderIdField = isSales ? 'saleId' : 'purchaseId';
       const customerField = isSales ? 'customerId' : 'supplierId';
       const ids = (isSales ? saleIds : purchaseIds).map((id) => parseInt(id));
@@ -262,18 +280,32 @@ class PaymentsController {
           return { error: { status: 400, message: 'Amount must be greater than 0' } };
         }
 
-        // Existing payments already linked to these orders, so each order's
-        // real remaining balance is known before allocating the new amount.
-        const existingPayments = await Payment.findAll({
-          attributes: [orderIdField, [sequelize.fn('SUM', sequelize.col('amount')), 'paid']],
-          where: { [orderIdField]: { [Op.in]: ids } },
-          group: [orderIdField],
-          raw: true,
-          transaction,
-        });
+        // Existing payments and completed returns already linked to these
+        // orders, so each order's real remaining balance - net of both - is
+        // known before allocating the new amount.
+        const [existingPayments, completedReturns] = await Promise.all([
+          Payment.findAll({
+            attributes: [orderIdField, [sequelize.fn('SUM', sequelize.col('amount')), 'paid']],
+            where: { [orderIdField]: { [Op.in]: ids } },
+            group: [orderIdField],
+            raw: true,
+            transaction,
+          }),
+          ReturnModel.findAll({
+            attributes: [orderIdField, [sequelize.fn('SUM', sequelize.col('total')), 'returned']],
+            where: { [orderIdField]: { [Op.in]: ids }, status: returnStatusCompleted },
+            group: [orderIdField],
+            raw: true,
+            transaction,
+          }),
+        ]);
         const paidByOrderId = new Map(existingPayments.map((r) => [r[orderIdField], parseFloat(r.paid) || 0]));
+        const returnedByOrderId = new Map(completedReturns.map((r) => [r[orderIdField], parseFloat(r.returned) || 0]));
 
-        const balanceDue = (order) => Math.max(0, parseFloat(order.total) - (paidByOrderId.get(order.id) || 0));
+        const balanceDue = (order) => Math.max(
+          0,
+          parseFloat(order.total) - (returnedByOrderId.get(order.id) || 0) - (paidByOrderId.get(order.id) || 0)
+        );
         const totalBalance = orders.reduce((sum, o) => sum + balanceDue(o), 0);
 
         if (amountNum > totalBalance + 0.005) {
