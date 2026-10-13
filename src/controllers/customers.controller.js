@@ -44,13 +44,13 @@ const assignNextCodes = async (type, companyId, transaction) => {
 // set before paginating, not just the current page's rows.
 const AR_BALANCE_SORT_SQL = `(
   COALESCE((SELECT SUM(s.total) FROM sales s WHERE s."customerId" = "Customer"."id" AND s.status NOT IN ('cancelled', 'pending')), 0)
-  - COALESCE((SELECT SUM(sr.total) FROM sales_returns sr JOIN sales sale ON sale.id = sr."saleId" WHERE sale."customerId" = "Customer"."id" AND sr.status != 'cancelled' AND sale.status NOT IN ('cancelled', 'pending')), 0)
+  - COALESCE((SELECT SUM(sr.total) FROM sales_returns sr JOIN sales sale ON sale.id = sr."saleId" WHERE sale."customerId" = "Customer"."id" AND sr.status = '${SALES_RETURN_STATUS.COMPLETED}' AND sale.status NOT IN ('cancelled', 'pending')), 0)
   - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p."customerId" = "Customer"."id" AND p.direction = 'received'), 0)
 )`;
 
 const AP_BALANCE_SORT_SQL = `(
   COALESCE((SELECT SUM(pu.total) FROM purchases pu WHERE pu."supplierId" = "Customer"."id" AND pu.status NOT IN ('cancelled', 'pending')), 0)
-  - COALESCE((SELECT SUM(pr.total) FROM purchase_returns pr JOIN purchases purchase ON purchase.id = pr."purchaseId" WHERE purchase."supplierId" = "Customer"."id" AND pr.status != 'cancelled' AND purchase.status NOT IN ('cancelled', 'pending')), 0)
+  - COALESCE((SELECT SUM(pr.total) FROM purchase_returns pr JOIN purchases purchase ON purchase.id = pr."purchaseId" WHERE purchase."supplierId" = "Customer"."id" AND pr.status = '${PURCHASE_RETURN_STATUS.COMPLETED}' AND purchase.status NOT IN ('cancelled', 'pending')), 0)
   - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p."customerId" = "Customer"."id" AND p.direction = 'paid'), 0)
 )`;
 
