@@ -75,6 +75,12 @@ const Expenses = () => {
   const fetchSeq = useRef(0);
 
   const fetchExpenses = async () => {
+    // Bumped unconditionally, including on the early-return below - a
+    // deselect-the-company transition must also invalidate any request still
+    // in flight from the previously-selected company, or its late response
+    // can pass the staleness check below and overwrite the state this
+    // early-return just cleared.
+    const seq = ++fetchSeq.current;
     if (!canQuery) {
       setExpenses([]);
       setPagination({ total: 0, totalPages: 1 });
@@ -82,7 +88,6 @@ const Expenses = () => {
       setLoading(false);
       return;
     }
-    const seq = ++fetchSeq.current;
     setLoading(true);
     setError(null);
     try {
