@@ -69,15 +69,28 @@ const Expenses = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Guards against an older, slower request (e.g. for a company just
+  // switched away from in the selector below) resolving after a newer one
+  // and clobbering its result with stale data or a stale error banner.
+  const fetchSeq = useRef(0);
+
   const fetchExpenses = async () => {
+    // Bumped unconditionally, including on the early-return below - a
+    // deselect-the-company transition must also invalidate any request still
+    // in flight from the previously-selected company, or its late response
+    // can pass the staleness check below and overwrite the state this
+    // early-return just cleared.
+    const seq = ++fetchSeq.current;
     if (!canQuery) {
       setExpenses([]);
       setPagination({ total: 0, totalPages: 1 });
+      setError(null);
       setLoading(false);
       return;
     }
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
       const params = { page, limit: 20, sortBy, sortOrder };
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
@@ -85,12 +98,19 @@ const Expenses = () => {
       if (isSuperAdmin() && companyId) params.companyId = companyId;
 
       const response = await expensesAPI.getAll(params);
+      if (seq !== fetchSeq.current) return;
       setExpenses(response.data.data || []);
       setPagination(response.data.pagination || { total: 0, totalPages: 1 });
     } catch (err) {
+      if (seq !== fetchSeq.current) return;
+      // Clear the previous company's rows too, or a rejected company (e.g.
+      // one without Expense Tracker) would show its error banner above a
+      // table still listing the last successfully-loaded company's expenses.
+      setExpenses([]);
+      setPagination({ total: 0, totalPages: 1 });
       setError(extractApiError(err, 'Failed to load expenses'));
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   };
 
@@ -174,8 +194,10 @@ const Expenses = () => {
 
   const handleDelete = async () => {
     try {
-      const params = isSuperAdmin() && companyId ? { companyId } : undefined;
-      await expensesAPI.delete(selectedExpense.id, params);
+      // No companyId needed - DELETE is superadmin-only and looks the
+      // expense up by id regardless of any company's feature flag (see the
+      // routes file).
+      await expensesAPI.delete(selectedExpense.id);
       setShowDeleteModal(false);
       fetchExpenses();
     } catch (err) {
