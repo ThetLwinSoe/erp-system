@@ -1,6 +1,6 @@
 const { Customer, Company, Sale, SalesReturn, Purchase, PurchaseReturn, Payment, sequelize } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
-const { PAGINATION, CUSTOMER_TYPE } = require('../utils/constants');
+const { PAGINATION, CUSTOMER_TYPE, SALES_RETURN_STATUS, PURCHASE_RETURN_STATUS } = require('../utils/constants');
 const { getCompanyIdForCreate, evaluateCreditControlAccess } = require('../middleware/companyScope');
 const { toCSV, parseCSV } = require('../utils/csv');
 const { Op, QueryTypes } = require('sequelize');
@@ -508,14 +508,18 @@ class CustomersController {
     // with "column reference is ambiguous".
     const [salesTotal, salesReturnsTotal, receivedTotal, purchasesTotal, purchaseReturnsTotal, paidTotal] = await Promise.all([
       Sale.sum('total', { where: { customerId, companyId, status: activeOrderStatus } }),
+      // Completed only - matches the order-level balance rule (SaleDetails.jsx
+      // etc.): a Pending/Approved return isn't final yet and can still be
+      // rejected, so it shouldn't reduce what's shown as owed here either, or
+      // this aggregate would disagree with the order's own Balance Due.
       SalesReturn.sum('SalesReturn.total', {
-        where: { companyId, status: { [Op.ne]: 'cancelled' } },
+        where: { companyId, status: SALES_RETURN_STATUS.COMPLETED },
         include: [{ model: Sale, as: 'sale', where: { customerId, status: activeOrderStatus }, attributes: [] }],
       }),
       Payment.sum('amount', { where: { customerId, companyId, direction: 'received' } }),
       Purchase.sum('total', { where: { supplierId: customerId, companyId, status: activeOrderStatus } }),
       PurchaseReturn.sum('PurchaseReturn.total', {
-        where: { companyId, status: { [Op.ne]: 'cancelled' } },
+        where: { companyId, status: PURCHASE_RETURN_STATUS.COMPLETED },
         include: [{ model: Purchase, as: 'purchase', where: { supplierId: customerId, status: activeOrderStatus }, attributes: [] }],
       }),
       Payment.sum('amount', { where: { customerId, companyId, direction: 'paid' } }),
@@ -536,12 +540,12 @@ class CustomersController {
       const [overdueSalesTotal, overdueSalesReturnsTotal, overduePurchasesTotal, overduePurchaseReturnsTotal] = await Promise.all([
         Sale.sum('total', { where: { customerId, companyId, status: activeOrderStatus, createdAt: { [Op.lte]: cutoff } } }),
         SalesReturn.sum('SalesReturn.total', {
-          where: { companyId, status: { [Op.ne]: 'cancelled' } },
+          where: { companyId, status: SALES_RETURN_STATUS.COMPLETED },
           include: [{ model: Sale, as: 'sale', where: { customerId, status: activeOrderStatus, createdAt: { [Op.lte]: cutoff } }, attributes: [] }],
         }),
         Purchase.sum('total', { where: { supplierId: customerId, companyId, status: activeOrderStatus, createdAt: { [Op.lte]: cutoff } } }),
         PurchaseReturn.sum('PurchaseReturn.total', {
-          where: { companyId, status: { [Op.ne]: 'cancelled' } },
+          where: { companyId, status: PURCHASE_RETURN_STATUS.COMPLETED },
           include: [{ model: Purchase, as: 'purchase', where: { supplierId: customerId, status: activeOrderStatus, createdAt: { [Op.lte]: cutoff } }, attributes: [] }],
         }),
       ]);
@@ -573,13 +577,20 @@ class CustomersController {
    * customer and can't be baked into a single shared WHERE clause.
    *
    * Excludes both 'cancelled' and 'pending' orders, same as
-   * _computeCreditStatus - a pending order isn't owed yet.
+   * _computeCreditStatus - a pending order isn't owed yet. Returns only
+   * count once Completed, same reasoning: a Pending/Approved return can
+   * still be rejected, so it shouldn't reduce what's shown as owed until
+   * it's final (matches the order-level Balance Due rule).
    */
   static async _computeBatchCreditBalances(customerIds) {
     const balances = new Map();
     if (customerIds.length === 0) return balances;
 
-    const replacements = { customerIds };
+    const replacements = {
+      customerIds,
+      salesReturnCompletedStatus: SALES_RETURN_STATUS.COMPLETED,
+      purchaseReturnCompletedStatus: PURCHASE_RETURN_STATUS.COMPLETED,
+    };
     const activeStatusFilter = `NOT IN ('cancelled', 'pending')`;
 
     const [salesRows, salesReturnRows, paymentRows, purchaseRows, purchaseReturnRows] = await Promise.all([
@@ -600,7 +611,7 @@ class CustomersController {
          FROM sales_returns sr
          JOIN sales sale ON sale.id = sr."saleId"
          JOIN customers c ON c.id = sale."customerId"
-         WHERE sale."customerId" IN (:customerIds) AND sr.status != 'cancelled' AND sale.status ${activeStatusFilter}
+         WHERE sale."customerId" IN (:customerIds) AND sr.status = :salesReturnCompletedStatus AND sale.status ${activeStatusFilter}
          GROUP BY sale."customerId"`,
         { replacements, type: QueryTypes.SELECT }
       ),
@@ -628,7 +639,7 @@ class CustomersController {
          FROM purchase_returns pr
          JOIN purchases purchase ON purchase.id = pr."purchaseId"
          JOIN customers c ON c.id = purchase."supplierId"
-         WHERE purchase."supplierId" IN (:customerIds) AND pr.status != 'cancelled' AND purchase.status ${activeStatusFilter}
+         WHERE purchase."supplierId" IN (:customerIds) AND pr.status = :purchaseReturnCompletedStatus AND purchase.status ${activeStatusFilter}
          GROUP BY purchase."supplierId"`,
         { replacements, type: QueryTypes.SELECT }
       ),
