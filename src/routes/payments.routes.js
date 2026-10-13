@@ -8,20 +8,24 @@ const PAYMENT_SORT_FIELDS = ['paymentNumber', 'paymentDate', 'amount', 'directio
 
 const router = express.Router();
 
-// All routes require authentication, company scope, and Credit Control access
-// (company toggle + per-user flag/admin role - see requireCreditControlAccess)
+// All routes require authentication and company scope. Credit Control
+// access (company toggle + per-user flag/admin role - see
+// requireCreditControlAccess) gates viewing/creating payments, but
+// deliberately not DELETE below - that's superadmin-only and looks a
+// payment up by id regardless of any company's feature flag, so tying it to
+// the flag would block a superadmin from deleting a payment via a company
+// that currently has the feature off (or none selected at all).
 router.use(authenticate);
 router.use(companyScope);
-router.use(requireCreditControlAccess);
 
 // GET /api/payments - Get all payments
-router.get('/', paginationValidation, sortValidation(PAYMENT_SORT_FIELDS), PaymentsController.getAll);
+router.get('/', requireCreditControlAccess, paginationValidation, sortValidation(PAYMENT_SORT_FIELDS), PaymentsController.getAll);
 
 // POST /api/payments - Record a payment
-router.post('/', paymentValidation.create, PaymentsController.create);
+router.post('/', requireCreditControlAccess, paymentValidation.create, PaymentsController.create);
 
 // POST /api/payments/settle - Settle multiple orders (same customer/supplier) with one amount
-router.post('/settle', paymentValidation.settle, PaymentsController.settleBulk);
+router.post('/settle', requireCreditControlAccess, paymentValidation.settle, PaymentsController.settleBulk);
 
 // DELETE /api/payments/:id - Delete a payment (superadmin only)
 router.delete('/:id', requireSuperAdmin, PaymentsController.delete);
