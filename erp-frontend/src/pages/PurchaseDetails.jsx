@@ -53,12 +53,12 @@ const PurchaseDetails = () => {
     }
   };
 
-  // Only Completed returns reduce what's owed - matches when stock is
-  // actually returned to the supplier, so a return still Pending/Approved
-  // doesn't make an order look settled before it's finalized.
+  // Fetches every return regardless of status (not just Completed) so the
+  // page can both net the Completed ones into the balance below and warn
+  // about any still Pending/Approved - see the split right below.
   const fetchReturns = async () => {
     try {
-      const response = await purchaseReturnsAPI.getAll({ purchaseId: id, status: PURCHASE_RETURN_STATUS.COMPLETED, limit: 100 });
+      const response = await purchaseReturnsAPI.getAll({ purchaseId: id, limit: 100 });
       setReturns(response.data.data || []);
     } catch {
       setReturns([]);
@@ -89,7 +89,14 @@ const PurchaseDetails = () => {
   }, [purchase?.id, purchase?.status]);
 
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-  const returnedAmount = returns.reduce((sum, r) => sum + parseFloat(r.total || 0), 0);
+  // Only Completed returns reduce what's owed - matches when stock is
+  // actually returned to the supplier, so a return still Pending/Approved
+  // doesn't make an order look settled before it's finalized (same rule the
+  // Credit Control supplier-balance aggregate now follows too).
+  const completedReturns = returns.filter((r) => r.status === PURCHASE_RETURN_STATUS.COMPLETED);
+  const inFlightReturns = returns.filter((r) => r.status === PURCHASE_RETURN_STATUS.PENDING || r.status === PURCHASE_RETURN_STATUS.APPROVED);
+  const returnedAmount = completedReturns.reduce((sum, r) => sum + parseFloat(r.total || 0), 0);
+  const inFlightReturnAmount = inFlightReturns.reduce((sum, r) => sum + parseFloat(r.total || 0), 0);
   const { netAmountDue, balanceDue, fullySettledByReturn } = computeOrderBalance(purchase?.total, returnedAmount, totalPaid);
 
   const handleOpenPaymentModal = () => setShowPaymentModal(true);
@@ -416,6 +423,14 @@ const PurchaseDetails = () => {
                 </span>
               </Card.Header>
               <Card.Body>
+                {inFlightReturnAmount > 0 && (
+                  <Alert variant="warning" className="mb-3">
+                    <strong>
+                      {inFlightReturns.length} return{inFlightReturns.length > 1 ? 's' : ''} awaiting approval/completion
+                    </strong>{' '}
+                    for {formatCurrency(inFlightReturnAmount, currency)} - not yet reflected in the balance below.
+                  </Alert>
+                )}
                 {payments.length === 0 ? (
                   <p className="text-muted mb-3">No payments recorded yet.</p>
                 ) : (
