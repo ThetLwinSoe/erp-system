@@ -5,6 +5,7 @@ import { formatCurrency } from '../../utils/currency';
 import { extractApiError } from '../../utils/errorUtils';
 import ErrorAlert from './ErrorAlert';
 import { todayLocal, amountError, PAYMENT_METHOD_OPTIONS } from '../../utils/paymentForm';
+import { computeOrderBalance } from '../../utils/orderBalance';
 
 const emptyForm = () => ({ amount: '', paymentDate: todayLocal(), method: '', reference: '', notes: '' });
 
@@ -48,7 +49,12 @@ const SettlePaymentsModal = ({ show, onHide, contact, type, currency, onSettled 
       .finally(() => setLoading(false));
   }, [show, contact, type]);
 
-  const balanceDue = (order) => parseFloat(order.total) - (order.paidAmount || 0);
+  // Net of completed returns, via the same helper SaleDetails/PurchaseDetails
+  // use - this list's "open orders" filter already excludes paymentStatus
+  // 'paid' rows (a completed-return order reads 'paid' server-side), but the
+  // displayed/auto-filled balance for a still-open, partially-returned order
+  // must be netted too, or this would re-offer the inflated raw total.
+  const balanceDue = (order) => computeOrderBalance(order.total, order.returnedAmount || 0, order.paidAmount || 0).balanceDue;
   const selectedBalance = orders.filter((o) => selectedIds.has(o.id)).reduce((sum, o) => sum + balanceDue(o), 0);
   const invalid = selectedIds.size === 0 ? '' : amountError(formData.amount, selectedBalance, currency);
 
