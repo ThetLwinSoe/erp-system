@@ -1,7 +1,7 @@
 const express = require('express');
 const ReportsController = require('../controllers/reports.controller');
 const { authenticate, checkSaleRep, restrictSaleRep } = require('../middleware/auth');
-const { companyScope } = require('../middleware/companyScope');
+const { companyScope, requireExpenseTrackerAccess } = require('../middleware/companyScope');
 const { reportsValidation } = require('../middleware/validate');
 
 const router = express.Router();
@@ -30,5 +30,9 @@ router.get('/purchases/export', restrictSaleRep, reportsValidation.dateRange, Re
 // Profit & Loss report - exposes cost/margin data, Sale Rep cannot access
 router.get('/profit-loss', restrictSaleRep, reportsValidation.dateRange, ReportsController.getProfitLossReport);
 router.get('/profit-loss/export', restrictSaleRep, reportsValidation.dateRange, ReportsController.exportProfitLossReport);
+
+// Expenses report - gated by Expense Tracker access (company flag + user access/admin role); Sale Rep always excluded
+router.get('/expenses', requireExpenseTrackerAccess, reportsValidation.dateRange, ReportsController.getExpensesReport);
+router.get('/expenses/export', requireExpenseTrackerAccess, reportsValidation.dateRange, ReportsController.exportExpensesReport);
 
 module.exports = router;

@@ -305,6 +305,7 @@ const reportsValidation = {
         }
         return true;
       }),
+    query('userId').optional({ checkFalsy: true }).isInt().withMessage('Valid user ID is required'),
     handleValidation,
   ],
 };
