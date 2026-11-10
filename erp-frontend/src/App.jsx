@@ -30,6 +30,7 @@ import SalesReport from './pages/SalesReport'
 import PurchasesReport from './pages/PurchasesReport'
 import ProfitLossReport from './pages/ProfitLossReport'
 import NotBuyingCustomersReport from './pages/NotBuyingCustomersReport'
+import ExpensesReport from './pages/ExpensesReport'
 import InventoryAdjustments from './pages/InventoryAdjustments'
 import InventoryAdjustmentDetails from './pages/InventoryAdjustmentDetails'
 import CreateInventoryAdjustment from './pages/CreateInventoryAdjustment'
@@ -79,6 +80,7 @@ function App() {
           <Route path="/reports/purchases" element={<PurchasesReport />} />
           <Route path="/reports/profit-loss" element={<ProfitLossReport />} />
           <Route path="/reports/not-buying-customers" element={<NotBuyingCustomersReport />} />
+          <Route path="/reports/expenses" element={<ExpensesReport />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/expenses" element={<Expenses />} />
         </Route>
