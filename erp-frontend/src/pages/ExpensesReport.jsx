@@ -115,7 +115,7 @@ const ExpensesReport = () => {
           Expenses Report
         </h2>
         <Alert variant="info" className="mt-3">
-          {isSuperAdmin() ? 'Select a company to generate this report.' : 'Expense Tracker is not available to your account.'}
+          Expense Tracker is not available to your account.
         </Alert>
       </div>
     );
