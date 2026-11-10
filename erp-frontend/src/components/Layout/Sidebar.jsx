@@ -71,6 +71,7 @@ const Sidebar = () => {
     { path: '/reports/not-buying-customers', label: 'Not Buying Customers' },
     { path: '/reports/purchases', label: 'Purchases Report', requiresPurchases: true },
     { path: '/reports/profit-loss', label: 'Profit & Loss', requiresPurchases: true },
+    { path: '/reports/expenses', label: 'Expenses Report', requiresExpenseTracker: true },
   ];
 
   // Filter sales items for sale_rep (no sales returns)
@@ -82,9 +83,11 @@ const Sidebar = () => {
   const filteredAccountingItems = accountingItems.filter((item) => item.visible());
   const showAccounting = filteredAccountingItems.length > 0;
 
-  // Filter report items for sale_rep (no purchases report)
+  // Filter report items for sale_rep (no purchases report) and for Expense
+  // Tracker access (company flag + user access/admin role)
   const filteredReportItems = reportItems.filter(item => {
     if (item.requiresPurchases && !canAccessPurchases()) return false;
+    if (item.requiresExpenseTracker && !canAccessExpenseTracker()) return false;
     return true;
   });
 

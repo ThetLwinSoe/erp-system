@@ -1365,6 +1365,120 @@ class ReportsController {
       next(error);
     }
   }
+
+  /**
+   * Computes Expense Tracker records in [startDate, endDate] (on
+   * expenseDate), with optional category and recordedBy (userId) filters,
+   * plus a totals-by-category breakdown. Shared by the JSON and CSV
+   * endpoints below. Access (company flag + user access, Sale Rep always
+   * excluded) is already enforced by requireExpenseTrackerAccess at the
+   * route level, so this helper doesn't re-check it.
+   */
+  static async _computeExpensesReport(companyFilter, { startDate, endDate, category, userId }) {
+    const whereClause = { ...companyFilter };
+
+    if (startDate || endDate) {
+      whereClause.expenseDate = {};
+      if (startDate) whereClause.expenseDate[Op.gte] = startDate;
+      if (endDate) whereClause.expenseDate[Op.lte] = endDate;
+    }
+
+    if (category) whereClause.category = category;
+    if (userId) whereClause.userId = parseInt(userId);
+
+    const rows = await Expense.findAll({
+      where: whereClause,
+      include: [{ model: User, as: 'user', attributes: ['id', 'name'] }],
+      order: [['expenseDate', 'DESC'], ['id', 'DESC']],
+    });
+
+    const expenses = rows.map((row) => ({ ...row.toJSON(), amount: parseFloat(row.amount) }));
+
+    const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+    const byCategoryMap = expenses.reduce((map, e) => {
+      if (!map[e.category]) map[e.category] = { category: e.category, amount: 0, count: 0 };
+      map[e.category].amount += e.amount;
+      map[e.category].count += 1;
+      return map;
+    }, {});
+    const byCategory = Object.values(byCategoryMap).sort((a, b) => b.amount - a.amount);
+
+    return {
+      summary: { totalAmount, count: expenses.length, byCategory },
+      expenses,
+    };
+  }
+
+  /**
+   * Get Expense Tracker report
+   * GET /api/reports/expenses
+   * Query params: startDate, endDate, category, userId
+   */
+  static async getExpensesReport(req, res, next) {
+    try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
+      const { startDate, endDate, category, userId } = req.query;
+      const result = await ReportsController._computeExpensesReport(req.companyFilter, { startDate, endDate, category, userId });
+      return ApiResponse.success(res, result, 'Expenses report retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export Expense Tracker report to CSV
+   * GET /api/reports/expenses/export
+   * Query params: startDate, endDate, category, userId
+   */
+  static async exportExpensesReport(req, res, next) {
+    try {
+      if (req.user.role === ROLES.SUPERADMIN && !req.query.companyId) {
+        return ApiResponse.badRequest(res, 'Please select a company to generate this report');
+      }
+      const { startDate, endDate, category, userId } = req.query;
+      const { summary, expenses } = await ReportsController._computeExpensesReport(req.companyFilter, { startDate, endDate, category, userId });
+
+      const fmt = (n) => parseFloat(n || 0).toFixed(2);
+
+      const summaryLines = [
+        'Expenses Report',
+        `Period,${startDate || 'All time'} to ${endDate || 'All time'}`,
+        `Generated,${new Date().toISOString().split('T')[0]}`,
+        '',
+        `Total Expenses,${fmt(summary.totalAmount)}`,
+        `Number of Expenses,${summary.count}`,
+        '',
+        'By Category',
+        ...summary.byCategory.map((c) => `${c.category},${fmt(c.amount)},${c.count}`),
+        '',
+        'Expense Details',
+      ].join('\n');
+
+      const headers = ['Date', 'Expense #', 'Category', 'Paid To', 'Payment Method', 'Reference', 'Amount', 'Recorded By', 'Notes'];
+      const rows = expenses.map((e) => [
+        e.expenseDate,
+        e.expenseNumber,
+        e.category,
+        e.paidTo || '',
+        e.paymentMethod || '',
+        e.reference || '',
+        fmt(e.amount),
+        e.user?.name || '',
+        e.notes || '',
+      ]);
+
+      const csvContent = `${summaryLines}\n${toCSV(headers, rows)}`;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=expenses-report-${Date.now()}.csv`);
+      return res.send(csvContent);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = ReportsController;
